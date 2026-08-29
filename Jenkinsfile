@@ -3,9 +3,6 @@ pipeline {
 
     environment {
         COMPOSE_PROJECT_NAME = 'gymmanagement'
-        // .env lives outside the repo on the server (it holds real secrets and
-        // is not checked into git). Create it once from .env.example.
-        ENV_FILE = '/opt/gymmanagement/.env'
     }
 
     options {
@@ -20,26 +17,27 @@ pipeline {
             }
         }
 
-        stage('Verify env file') {
-            steps {
-                sh '''
-                    if [ ! -f "$ENV_FILE" ]; then
-                        echo "Missing $ENV_FILE — copy .env.example to it on the server and fill in real values."
-                        exit 1
-                    fi
-                '''
-            }
-        }
-
         stage('Build images') {
             steps {
-                sh 'docker compose --env-file "$ENV_FILE" build'
+                withCredentials([
+                    string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
+                    string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET'),
+                    string(credentialsId: 'gymmanagement-admin-password', variable: 'APP_ADMIN_PASSWORD')
+                ]) {
+                    sh 'docker compose build'
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                sh 'docker compose --env-file "$ENV_FILE" up -d --remove-orphans'
+                withCredentials([
+                    string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
+                    string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET'),
+                    string(credentialsId: 'gymmanagement-admin-password', variable: 'APP_ADMIN_PASSWORD')
+                ]) {
+                    sh 'docker compose up -d --remove-orphans'
+                }
             }
         }
 
