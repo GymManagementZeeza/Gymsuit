@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // recreates the WebGL context right after the /scanner scene mounts,
   // which looks like the scene rendering then disappearing.
   reactStrictMode: false,
+  output: "standalone",
 };
 
 export default nextConfig;
