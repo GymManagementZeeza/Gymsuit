@@ -21,8 +21,7 @@ pipeline {
             steps {
                 withCredentials([
                     string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
-                    string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET'),
-                    string(credentialsId: 'gymmanagement-admin-password', variable: 'APP_ADMIN_PASSWORD')
+                    string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET')
                 ]) {
                     sh 'docker compose build'
                 }
@@ -33,8 +32,7 @@ pipeline {
             steps {
                 withCredentials([
                     string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
-                    string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET'),
-                    string(credentialsId: 'gymmanagement-admin-password', variable: 'APP_ADMIN_PASSWORD')
+                    string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET')
                 ]) {
                     sh 'docker compose up -d --remove-orphans'
                 }
