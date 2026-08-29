@@ -1,0 +1,300 @@
+/**
+ * GymSuite / Pulse Ledger: contemporary Indian editorial utility.
+ * Warm paper foundation, deep ink authority, Signal Saffron momentum, and ledger-line structure.
+ */
+@import "tailwindcss";
+
+@theme inline {
+  --font-display: var(--font-display), "Space Grotesk", ui-sans-serif, sans-serif;
+  --font-sans: var(--font-sans), "DM Sans", ui-sans-serif, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-paper: #fbf7ee;
+  --color-sand: #f1ebdd;
+  --color-ink: #142321;
+  --color-saffron: #f45d22;
+  --color-sage: #6e9b79;
+}
+
+:root {
+  --background: #fbf7ee;
+  --foreground: #142321;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: #f45d22;
+  color: white;
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .font-display {
+    font-family: var(--font-display), "Space Grotesk", ui-sans-serif, sans-serif;
+  }
+  .button-saffron {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: #f45d22;
+    color: white;
+    padding: 0.75rem 1.15rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    box-shadow: 0 8px 20px rgba(244, 93, 34, 0.24);
+    transition:
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+  .button-saffron:hover {
+    background: #d94d18;
+    box-shadow: 0 12px 26px rgba(244, 93, 34, 0.3);
+  }
+  .button-saffron:active,
+  .button-quiet:active,
+  .button-ink:active {
+    transform: scale(0.97);
+  }
+  .button-quiet {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(20, 35, 33, 0.18);
+    background: rgba(255, 255, 255, 0.55);
+    color: #142321;
+    font-weight: 700;
+    transition:
+      background 160ms ease,
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .button-quiet:hover {
+    background: #ffffff;
+  }
+  .button-ink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: #142321;
+    color: #fbf7ee;
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition:
+      background 160ms ease,
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .button-ink:hover {
+    background: #28403b;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid rgba(20, 35, 33, 0.15);
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.52);
+    padding: 0.42rem 0.7rem;
+    color: rgba(20, 35, 33, 0.72);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+  .display-title {
+    font-family: var(--font-display), "Space Grotesk", ui-sans-serif, sans-serif;
+    font-size: clamp(2.55rem, 4.4vw, 4.7rem);
+    line-height: 0.93;
+    font-weight: 700;
+    letter-spacing: -0.072em;
+  }
+  .section-copy {
+    font-size: 1.1rem;
+    line-height: 1.75;
+    color: rgba(20, 35, 33, 0.66);
+  }
+  .feature-card {
+    min-height: 360px;
+    border: 1px solid rgba(20, 35, 33, 0.12);
+    border-radius: 1.35rem;
+    background: #ffffff;
+    padding: 1.45rem;
+    box-shadow: 0 1px 0 rgba(20, 35, 33, 0.04);
+    transition:
+      transform 240ms cubic-bezier(0.23, 1, 0.32, 1),
+      box-shadow 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(20, 35, 33, 0.1);
+  }
+  .feature-number {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: rgba(20, 35, 33, 0.43);
+  }
+  .access-point {
+    display: flex;
+    min-height: 66px;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid rgba(251, 247, 238, 0.16);
+    border-radius: 1rem;
+    padding: 0.85rem 0.95rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: rgba(251, 247, 238, 0.82);
+  }
+}
+
+.dot-field {
+  background-image: radial-gradient(rgba(20, 35, 33, 0.2) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(90deg, black 0%, transparent 74%);
+}
+.pulse-dot {
+  display: inline-block;
+  height: 0.48rem;
+  width: 0.48rem;
+  border-radius: 9999px;
+  background: #6e9b79;
+  box-shadow: 0 0 0 4px rgba(110, 155, 121, 0.15);
+}
+.animate-menu-in {
+  animation: menu-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.animate-float {
+  animation: float 4.6s ease-in-out infinite;
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+@media (min-width: 640px) {
+  .container {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+  .feature-card {
+    padding: 1.65rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1280px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * GymFlow / Training Ledger: dashboard-only utilities.
+ * Scoped by unique class names so they coexist with the Pulse Ledger marketing tokens above.
+ */
+.ledger-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #73736d;
+}
+.ledger-label::before {
+  content: "";
+  height: 1px;
+  width: 1rem;
+  background: #c7f36a;
+}
+.display-face {
+  font-family: var(--font-dm-serif), serif;
+}
+.mono {
+  font-family: var(--font-dm-mono), monospace;
+}
+.cut-corner {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter {
+    animation: page-enter 360ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Print-only-this-element trick: hide everything, then pull the report back into view. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #monthly-report,
+  #monthly-report * {
+    visibility: visible;
+  }
+  #monthly-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+}
