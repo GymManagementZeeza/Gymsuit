@@ -18,6 +18,7 @@ public record TransactionRequest(
         @NotNull PaymentMethod paymentMethod,
         Long memberId,
         Long trainerId,
+        Long managerId,
         @NotNull LocalDate occurredOn,
         String notes
 ) {

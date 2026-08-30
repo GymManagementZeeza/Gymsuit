@@ -5,15 +5,11 @@ import { useEffect, useState } from "react";
 import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, MetricCard, TableAction } from "@/components/dashboard/ui";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
+import PlanFormModal from "@/components/dashboard/PlanFormModal";
+import PlanReassignModal from "@/components/dashboard/PlanReassignModal";
 import { useSession } from "@/hooks/useSession";
-import {
-  createMembershipPlan,
-  deleteMembershipPlan,
-  listMembershipPlans,
-  type BillingCycle,
-  type MembershipPlan,
-} from "@/lib/membershipPlans";
-import { Layers, Plus, Tag, X } from "lucide-react";
+import { deleteMembershipPlan, listMembershipPlans, type BillingCycle, type MembershipPlan } from "@/lib/membershipPlans";
+import { Layers, Plus, Tag } from "lucide-react";
 
 const BILLING_CYCLES: { value: BillingCycle; label: string }[] = [
   { value: "WEEKLY", label: "Weekly" },
@@ -35,7 +31,8 @@ export default function MembershipPage() {
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formState, setFormState] = useState<"closed" | "create" | MembershipPlan>("closed");
+  const [reassignTarget, setReassignTarget] = useState<MembershipPlan | null>(null);
 
   useEffect(() => {
     if (!gymId) return;
@@ -45,27 +42,9 @@ export default function MembershipPage() {
       .finally(() => setLoading(false));
   }, [gymId]);
 
-  const handleAdd = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!gymId) return;
-    setError(null);
-
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    try {
-      const plan = await createMembershipPlan(gymId, {
-        name: data.get("name") as string,
-        description: (data.get("description") as string) || undefined,
-        price: Number(data.get("price")),
-        currency: data.get("currency") as string,
-        billingCycle: data.get("billingCycle") as BillingCycle,
-      });
-      setPlans((prev) => [...prev, plan]);
-      form.reset();
-      setFormOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add this plan.");
-    }
+  const handleSaved = (plan: MembershipPlan) => {
+    setPlans((prev) => (prev.some((p) => p.id === plan.id) ? prev.map((p) => (p.id === plan.id ? plan : p)) : [...prev, plan]));
+    setFormState("closed");
   };
 
   const handleRemove = async (plan: MembershipPlan) => {
@@ -75,9 +54,15 @@ export default function MembershipPage() {
     try {
       await deleteMembershipPlan(gymId, plan.id);
       setPlans((prev) => prev.filter((p) => p.id !== plan.id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not remove this plan.");
+    } catch {
+      // Plan has current or historical members tied to it — hand off to the reassignment flow.
+      setReassignTarget(plan);
     }
+  };
+
+  const handleReassignedDeleted = (planId: number) => {
+    setPlans((prev) => prev.filter((p) => p.id !== planId));
+    setReassignTarget(null);
   };
 
   const activeCount = plans.filter((p) => p.active).length;
@@ -89,7 +74,7 @@ export default function MembershipPage() {
         title="The business of belonging."
         description="Every plan members can join, and what it costs them."
         actions={
-          <ActionButton icon={<Plus className="size-4" />} onClick={() => setFormOpen((open) => !open)}>
+          <ActionButton icon={<Plus className="size-4" />} onClick={() => setFormState("create")}>
             Add plan
           </ActionButton>
         }
@@ -112,81 +97,6 @@ export default function MembershipPage() {
         />
       </section>
 
-      {formOpen && (
-        <section className="border border-dashed border-[#d8d8d1] bg-white p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="ledger-label">New plan</p>
-            <button type="button" onClick={() => setFormOpen(false)} className="grid size-7 place-items-center hover:bg-[#efefe9]" aria-label="Close">
-              <X className="size-4" />
-            </button>
-          </div>
-          <form className="grid gap-3 sm:grid-cols-4" onSubmit={handleAdd}>
-            <label className="flex flex-col gap-1.5 sm:col-span-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Plan name</span>
-              <input
-                name="name"
-                required
-                placeholder="Studio Monthly"
-                className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none focus:border-[#24241f]"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Price</span>
-              <input
-                name="price"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none focus:border-[#24241f]"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Currency</span>
-              <input
-                name="currency"
-                required
-                defaultValue="INR"
-                maxLength={3}
-                className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm uppercase outline-none focus:border-[#24241f]"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 sm:col-span-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Billing cycle</span>
-              <select
-                name="billingCycle"
-                defaultValue="MONTHLY"
-                className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none focus:border-[#24241f]"
-              >
-                {BILLING_CYCLES.map((cycle) => (
-                  <option key={cycle.value} value={cycle.value}>
-                    {cycle.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 sm:col-span-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">
-                Description (optional)
-              </span>
-              <input
-                name="description"
-                placeholder="Unlimited classes, all locations"
-                className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none focus:border-[#24241f]"
-              />
-            </label>
-            <div className="flex items-end sm:col-span-4">
-              <button
-                type="submit"
-                className="flex h-10 items-center gap-2 bg-[#c7f36a] px-4 text-xs font-bold text-[#25251f] transition hover:bg-[#d8ff8a]"
-              >
-                Save plan
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
       {error && <ErrorBanner message={error} />}
 
       <section className="border border-[#d8d8d1] bg-white">
@@ -203,7 +113,7 @@ export default function MembershipPage() {
 
         {plans.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left">
+            <table className="w-full min-w-[640px] text-left">
               <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
                 <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
                   <th className="px-5 py-3">Plan</th>
@@ -226,9 +136,12 @@ export default function MembershipPage() {
                     <td className="px-4 py-4 text-xs text-[#696962]">{cycleLabel(plan.billingCycle)}</td>
                     <td className="px-4 py-4 text-xs font-semibold">{plan.active ? "Active" : "Inactive"}</td>
                     <td className="px-5 py-4">
-                      <TableAction onClick={() => handleRemove(plan)} disabled={plans.length <= 1}>
-                        {plans.length <= 1 ? "Only plan" : "Remove"}
-                      </TableAction>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <TableAction onClick={() => setFormState(plan)}>Edit</TableAction>
+                        <TableAction onClick={() => handleRemove(plan)} disabled={plans.length <= 1}>
+                          {plans.length <= 1 ? "Only plan" : "Remove"}
+                        </TableAction>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -237,6 +150,25 @@ export default function MembershipPage() {
           </div>
         )}
       </section>
+
+      {formState !== "closed" && gymId && (
+        <PlanFormModal
+          gymId={gymId}
+          plan={formState === "create" ? null : formState}
+          onClose={() => setFormState("closed")}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {reassignTarget && gymId && (
+        <PlanReassignModal
+          gymId={gymId}
+          plan={reassignTarget}
+          otherPlans={plans.filter((p) => p.id !== reassignTarget.id)}
+          onClose={() => setReassignTarget(null)}
+          onDeleted={handleReassignedDeleted}
+        />
+      )}
     </div>
   );
 }

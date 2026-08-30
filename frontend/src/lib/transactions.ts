@@ -8,6 +8,7 @@ export type GymTransactionRecord = {
   gymId: number;
   memberId: number | null;
   trainerId: number | null;
+  managerId: number | null;
   direction: TransactionDirection;
   description: string;
   amount: number;
@@ -26,6 +27,7 @@ export type TransactionInput = {
   paymentMethod: PaymentMethod;
   memberId?: number;
   trainerId?: number;
+  managerId?: number;
   occurredOn: string;
   notes?: string;
 };

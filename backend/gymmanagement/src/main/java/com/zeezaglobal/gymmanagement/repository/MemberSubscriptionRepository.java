@@ -4,6 +4,7 @@ import com.zeezaglobal.gymmanagement.entity.MemberSubscription;
 import com.zeezaglobal.gymmanagement.entity.SubscriptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,10 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
     boolean existsByPlanIdAndStatus(Long planId, SubscriptionStatus status);
 
     boolean existsByPlanId(Long planId);
+
+    List<MemberSubscription> findAllByPlanId(Long planId);
+
+    List<MemberSubscription> findAllByPlanIdAndStatusIn(Long planId, Collection<SubscriptionStatus> statuses);
 
     void deleteAllByMemberId(Long memberId);
 }
