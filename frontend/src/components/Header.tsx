@@ -23,8 +23,14 @@ export default function Header() {
         aria-label="Main navigation"
       >
         <a href="#top" className="group flex items-center gap-2.5" aria-label="GymSuite home">
-          <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-ink shadow-[0_8px_20px_rgba(20,35,33,0.18)] transition-transform duration-200 group-hover:-rotate-3">
-            <Image src="/gymsuit-mark.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />
+          <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-white shadow-[0_8px_20px_rgba(20,35,33,0.18)] transition-transform duration-200 group-hover:-rotate-3">
+            <Image
+              src="/GymSuit_logo_package/01-icon-brand.png"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 object-contain"
+            />
           </span>
           <span className="font-display text-xl font-bold tracking-[-0.06em]">gymsuite</span>
         </a>

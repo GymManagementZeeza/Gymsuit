@@ -99,9 +99,17 @@ function NavContent({
     <>
       <div className="p-4 pb-3">
         <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-3 px-1 py-1">
-          <Image src="/gymflow-mark.png" alt="" width={36} height={36} className="size-9" />
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
+            <Image
+              src="/GymSuit_logo_package/01-icon-brand.png"
+              alt=""
+              width={28}
+              height={28}
+              className="size-7 object-contain"
+            />
+          </span>
           <div>
-            <p className="text-[15px] font-bold tracking-[-0.04em] text-white">GYMFLOW</p>
+            <p className="text-[15px] font-bold tracking-[-0.04em] text-white">GymSuite</p>
             <p className="mono mt-0.5 text-[9px] tracking-[0.14em] text-[#a7a79e]">OPERATIONS</p>
           </div>
         </Link>

@@ -11,6 +11,7 @@ import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
 import com.zeezaglobal.gymmanagement.repository.GymRepository;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import com.zeezaglobal.gymmanagement.security.UserPrincipal;
+import com.zeezaglobal.gymmanagement.util.CurrencyCodes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -104,5 +105,10 @@ public class GymService {
         gym.setEmail(request.email());
         gym.setLogoUrl(request.logoUrl());
         gym.setUpiId(request.upiId());
+        if (request.joiningFee() != null) {
+            gym.setJoiningFee(request.joiningFee());
+            gym.setJoiningFeeCurrency(CurrencyCodes.validate(
+                    request.joiningFeeCurrency() != null ? request.joiningFeeCurrency() : "INR"));
+        }
     }
 }

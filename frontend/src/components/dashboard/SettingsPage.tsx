@@ -6,10 +6,11 @@ import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, StatusPill } from "@/components/dashboard/ui";
 import GymProfileModal from "@/components/dashboard/GymProfileModal";
 import UpiIdModal from "@/components/UpiIdModal";
+import JoiningFeeModal from "@/components/dashboard/JoiningFeeModal";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import { useSession } from "@/hooks/useSession";
 import { getGym, type Gym } from "@/lib/gyms";
-import { BellRing, Building2, Check, CreditCard, Globe2, Image as ImageIcon, LockKeyhole, Save, UsersRound } from "lucide-react";
+import { BellRing, Building2, Check, CreditCard, Globe2, Image as ImageIcon, LockKeyhole, Save, UsersRound, Wallet } from "lucide-react";
 
 const otherSettings = [
   { icon: ImageIcon, title: "Branding", text: "Logo, member portal cover, colors, and email signature", action: "Manage branding", status: "Updated" },
@@ -36,6 +37,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editingUpi, setEditingUpi] = useState(false);
+  const [editingFee, setEditingFee] = useState(false);
 
   useEffect(() => {
     if (!gymId) return;
@@ -128,6 +130,37 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+              <div className="grid size-10 shrink-0 place-items-center bg-[#f1f1eb] text-[#3b3b35]">
+                <Wallet className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-bold">Joining fee</p>
+                  {gym && (
+                    <StatusPill
+                      label={gym.joiningFee != null ? "Set" : "Not set"}
+                      tone={gym.joiningFee != null ? "blue" : "orange"}
+                    />
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-[#72726b]">
+                  {loading
+                    ? "Loading…"
+                    : gym?.joiningFee != null
+                      ? `New members pay ${gym.joiningFeeCurrency} ${gym.joiningFee} to finish registration`
+                      : "Set a one-time fee new members must pay to finish registration"}
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingFee(true)}
+                disabled={!gym}
+                className="w-fit border border-[#d8d8d1] bg-white px-3 py-2 text-xs font-bold transition hover:border-[#24241f] disabled:opacity-50"
+              >
+                {gym?.joiningFee != null ? "Edit joining fee" : "Set joining fee"}
+              </button>
+            </div>
+
             {otherSettings.map((item) => (
               <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center" key={item.title}>
                 <div className="grid size-10 shrink-0 place-items-center bg-[#f1f1eb] text-[#3b3b35]">
@@ -184,6 +217,18 @@ export default function SettingsPage() {
           onSaved={(updated) => {
             setGym(updated);
             setEditingUpi(false);
+          }}
+        />
+      )}
+
+      {editingFee && gymId && gym && (
+        <JoiningFeeModal
+          gymId={gymId}
+          gym={gym}
+          onClose={() => setEditingFee(false)}
+          onSaved={(updated) => {
+            setGym(updated);
+            setEditingFee(false);
           }}
         />
       )}
