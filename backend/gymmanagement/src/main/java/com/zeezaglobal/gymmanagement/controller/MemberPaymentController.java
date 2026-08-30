@@ -1,6 +1,7 @@
 package com.zeezaglobal.gymmanagement.controller;
 
 import com.zeezaglobal.gymmanagement.dto.CashPaymentRequest;
+import com.zeezaglobal.gymmanagement.dto.JoiningFeePaymentRequest;
 import com.zeezaglobal.gymmanagement.dto.ManualPaymentRequest;
 import com.zeezaglobal.gymmanagement.dto.MemberPaymentResponse;
 import com.zeezaglobal.gymmanagement.dto.OnlinePaymentRequest;
@@ -39,6 +40,13 @@ public class MemberPaymentController {
     public ResponseEntity<MemberPaymentResponse> recordManual(
             @PathVariable Long gymId, @PathVariable Long memberId, @Valid @RequestBody ManualPaymentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(memberPaymentService.recordManualPayment(gymId, memberId, request));
+    }
+
+    @PostMapping("/members/{memberId}/payments/joining-fee")
+    @PreAuthorize("@security.canManageStaff(#gymId)")
+    public ResponseEntity<MemberPaymentResponse> payJoiningFee(
+            @PathVariable Long gymId, @PathVariable Long memberId, @Valid @RequestBody JoiningFeePaymentRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(memberPaymentService.payJoiningFee(gymId, memberId, request));
     }
 
     @PostMapping("/members/{memberId}/payments/plan")

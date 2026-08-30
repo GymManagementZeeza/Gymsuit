@@ -4,6 +4,7 @@ import com.zeezaglobal.gymmanagement.entity.Gender;
 import com.zeezaglobal.gymmanagement.entity.Member;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record MemberResponse(
         Long id,
@@ -25,6 +26,8 @@ public record MemberResponse(
         String emergencyContactRelationship,
         boolean waiverAccepted,
         LocalDate joinDate,
+        boolean joiningFeePaid,
+        LocalDateTime joiningFeePaidAt,
         Long trainerId,
         String trainerFirstName,
         String trainerLastName
@@ -50,6 +53,8 @@ public record MemberResponse(
                 member.getEmergencyContactRelationship(),
                 member.isWaiverAccepted(),
                 member.getJoinDate(),
+                member.isJoiningFeePaid(),
+                member.getJoiningFeePaidAt(),
                 member.getTrainer() != null ? member.getTrainer().getId() : null,
                 member.getTrainer() != null ? member.getTrainer().getFirstName() : null,
                 member.getTrainer() != null ? member.getTrainer().getLastName() : null

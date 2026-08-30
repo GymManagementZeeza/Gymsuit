@@ -2,6 +2,7 @@ package com.zeezaglobal.gymmanagement.dto;
 
 import com.zeezaglobal.gymmanagement.entity.Gym;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public record GymResponse(
@@ -16,6 +17,8 @@ public record GymResponse(
         String email,
         String logoUrl,
         String upiId,
+        BigDecimal joiningFee,
+        String joiningFeeCurrency,
         ManagerResponse owner,
         List<ManagerResponse> managers
 ) {
@@ -32,6 +35,8 @@ public record GymResponse(
                 gym.getEmail(),
                 gym.getLogoUrl(),
                 gym.getUpiId(),
+                gym.getJoiningFee(),
+                gym.getJoiningFeeCurrency(),
                 gym.getOwner() != null ? ManagerResponse.fromEntity(gym.getOwner()) : null,
                 gym.getManagers().stream().map(ManagerResponse::fromEntity).toList()
         );
@@ -41,7 +46,7 @@ public record GymResponse(
     public GymResponse withoutStaffContacts() {
         return new GymResponse(
                 id, name, addressLine, city, state, postalCode, country, phone, email, logoUrl, upiId,
-                null, List.of()
+                joiningFee, joiningFeeCurrency, null, List.of()
         );
     }
 }

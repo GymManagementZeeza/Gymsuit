@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -53,6 +54,17 @@ public class Gym {
 
     /** UPI ID (VPA) used to generate payment QR codes, e.g. for one-time member fees. */
     private String upiId;
+
+    /**
+     * One-time fee a new member must pay to finish registration. Nullable so pre-existing gyms
+     * (created before this field existed) fall back to "not configured yet" in Settings rather
+     * than a false zero — new gyms set this during onboarding, right after setting up plans.
+     */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal joiningFee;
+
+    @Column(length = 3)
+    private String joiningFeeCurrency;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")

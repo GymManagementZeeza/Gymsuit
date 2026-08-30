@@ -1,6 +1,7 @@
 package com.zeezaglobal.gymmanagement.service;
 
 import com.zeezaglobal.gymmanagement.dto.CashPaymentRequest;
+import com.zeezaglobal.gymmanagement.dto.JoiningFeePaymentRequest;
 import com.zeezaglobal.gymmanagement.dto.ManualPaymentRequest;
 import com.zeezaglobal.gymmanagement.dto.MemberPaymentResponse;
 import com.zeezaglobal.gymmanagement.dto.OnlinePaymentRequest;
@@ -125,6 +126,50 @@ public class MemberPaymentService {
                 "Payment received " + payment.getCurrency() + " " + payment.getAmount()
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " for the " + subscription.getPlan().getName() + " plan (" + request.paymentMethod().name() + ")");
+        return MemberPaymentResponse.fromEntity(payment);
+    }
+
+    /**
+     * Charges a new member's one-time joining fee at the amount the gym configured — never a client-supplied
+     * amount — and marks them as having finished registration. Can only happen once per member.
+     */
+    @Transactional
+    public MemberPaymentResponse payJoiningFee(Long gymId, Long memberId, JoiningFeePaymentRequest request) {
+        if (request.paymentMethod() == PaymentMethod.STRIPE || request.paymentMethod() == PaymentMethod.RAZORPAY) {
+            throw new BadRequestException(
+                    "Gateway-processed methods aren't supported for the joining fee here; use CASH, UPI, BANK_TRANSFER, or OTHER");
+        }
+
+        Gym gym = gymService.getGymOrThrow(gymId);
+        Member member = getMemberOrThrow(gymId, memberId);
+
+        if (member.isJoiningFeePaid()) {
+            throw new BadRequestException("This member has already paid their joining fee");
+        }
+        if (gym.getJoiningFee() == null) {
+            throw new BadRequestException("This gym hasn't set a joining fee yet — set one in Settings first");
+        }
+
+        MemberPayment payment = new MemberPayment();
+        payment.setGym(gym);
+        payment.setMember(member);
+        payment.setAmount(gym.getJoiningFee());
+        payment.setCurrency(gym.getJoiningFeeCurrency() != null ? gym.getJoiningFeeCurrency() : "INR");
+        payment.setPaymentMethod(request.paymentMethod());
+        payment.setStatus(MemberPaymentStatus.SUCCEEDED);
+        payment.setNotes(request.notes() != null ? request.notes() : "Joining fee");
+        payment.setCreatedAt(LocalDateTime.now());
+        payment.setPaidAt(LocalDateTime.now());
+        payment = memberPaymentRepository.save(payment);
+
+        member.setJoiningFeePaid(true);
+        member.setJoiningFeePaidAt(LocalDateTime.now());
+        memberRepository.save(member);
+
+        activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
+                "Joining fee received " + payment.getCurrency() + " " + payment.getAmount()
+                        + " from " + member.getFirstName() + " " + member.getLastName()
+                        + " (" + request.paymentMethod().name() + ")");
         return MemberPaymentResponse.fromEntity(payment);
     }
 

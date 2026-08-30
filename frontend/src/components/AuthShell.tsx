@@ -28,7 +28,7 @@ export default function AuthShell({
         <Link href="/" className="group relative z-10 flex items-center gap-2.5">
           <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-paper shadow-[0_8px_20px_rgba(20,35,33,0.18)] transition-transform duration-200 group-hover:-rotate-3">
             <Image
-              src="/gymsuit-mark.png"
+              src="/GymSuit_logo_package/01-icon-brand.png"
               alt=""
               width={28}
               height={28}
@@ -72,9 +72,9 @@ export default function AuthShell({
       <div className="flex items-center justify-center px-6 py-16 sm:px-10">
         <div className={`w-full ${panelWidth}`}>
           <Link href="/" className="group mb-10 flex items-center gap-2.5 lg:hidden">
-            <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-ink shadow-[0_8px_20px_rgba(20,35,33,0.18)] transition-transform duration-200 group-hover:-rotate-3">
+            <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-paper shadow-[0_8px_20px_rgba(20,35,33,0.18)] ring-1 ring-ink/10 transition-transform duration-200 group-hover:-rotate-3">
               <Image
-                src="/gymsuit-mark.png"
+                src="/GymSuit_logo_package/01-icon-brand.png"
                 alt=""
                 width={28}
                 height={28}

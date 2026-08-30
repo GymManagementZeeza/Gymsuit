@@ -74,12 +74,16 @@ function NavContent({
   return (
     <>
       <div className="p-4 pb-3">
-        <Link href="/clientdashboard" onClick={onNavigate} className="flex items-center gap-3 px-1 py-1">
-          <Image src="/gymflow-mark.png" alt="" width={36} height={36} className="size-9" />
-          <div>
-            <p className="text-[15px] font-bold tracking-[-0.04em] text-white">GYMFLOW</p>
-            <p className="mono mt-0.5 text-[9px] tracking-[0.14em] text-[#a7a79e]">MEMBER</p>
-          </div>
+        <Link href="/clientdashboard" onClick={onNavigate} className="flex items-center px-1 py-1">
+          <span className="inline-flex items-center rounded-lg bg-white px-3 py-2">
+            <Image
+              src="/GymSuit_logo_package/07-gymsuit-member.png"
+              alt="GymSuite Member"
+              width={280}
+              height={120}
+              className="h-7 w-auto object-contain"
+            />
+          </span>
         </Link>
         <Link
           href="/clientdashboard/profile"

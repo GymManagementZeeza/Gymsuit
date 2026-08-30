@@ -7,12 +7,14 @@ import { ArrowRight, X } from "lucide-react";
 import PlanPicker from "@/components/dashboard/PlanPicker";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
-import { createMember, updateMember, type Member, type MemberInput } from "@/lib/members";
+import { createMember, updateMember, payJoiningFee, type Member, type MemberInput } from "@/lib/members";
 import { listMembershipPlans, type MembershipPlan } from "@/lib/membershipPlans";
 import { subscribeMember } from "@/lib/memberSubscriptions";
-import { recordManualPayment } from "@/lib/memberPayments";
+import { paymentMethodLabel, type PaymentMethod } from "@/lib/memberPayments";
 import { getGym, type Gym } from "@/lib/gyms";
 import type { Gender } from "@/lib/auth";
+
+const JOINING_FEE_METHODS: PaymentMethod[] = ["CASH", "UPI", "BANK_TRANSFER", "OTHER"];
 
 function Field({
   label,
@@ -260,24 +262,30 @@ function FeeStep({
 }) {
   const [gym, setGym] = useState<Gym | null>(null);
   const [loadingGym, setLoadingGym] = useState(true);
-  const [amount, setAmount] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [recording, setRecording] = useState(false);
 
+  const fee = gym?.joiningFee ?? null;
+  const currency = gym?.joiningFeeCurrency ?? "INR";
+
+  useEffect(() => {
+    getGym(gymId)
+      .then(setGym)
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Could not load gym payment details."))
+      .finally(() => setLoadingGym(false));
+  }, [gymId]);
+
   const handlePaymentDone = async () => {
     setConfirmOpen(false);
     setError(null);
     setRecording(true);
     try {
-      await recordManualPayment(gymId, member.id, {
-        amount: Number(amount),
-        currency: "INR",
-        paymentMethod: "UPI",
-        notes: `One-time fee for ${member.firstName} ${member.lastName}`,
-      });
+      await payJoiningFee(gymId, member.id, method, `Joining fee for ${member.firstName} ${member.lastName}`);
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not record this payment.");
@@ -285,26 +293,13 @@ function FeeStep({
     }
   };
 
-  useEffect(() => {
-    getGym(gymId)
-      .then(setGym)
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load gym payment details."))
-      .finally(() => setLoadingGym(false));
-  }, [gymId]);
-
-  const handleGenerate = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!gym?.upiId) return;
-    const value = Number(amount);
-    if (!value || value <= 0) {
-      setError("Enter a valid amount.");
-      return;
-    }
+  const handleGenerateQr = async () => {
+    if (!gym?.upiId || fee == null) return;
     setError(null);
     setGenerating(true);
     try {
-      const note = `One-time fee for ${member.firstName} ${member.lastName}`;
-      const upiUri = `upi://pay?pa=${encodeURIComponent(gym.upiId)}&pn=${encodeURIComponent(gym.name)}&am=${value.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note)}`;
+      const note = `Joining fee for ${member.firstName} ${member.lastName}`;
+      const upiUri = `upi://pay?pa=${encodeURIComponent(gym.upiId)}&pn=${encodeURIComponent(gym.name)}&am=${fee.toFixed(2)}&cu=${currency}&tn=${encodeURIComponent(note)}`;
       const dataUrl = await QRCode.toDataURL(upiUri, { width: 240, margin: 1 });
       setQrDataUrl(dataUrl);
     } catch (err) {
@@ -318,12 +313,14 @@ function FeeStep({
     return <p className="p-5 text-sm text-[#76766f]">Loading…</p>;
   }
 
-  if (!gym?.upiId) {
+  if (loadError || fee == null) {
     return (
       <div className="flex flex-col gap-4 p-5">
+        {loadError && <ErrorBanner message={loadError} />}
         <p className="rounded-xl border border-dashed border-[#d8d8d1] p-4 text-sm text-[#76766f]">
-          No UPI ID is set up for this gym, so a payment QR can&apos;t be generated. Add one from Settings, then
-          charge a one-time fee later.
+          {loadError
+            ? "Couldn't confirm this gym's joining fee, so it can't be charged right now."
+            : "This gym hasn't set a joining fee yet — add one from Settings, then come back to charge new members."}
         </p>
         <div className="flex justify-end border-t border-[#e5e5de] pt-5">
           <button
@@ -341,41 +338,50 @@ function FeeStep({
   return (
     <div className="flex flex-col gap-5 p-5">
       <p className="text-sm text-[#5a5a54]">
-        Charge {member.firstName} a one-time fee — a joining fee, registration charge, or anything outside their
-        plan. This is optional.
+        {member.firstName} owes a one-time joining fee of <strong>{currency} {fee}</strong> to finish registration.
+        This isn&apos;t optional — collect it now to complete adding this member.
       </p>
 
-      <form className="flex items-end gap-3" onSubmit={handleGenerate}>
+      <div className="flex items-end gap-3">
         <label className="flex flex-1 flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Amount (INR)</span>
-          <input
-            type="number"
-            min="1"
-            step="0.01"
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Payment method</span>
+          <select
+            value={method}
+            onChange={(event) => {
+              setMethod(event.target.value as PaymentMethod);
               setQrDataUrl(null);
             }}
-            placeholder="500"
             className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none transition-colors focus:border-[#24241f]"
-          />
+          >
+            {JOINING_FEE_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {paymentMethodLabel(m)}
+              </option>
+            ))}
+          </select>
         </label>
-        <button
-          type="submit"
-          disabled={generating || !amount}
-          className="h-10 shrink-0 border border-[#24241f] bg-[#24241f] px-4 text-xs font-bold text-white transition hover:bg-[#42423a] disabled:opacity-50"
-        >
-          {generating ? "Generating…" : "Generate QR"}
-        </button>
-      </form>
+        {method === "UPI" && gym?.upiId && (
+          <button
+            type="button"
+            onClick={handleGenerateQr}
+            disabled={generating}
+            className="h-10 shrink-0 border border-[#24241f] bg-[#24241f] px-4 text-xs font-bold text-white transition hover:bg-[#42423a] disabled:opacity-50"
+          >
+            {generating ? "Generating…" : "Generate QR"}
+          </button>
+        )}
+      </div>
+
+      {method === "UPI" && !gym?.upiId && (
+        <p className="text-xs text-[#8a5a1c]">No UPI ID set up for this gym — collect payment another way, or add one in Settings.</p>
+      )}
 
       {qrDataUrl && (
         <div className="flex flex-col items-center gap-2 border border-[#d8d8d1] bg-[#fafaf6] p-5">
           {/* eslint-disable-next-line @next/next/no-img-element -- generated data: URL, not a static asset */}
-          <img src={qrDataUrl} alt={`UPI payment QR code for ₹${amount}`} className="size-56" />
+          <img src={qrDataUrl} alt={`UPI payment QR code for ${currency} ${fee}`} className="size-56" />
           <p className="text-center text-xs text-[#76766f]">
-            Scan with any UPI app to pay ₹{amount} to {gym.upiId}
+            Scan with any UPI app to pay {currency} {fee} to {gym?.upiId}
           </p>
         </div>
       )}
@@ -383,40 +389,20 @@ function FeeStep({
       {error && <ErrorBanner message={error} />}
 
       <div className="flex items-center justify-end gap-2 border-t border-[#e5e5de] pt-5">
-        {qrDataUrl ? (
-          <>
-            <button
-              type="button"
-              onClick={onDone}
-              disabled={recording}
-              className="h-9 border border-[#d8d8d1] px-4 text-xs font-bold transition hover:bg-[#f7f7f2] disabled:opacity-50"
-            >
-              Payment cancelled
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmOpen(true)}
-              disabled={recording}
-              className="flex h-9 items-center gap-2 bg-[#c7f36a] px-4 text-xs font-bold text-[#25251f] transition hover:bg-[#d8ff8a] disabled:opacity-60"
-            >
-              {recording ? "Recording…" : "Payment done"}
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={onDone}
-            className="flex h-9 items-center gap-2 bg-[#c7f36a] px-4 text-xs font-bold text-[#25251f] transition hover:bg-[#d8ff8a]"
-          >
-            Skip & finish
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setConfirmOpen(true)}
+          disabled={recording}
+          className="flex h-9 items-center gap-2 bg-[#c7f36a] px-4 text-xs font-bold text-[#25251f] transition hover:bg-[#d8ff8a] disabled:opacity-60"
+        >
+          {recording ? "Recording…" : "Payment received & finish"}
+        </button>
       </div>
 
       {confirmOpen && (
         <ConfirmDialog
           title="Payment received?"
-          description={`Confirm you've received ₹${amount} from ${member.firstName} via UPI. This will be recorded as a payment.`}
+          description={`Confirm you've received ${currency} ${fee} from ${member.firstName} via ${paymentMethodLabel(method)}. This will be recorded as a payment and finish their registration.`}
           confirmLabel="Yes, received"
           onConfirm={handlePaymentDone}
           onCancel={() => setConfirmOpen(false)}

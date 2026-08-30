@@ -1,4 +1,5 @@
 import { authFetch, type Gender } from "@/lib/auth";
+import type { PaymentMethod } from "@/lib/memberPayments";
 
 export type Member = {
   id: number;
@@ -20,6 +21,8 @@ export type Member = {
   emergencyContactRelationship: string | null;
   waiverAccepted: boolean;
   joinDate: string;
+  joiningFeePaid: boolean;
+  joiningFeePaidAt: string | null;
   trainerId: number | null;
   trainerFirstName: string | null;
   trainerLastName: string | null;
@@ -89,5 +92,12 @@ export function assignMemberTrainer(gymId: number, id: number, trainerId: number
   return authFetch<Member>(`/api/gyms/${gymId}/members/${id}/trainer`, {
     method: "PUT",
     body: JSON.stringify({ trainerId }),
+  });
+}
+
+export function payJoiningFee(gymId: number, memberId: number, paymentMethod: PaymentMethod, notes?: string) {
+  return authFetch<{ id: number }>(`/api/gyms/${gymId}/members/${memberId}/payments/joining-fee`, {
+    method: "POST",
+    body: JSON.stringify({ paymentMethod, notes }),
   });
 }

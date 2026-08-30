@@ -12,6 +12,8 @@ export type Gym = {
   email: string | null;
   logoUrl: string | null;
   upiId: string | null;
+  joiningFee: number | null;
+  joiningFeeCurrency: string | null;
 };
 
 export function getGym(gymId: number) {
@@ -29,6 +31,8 @@ export type GymInput = {
   email?: string;
   logoUrl?: string;
   upiId?: string;
+  joiningFee?: number;
+  joiningFeeCurrency?: string;
 };
 
 /** Builds a full GymInput from an existing Gym, so a PUT never wipes out fields it isn't changing. */
@@ -44,6 +48,8 @@ export function gymToInput(gym: Gym): GymInput {
     email: gym.email ?? undefined,
     logoUrl: gym.logoUrl ?? undefined,
     upiId: gym.upiId ?? undefined,
+    joiningFee: gym.joiningFee ?? undefined,
+    joiningFeeCurrency: gym.joiningFeeCurrency ?? undefined,
   };
 }
 

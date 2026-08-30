@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "members", uniqueConstraints = @UniqueConstraint(columnNames = {"gym_id", "email"}))
@@ -79,4 +80,10 @@ public class Member {
 
     @Column(nullable = false)
     private LocalDate joinDate;
+
+    /** Whether this member has paid their gym's one-time joining fee — required to finish registration. */
+    @Column(nullable = false)
+    private boolean joiningFeePaid;
+
+    private LocalDateTime joiningFeePaidAt;
 }

@@ -6,7 +6,6 @@ import { ArrowRight, Tag, Trash2 } from "lucide-react";
 import AuthShell from "@/components/AuthShell";
 import ErrorBanner from "@/components/ErrorBanner";
 import { useSession } from "@/hooks/useSession";
-import { dashboardPathForRole } from "@/lib/auth";
 import {
   createMembershipPlan,
   deleteMembershipPlan,
@@ -81,8 +80,8 @@ export default function PlansSetupCard() {
     }
   };
 
-  const goToDashboard = () => {
-    if (session) router.push(dashboardPathForRole(session.role));
+  const goToJoiningFee = () => {
+    router.push("/register/owner/joining-fee");
   };
 
   return (
@@ -203,11 +202,11 @@ export default function PlansSetupCard() {
 
         <button
           type="button"
-          onClick={goToDashboard}
+          onClick={goToJoiningFee}
           disabled={!session || loadingList || plans.length === 0}
           className="button-saffron mt-1 w-full justify-center py-3.5 text-base disabled:opacity-60"
         >
-          Continue to dashboard <ArrowRight className="h-4 w-4" />
+          Continue <ArrowRight className="h-4 w-4" />
         </button>
         {!loadingList && plans.length === 0 && (
           <p className="text-center text-xs text-ink/45">Add at least one plan to continue.</p>

@@ -38,7 +38,13 @@ export default function Footer() {
       <div className="container flex flex-col gap-7 border-t border-paper/15 pt-8 sm:flex-row sm:items-center sm:justify-between">
         <a href="#top" className="flex items-center gap-2.5 text-paper">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-paper">
-            <Image src="/gymsuit-mark.png" alt="" width={24} height={24} className="h-6 w-6 object-contain" />
+            <Image
+              src="/GymSuit_logo_package/01-icon-brand.png"
+              alt=""
+              width={24}
+              height={24}
+              className="h-6 w-6 object-contain"
+            />
           </span>
           <span className="font-display text-lg font-bold tracking-[-0.06em]">gymsuite</span>
         </a>
