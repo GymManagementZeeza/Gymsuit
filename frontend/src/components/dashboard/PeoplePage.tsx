@@ -73,8 +73,6 @@ export default function PeoplePage() {
                 Pay trainer
               </ActionButton>
             )
-          ) : accessMode ? (
-            <ActionButton icon={<UserRoundPlus className="size-4" />}>Invite staff</ActionButton>
           ) : undefined
         }
       />
@@ -565,7 +563,7 @@ function AccessPanel() {
   const [managers, setManagers] = useState<TeamManager[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [modalState, setModalState] = useState<"closed" | "invite" | TeamManager>("closed");
+  const [modalState, setModalState] = useState<"closed" | "create" | TeamManager>("closed");
   const [removingManager, setRemovingManager] = useState<TeamManager | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -615,7 +613,7 @@ function AccessPanel() {
           {isOwner && (
             <button
               type="button"
-              onClick={() => setModalState("invite")}
+              onClick={() => setModalState("create")}
               className="flex items-center gap-2 bg-[#c7f36a] px-3.5 py-2.5 text-sm font-bold text-[#25251f] transition hover:bg-[#d8ff8a]"
             >
               <UserRoundPlus className="size-4" /> Add manager
@@ -678,7 +676,7 @@ function AccessPanel() {
                     onClick={() => setModalState(manager)}
                     className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold transition hover:border-[#24241f]"
                   >
-                    Edit access
+                    Edit
                   </button>
                   <button
                     type="button"
@@ -709,7 +707,7 @@ function AccessPanel() {
       {modalState !== "closed" && gymId && (
         <TeamManagerModal
           gymId={gymId}
-          manager={modalState === "invite" ? null : modalState}
+          manager={modalState === "create" ? null : modalState}
           onClose={() => setModalState("closed")}
           onSaved={handleSaved}
         />

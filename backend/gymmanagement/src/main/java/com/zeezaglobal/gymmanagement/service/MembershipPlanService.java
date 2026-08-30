@@ -2,7 +2,9 @@ package com.zeezaglobal.gymmanagement.service;
 
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanRequest;
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanResponse;
+import com.zeezaglobal.gymmanagement.dto.PlanMemberSummary;
 import com.zeezaglobal.gymmanagement.entity.Gym;
+import com.zeezaglobal.gymmanagement.entity.MemberSubscription;
 import com.zeezaglobal.gymmanagement.entity.MembershipPlan;
 import com.zeezaglobal.gymmanagement.entity.SubscriptionStatus;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
@@ -12,12 +14,19 @@ import com.zeezaglobal.gymmanagement.repository.MembershipPlanRepository;
 import com.zeezaglobal.gymmanagement.util.CurrencyCodes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class MembershipPlanService {
+
+    /** Statuses that mean a member is currently tied to a plan, as opposed to closed-out history. */
+    private static final Set<SubscriptionStatus> CURRENT_STATUSES =
+            EnumSet.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.PENDING, SubscriptionStatus.PAUSED);
 
     private final MembershipPlanRepository membershipPlanRepository;
     private final MemberSubscriptionRepository memberSubscriptionRepository;
@@ -69,6 +78,34 @@ public class MembershipPlanService {
             throw new BadRequestException(
                     "This plan has subscription history and can't be deleted. Mark it inactive instead to stop offering it to new members.");
         }
+        membershipPlanRepository.delete(plan);
+    }
+
+    /** Members currently tied to this plan — the ones an owner needs to move before it can be deleted. */
+    public List<PlanMemberSummary> listCurrentMembers(Long gymId, Long id) {
+        getPlanOrThrow(gymId, id);
+        return memberSubscriptionRepository.findAllByPlanIdAndStatusIn(id, CURRENT_STATUSES).stream()
+                .map(PlanMemberSummary::fromEntity)
+                .toList();
+    }
+
+    @Transactional
+    public void reassignAndDelete(Long gymId, Long id, Long replacementPlanId) {
+        MembershipPlan plan = getPlanOrThrow(gymId, id);
+        if (replacementPlanId == null) {
+            throw new BadRequestException("Choose a plan to move existing members to");
+        }
+        if (replacementPlanId.equals(id)) {
+            throw new BadRequestException("Choose a different plan than the one being removed");
+        }
+        MembershipPlan replacement = getPlanOrThrow(gymId, replacementPlanId);
+
+        List<MemberSubscription> subscriptions = memberSubscriptionRepository.findAllByPlanId(id);
+        for (MemberSubscription subscription : subscriptions) {
+            subscription.setPlan(replacement);
+        }
+        memberSubscriptionRepository.saveAll(subscriptions);
+
         membershipPlanRepository.delete(plan);
     }
 

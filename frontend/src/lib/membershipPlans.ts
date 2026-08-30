@@ -21,6 +21,13 @@ export type MembershipPlanInput = {
   billingCycle: BillingCycle;
 };
 
+export type PlanMember = {
+  memberId: number;
+  firstName: string;
+  lastName: string;
+  status: string;
+};
+
 export function listMembershipPlans(gymId: number) {
   return authFetch<MembershipPlan[]>(`/api/gyms/${gymId}/membership-plans`);
 }
@@ -32,8 +39,26 @@ export function createMembershipPlan(gymId: number, input: MembershipPlanInput) 
   });
 }
 
+export function updateMembershipPlan(gymId: number, id: number, input: MembershipPlanInput) {
+  return authFetch<MembershipPlan>(`/api/gyms/${gymId}/membership-plans/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
 export function deleteMembershipPlan(gymId: number, id: number) {
   return authFetch<void>(`/api/gyms/${gymId}/membership-plans/${id}`, {
     method: "DELETE",
+  });
+}
+
+export function getPlanCurrentMembers(gymId: number, id: number) {
+  return authFetch<PlanMember[]>(`/api/gyms/${gymId}/membership-plans/${id}/members`);
+}
+
+export function reassignAndDeleteMembershipPlan(gymId: number, id: number, replacementPlanId: number) {
+  return authFetch<void>(`/api/gyms/${gymId}/membership-plans/${id}/reassign-and-delete`, {
+    method: "POST",
+    body: JSON.stringify({ replacementPlanId }),
   });
 }

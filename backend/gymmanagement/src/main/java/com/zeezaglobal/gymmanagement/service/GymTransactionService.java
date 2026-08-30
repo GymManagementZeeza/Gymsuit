@@ -5,6 +5,7 @@ import com.zeezaglobal.gymmanagement.dto.TransactionResponse;
 import com.zeezaglobal.gymmanagement.entity.ActivityType;
 import com.zeezaglobal.gymmanagement.entity.Gym;
 import com.zeezaglobal.gymmanagement.entity.GymTransaction;
+import com.zeezaglobal.gymmanagement.entity.Manager;
 import com.zeezaglobal.gymmanagement.entity.Member;
 import com.zeezaglobal.gymmanagement.entity.Trainer;
 import com.zeezaglobal.gymmanagement.entity.TransactionDirection;
@@ -27,6 +28,7 @@ public class GymTransactionService {
     private final MemberRepository memberRepository;
     private final TrainerRepository trainerRepository;
     private final GymService gymService;
+    private final ManagerService managerService;
     private final GymActivityService activityService;
 
     public List<TransactionResponse> listForGym(Long gymId) {
@@ -48,11 +50,13 @@ public class GymTransactionService {
                         .orElseThrow(() -> new ResourceNotFoundException(
                                 "Trainer not found with id: " + request.trainerId() + " in gym: " + gymId))
                 : null;
+        Manager manager = request.managerId() != null ? getAssignedManagerOrThrow(gym, request.managerId()) : null;
 
         GymTransaction transaction = new GymTransaction();
         transaction.setGym(gym);
         transaction.setMember(member);
         transaction.setTrainer(trainer);
+        transaction.setManager(manager);
         transaction.setDirection(request.direction());
         transaction.setDescription(request.description());
         transaction.setAmount(request.amount());
@@ -68,11 +72,23 @@ public class GymTransactionService {
         String verb = isIncome ? "Recorded income" : "Recorded expense";
         String who = member != null
                 ? " from " + member.getFirstName() + " " + member.getLastName()
-                : trainer != null ? " to " + trainer.getFirstName() + " " + trainer.getLastName() : "";
+                : trainer != null
+                        ? " to " + trainer.getFirstName() + " " + trainer.getLastName()
+                        : manager != null ? " to " + manager.getFirstName() + " " + manager.getLastName() : "";
         activityService.record(gym, isIncome ? ActivityType.INCOME_RECORDED : ActivityType.EXPENSE_RECORDED,
                 verb + " of " + transaction.getCurrency() + " " + transaction.getAmount()
                         + " — " + transaction.getDescription() + who);
 
         return TransactionResponse.fromEntity(transaction);
+    }
+
+    private Manager getAssignedManagerOrThrow(Gym gym, Long managerId) {
+        Manager manager = managerService.getManagerOrThrow(managerId);
+        boolean assigned = gym.getManagers().stream().anyMatch(m -> m.getId().equals(manager.getId()))
+                || (gym.getOwner() != null && gym.getOwner().getId().equals(manager.getId()));
+        if (!assigned) {
+            throw new ResourceNotFoundException("Manager " + managerId + " is not assigned to gym " + gym.getId());
+        }
+        return manager;
     }
 }

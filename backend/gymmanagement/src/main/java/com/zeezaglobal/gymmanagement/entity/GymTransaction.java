@@ -49,6 +49,10 @@ public class GymTransaction {
     @JoinColumn(name = "trainer_id")
     private Trainer trainer;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private Manager manager;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionDirection direction;

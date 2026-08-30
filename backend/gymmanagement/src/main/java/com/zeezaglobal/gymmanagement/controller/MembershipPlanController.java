@@ -2,6 +2,8 @@ package com.zeezaglobal.gymmanagement.controller;
 
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanRequest;
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanResponse;
+import com.zeezaglobal.gymmanagement.dto.PlanMemberSummary;
+import com.zeezaglobal.gymmanagement.dto.ReassignPlanRequest;
 import com.zeezaglobal.gymmanagement.service.MembershipPlanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +58,20 @@ public class MembershipPlanController {
     @PreAuthorize("@security.canManageFinance(#gymId)")
     public ResponseEntity<Void> delete(@PathVariable Long gymId, @PathVariable Long id) {
         membershipPlanService.delete(gymId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/members")
+    @PreAuthorize("@security.canManageFinance(#gymId)")
+    public List<PlanMemberSummary> currentMembers(@PathVariable Long gymId, @PathVariable Long id) {
+        return membershipPlanService.listCurrentMembers(gymId, id);
+    }
+
+    @PostMapping("/{id}/reassign-and-delete")
+    @PreAuthorize("@security.canManageFinance(#gymId)")
+    public ResponseEntity<Void> reassignAndDelete(
+            @PathVariable Long gymId, @PathVariable Long id, @Valid @RequestBody ReassignPlanRequest request) {
+        membershipPlanService.reassignAndDelete(gymId, id, request.replacementPlanId());
         return ResponseEntity.noContent().build();
     }
 }

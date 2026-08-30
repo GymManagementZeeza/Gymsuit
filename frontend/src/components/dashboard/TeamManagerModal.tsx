@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
@@ -10,6 +10,12 @@ import {
   type ManagerAccessScope,
   type TeamManager,
 } from "@/lib/team";
+import {
+  getManagerCompensation,
+  setManagerCompensation,
+  type ManagerCompensation,
+  type PayType,
+} from "@/lib/managerCompensation";
 
 const SCOPES: { value: ManagerAccessScope; label: string; description: string }[] = [
   { value: "FINANCE", label: "Finance & payroll", description: "Pay rates, payroll runs, and compensation for the whole team." },
@@ -57,6 +63,21 @@ export default function TeamManagerModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [compensation, setCompensation] = useState<ManagerCompensation | null>(null);
+  const [loadingCompensation, setLoadingCompensation] = useState(isEdit);
+  const [payType, setPayType] = useState<PayType>("SALARY");
+
+  useEffect(() => {
+    if (!isEdit) return;
+    getManagerCompensation(gymId, manager!.id)
+      .then((comp) => {
+        setCompensation(comp);
+        if (comp) setPayType(comp.payType);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCompensation(false));
+  }, [gymId, isEdit, manager]);
+
   const toggleScope = (scope: ManagerAccessScope) => {
     setScopes((prev) => {
       const next = new Set(prev);
@@ -66,18 +87,32 @@ export default function TeamManagerModal({
     });
   };
 
+  const saveCompensation = async (managerId: number, data: FormData) => {
+    const amountRaw = data.get("salaryAmount") as string;
+    if (!amountRaw) return;
+    const currency = ((data.get("salaryCurrency") as string) || "INR").toUpperCase();
+    await setManagerCompensation(gymId, managerId, {
+      payType,
+      currency,
+      hourlyRate: payType === "HOURLY" ? Number(amountRaw) : undefined,
+      monthlySalary: payType === "SALARY" ? Number(amountRaw) : undefined,
+    });
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
 
+    const data = new FormData(event.currentTarget);
+
     try {
       if (isEdit) {
         const saved = await updateManagerAccess(gymId, manager!.id, Array.from(scopes));
+        await saveCompensation(manager!.id, data);
         onSaved(saved);
         return;
       }
-      const data = new FormData(event.currentTarget);
       const saved = await inviteManager(gymId, {
         email: data.get("email") as string,
         firstName: data.get("firstName") as string,
@@ -85,6 +120,7 @@ export default function TeamManagerModal({
         phone: (data.get("phone") as string) || undefined,
         scopes: Array.from(scopes),
       });
+      await saveCompensation(saved.id, data);
       onSaved(saved);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save this manager.");
@@ -97,7 +133,7 @@ export default function TeamManagerModal({
       <div className="w-full max-w-lg border border-[#d8d8d1] bg-white">
         <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
           <div>
-            <p className="ledger-label">{isEdit ? "Edit access" : "Team access"}</p>
+            <p className="ledger-label">{isEdit ? "Edit manager" : "Team access"}</p>
             <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">
               {isEdit ? `${manager!.firstName} ${manager!.lastName}` : "Add a manager"}
             </h2>
@@ -151,6 +187,54 @@ export default function TeamManagerModal({
             ))}
           </div>
 
+          <div className="flex flex-col gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">
+              Salary {isEdit ? "" : "(optional — can be added later)"}
+            </span>
+            {loadingCompensation ? (
+              <p className="text-xs text-[#76766f]">Loading pay rate…</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Pay type</span>
+                  <select
+                    value={payType}
+                    onChange={(event) => setPayType(event.target.value as PayType)}
+                    className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none transition-colors focus:border-[#24241f]"
+                  >
+                    <option value="SALARY">Monthly salary</option>
+                    <option value="HOURLY">Hourly</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Amount</span>
+                  <input
+                    name="salaryAmount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder={payType === "SALARY" ? "5000" : "45"}
+                    defaultValue={
+                      compensation
+                        ? (compensation.payType === "SALARY" ? compensation.monthlySalary : compensation.hourlyRate) ?? ""
+                        : ""
+                    }
+                    className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none transition-colors focus:border-[#24241f]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#76766f]">Currency</span>
+                  <input
+                    name="salaryCurrency"
+                    placeholder="INR"
+                    defaultValue={compensation?.currency ?? "INR"}
+                    className="h-10 border border-[#d8d8d1] bg-white px-3 text-sm outline-none transition-colors focus:border-[#24241f]"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
           {error && <ErrorBanner message={error} />}
 
           <div className="flex items-center justify-end gap-2 border-t border-[#e5e5de] pt-5">
@@ -166,7 +250,7 @@ export default function TeamManagerModal({
               disabled={loading}
               className="flex h-9 items-center gap-2 bg-[#c7f36a] px-4 text-xs font-bold text-[#25251f] transition hover:bg-[#d8ff8a] disabled:opacity-60"
             >
-              {loading ? "Saving…" : isEdit ? "Save access" : "Send invite"}
+              {loading ? "Saving…" : isEdit ? "Save changes" : "Add manager"}
             </button>
           </div>
         </form>
