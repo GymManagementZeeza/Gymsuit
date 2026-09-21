@@ -106,13 +106,13 @@ export default function Home() {
                 easy-to-run system — built for independent gyms across India.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <a
-                  href="#contact"
+                <Link
+                  href="/login"
                   className="button-saffron group justify-center px-6 py-3.5 text-base"
                 >
                   See GymSuite in action{" "}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </a>
+                </Link>
                 <a href="#pricing" className="button-quiet justify-center px-5 py-3.5 text-base">
                   Start free for 20 members
                 </a>
