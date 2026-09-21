@@ -12,13 +12,21 @@ function readSession(): LoginResponse | null {
 /** Client-side session guard: redirects to /login if there's no saved session. */
 export function useSession(): LoginResponse | null {
   const router = useRouter();
-  const [session] = useState<LoginResponse | null>(readSession);
+  // Start as null on both server and client to avoid a hydration mismatch
+  // (readSession() can only see localStorage once mounted in the browser).
+  const [session, setSession] = useState<LoginResponse | null>(null);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!session) {
+    setSession(readSession());
+    setChecked(true);
+  }, []);
+
+  useEffect(() => {
+    if (checked && !session) {
       router.replace("/login");
     }
-  }, [session, router]);
+  }, [checked, session, router]);
 
   return session;
 }
