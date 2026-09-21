@@ -36,6 +36,7 @@ pipeline {
                     string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
                     string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET')
                 ]) {
+                    sh 'docker compose down --remove-orphans || true'
                     sh 'docker compose up -d --remove-orphans'
                 }
             }
