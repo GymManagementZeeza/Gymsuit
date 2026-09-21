@@ -19,6 +19,7 @@ public class OtpService {
     private static final long OTP_TTL_MINUTES = 5;
 
     private final OtpCodeRepository otpCodeRepository;
+    private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
 
     public void generate(String email) {
@@ -30,8 +31,8 @@ public class OtpService {
         otp.setExpiresAt(Instant.now().plus(OTP_TTL_MINUTES, ChronoUnit.MINUTES));
         otpCodeRepository.save(otp);
 
-        // TODO: replace with a real email send once SMTP is configured; for now the code is logged.
-        log.info("OTP for {}: {} (expires in {} minutes)", email, code, OTP_TTL_MINUTES);
+        log.info("OTP generated for {}: {} (expires in {} minutes)", email, code, OTP_TTL_MINUTES);
+        emailService.sendOtpEmail(email, code);
     }
 
     public void verify(String email, String code) {
