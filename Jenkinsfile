@@ -5,6 +5,7 @@ pipeline {
         COMPOSE_PROJECT_NAME = 'gymmanagement'
         DOCKER_BUILDKIT = '1'
         COMPOSE_DOCKER_CLI_BUILD = '1'
+        NEXT_PUBLIC_API_BASE_URL = 'https://api.gymsuit.app'
     }
 
     options {
