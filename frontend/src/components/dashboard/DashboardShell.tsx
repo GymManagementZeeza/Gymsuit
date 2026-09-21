@@ -43,7 +43,6 @@ const navGroups = [
     items: [
       { label: "Session requests", href: "/dashboard/session-requests", icon: BookOpenCheck, badge: "3" },
       { label: "Schedule", href: "/dashboard/schedule", icon: CalendarCheck2 },
-      { label: "Classes", href: "/dashboard/classes", icon: CalendarCheck2 },
     ],
   },
   {

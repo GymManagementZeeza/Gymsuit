@@ -14,6 +14,7 @@ import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import { useSession } from "@/hooks/useSession";
 import { listMembers, type Member } from "@/lib/members";
 import { listCurrentSubscriptions, listPendingSubscriptions, type MemberSubscription } from "@/lib/memberSubscriptions";
+import { listMembershipPlans, type MembershipPlan } from "@/lib/membershipPlans";
 import { getGym, type Gym } from "@/lib/gyms";
 import { getCurrentUser, type CurrentUser } from "@/lib/users";
 import { listTeamManagers, removeManager as removeManagerRequest, type TeamManager } from "@/lib/team";
@@ -23,7 +24,7 @@ import TeamManagerModal from "@/components/dashboard/TeamManagerModal";
 import TrainerFormModal from "@/components/dashboard/TrainerFormModal";
 import TrainerPayModal from "@/components/dashboard/TrainerPayModal";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
-import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards } from "lucide-react";
+import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
@@ -92,6 +93,10 @@ function MembersPanel() {
   const [members, setMembers] = useState<Member[]>([]);
   const [subscriptionsByMember, setSubscriptionsByMember] = useState<Record<number, MemberSubscription>>({});
   const [pendingByMember, setPendingByMember] = useState<Record<number, MemberSubscription>>({});
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [selectedPlanFilter, setSelectedPlanFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [gym, setGym] = useState<Gym | null>(null);
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,8 +144,9 @@ function MembersPanel() {
       listPendingSubscriptions(gymId),
       getGym(gymId),
       listTrainers(gymId),
+      listMembershipPlans(gymId),
     ])
-      .then(([memberData, active, pending, gymData, trainerData]) => {
+      .then(([memberData, active, pending, gymData, trainerData, planData]) => {
         if (cancelled) return;
         setMembers(memberData);
         const byMember: Record<number, MemberSubscription> = {};
@@ -151,6 +157,7 @@ function MembersPanel() {
         setPendingByMember(pendingMap);
         setGym(gymData);
         setTrainers(trainerData);
+        setPlans(planData);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not load members.");
@@ -165,11 +172,35 @@ function MembersPanel() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter((m) =>
-      `${m.firstName} ${m.lastName} ${m.email ?? ""} ${m.phone}`.toLowerCase().includes(q)
-    );
-  }, [members, query]);
+    const list = members.filter((m) => {
+      const matchesSearch = !q || `${m.firstName} ${m.lastName} ${m.email ?? ""} ${m.phone}`.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      const sub = subscriptionsByMember[m.id];
+      const pending = pendingByMember[m.id];
+
+      if (selectedPlanFilter === "ALL") return true;
+      if (selectedPlanFilter === "NO_PLAN") return !sub && !pending;
+      return sub?.planName === selectedPlanFilter || pending?.planName === selectedPlanFilter;
+    });
+
+    return [...list].sort((a, b) => {
+      const subA = subscriptionsByMember[a.id];
+      const subB = subscriptionsByMember[b.id];
+
+      const expiryA = subA?.currentPeriodEnd ?? null;
+      const expiryB = subB?.currentPeriodEnd ?? null;
+
+      if (expiryA && expiryB) return expiryA.localeCompare(expiryB);
+      if (expiryA) return -1;
+      if (expiryB) return 1;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+  }, [members, query, selectedPlanFilter, subscriptionsByMember, pendingByMember]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedMembers = filtered.slice(startIndex, startIndex + PAGE_SIZE);
 
   const handleSaved = (saved: Member) => {
     setMembers((prev) => {
@@ -198,19 +229,38 @@ function MembersPanel() {
         <div>
           <p className="ledger-label">Member directory</p>
           <h2 className="mt-2 text-xl font-bold tracking-[-0.03em]">
-            {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
+            {loading ? "Loading members…" : `${filtered.length} member${filtered.length === 1 ? "" : "s"}`}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="flex h-9 items-center gap-2 border border-[#d8d8d1] px-3 text-[#777770]">
             <Search className="size-4" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-32 bg-transparent text-sm outline-none placeholder:text-[#9b9b94]"
               placeholder="Find a member"
             />
           </label>
+          <select
+            value={selectedPlanFilter}
+            onChange={(e) => {
+              setSelectedPlanFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-9 border border-[#d8d8d1] bg-white px-2.5 text-xs font-semibold text-[#24241f] outline-none transition hover:border-[#24241f] focus:border-[#24241f]"
+          >
+            <option value="ALL">All plans</option>
+            <option value="NO_PLAN">No active plan</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.name}>
+                {p.name}
+              </option>
+            ))}
+          </select>
           <ActionButton icon={<Plus className="size-4" />} onClick={() => setModalState("create")}>
             Add member
           </ActionButton>
@@ -245,23 +295,39 @@ function MembersPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#efefe9]">
-              {filtered.map((member, index) => {
+              {paginatedMembers.map((member, index) => {
                 const subscription = subscriptionsByMember[member.id];
                 const pending = pendingByMember[member.id];
+                const hasNoActivePlan = !subscription;
                 return (
-                <tr className="transition hover:bg-[#fafaf6]" key={member.id}>
+                <tr className={`transition ${hasNoActivePlan ? "bg-red-50/30 hover:bg-red-50/60" : "hover:bg-[#fafaf6]"}`} key={member.id}>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`grid size-9 place-items-center rounded-full text-[10px] font-bold ${index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"}`}
-                      >
-                        {member.firstName[0]}
-                        {member.lastName[0]}
-                      </span>
+                      <div className="relative">
+                        <span
+                          className={`grid size-9 place-items-center rounded-full text-[10px] font-bold ${index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"}`}
+                        >
+                          {member.firstName[0]}
+                          {member.lastName[0]}
+                        </span>
+                        {hasNoActivePlan && (
+                          <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-red-600 text-white shadow" title="No active plan — member may have stopped coming">
+                            <AlertTriangle className="size-2.5" />
+                          </span>
+                        )}
+                      </div>
                       <div>
-                        <p className="text-sm font-bold">
-                          {member.firstName} {member.lastName}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold">
+                            {member.firstName} {member.lastName}
+                          </p>
+                          {hasNoActivePlan && (
+                            <span className="flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
+                              <AlertTriangle className="size-2.5 text-red-600" />
+                              No active plan
+                            </span>
+                          )}
+                        </div>
                         {member.gender && <p className="mt-0.5 text-[11px] text-[#74746d]">{member.gender}</p>}
                       </div>
                     </div>
@@ -284,7 +350,10 @@ function MembersPanel() {
                         <StatusPill label="Awaiting payment" tone="orange" />
                       </>
                     ) : (
-                      <StatusPill label="No active plan" tone="orange" />
+                      <div className="flex items-center gap-1.5">
+                        <AlertTriangle className="size-4 text-red-600 shrink-0" />
+                        <StatusPill label="No active plan" tone="orange" />
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-4">
@@ -321,6 +390,35 @@ function MembersPanel() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      {member.phone && (
+                        <a
+                          href={`tel:${member.phone}`}
+                          className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
+                          title={`Call ${member.firstName} (${member.phone})`}
+                        >
+                          <Phone className="size-3.5" />
+                        </a>
+                      )}
+                      {member.phone && (
+                        <a
+                          href={`https://wa.me/${member.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${member.firstName}, we missed seeing you at the gym! Let us know if you need help renewing your membership.`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="grid size-8 place-items-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                          title={`WhatsApp ${member.firstName} (${member.phone})`}
+                        >
+                          <MessageCircle className="size-3.5" />
+                        </a>
+                      )}
+                      {member.email && (
+                        <a
+                          href={`mailto:${member.email}?subject=We%20miss%20you%20at%20the%20gym!`}
+                          className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
+                          title={`Email ${member.firstName} (${member.email})`}
+                        >
+                          <Mail className="size-3.5" />
+                        </a>
+                      )}
                       {pending && (
                         <TableAction onClick={() => setTakePaymentMember(member)}>Take payment</TableAction>
                       )}
@@ -341,6 +439,38 @@ function MembersPanel() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-[#e5e5de] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-[#76766f]">
+            Showing <span className="font-bold text-[#24241f]">{startIndex + 1}</span> to{" "}
+            <span className="font-bold text-[#24241f]">{Math.min(startIndex + PAGE_SIZE, filtered.length)}</span> of{" "}
+            <span className="font-bold text-[#24241f]">{filtered.length}</span> members
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="flex h-8 items-center gap-1 border border-[#d8d8d1] bg-white px-3 text-xs font-bold text-[#24241f] transition hover:border-[#24241f] disabled:opacity-40 disabled:hover:border-[#d8d8d1]"
+            >
+              <ChevronLeft className="size-4" /> Previous
+            </button>
+            <span className="mono text-xs font-semibold text-[#696962]">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="flex h-8 items-center gap-1 border border-[#d8d8d1] bg-white px-3 text-xs font-bold text-[#24241f] transition hover:border-[#24241f] disabled:opacity-40 disabled:hover:border-[#d8d8d1]"
+            >
+              Next <ChevronRight className="size-4" />
+            </button>
+          </div>
         </div>
       )}
 

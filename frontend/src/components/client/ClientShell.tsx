@@ -26,7 +26,6 @@ import {
 const navItems = [
   { label: "Home", href: "/clientdashboard", icon: Gauge },
   { label: "My health", href: "/clientdashboard/health", icon: HeartPulse },
-  { label: "Book a class", href: "/clientdashboard/classes", icon: CalendarDays },
   { label: "Trainers", href: "/clientdashboard/trainers", icon: Dumbbell },
   { label: "Payments", href: "/clientdashboard/payments", icon: WalletCards, badge: "1" },
 ];
