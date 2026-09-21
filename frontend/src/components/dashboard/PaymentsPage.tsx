@@ -14,6 +14,41 @@ import { listTransactions, type GymTransactionRecord } from "@/lib/transactions"
 import { getGym, type Gym } from "@/lib/gyms";
 import { ArrowUpRight, Banknote, Clock3, Plus, Printer, TrendingDown } from "lucide-react";
 
+function lastNMonthKeys(n: number) {
+  const now = new Date();
+  const keys: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return keys;
+}
+
+function monthAbbrev(monthKey: string) {
+  return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString(undefined, { month: "short" }).toUpperCase();
+}
+
+function monthFull(monthKey: string) {
+  return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function smoothPath(points: { x: number; y: number }[]) {
+  if (points.length < 2) return "";
+  let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 function statusTone(status: MemberPayment["status"]): "lime" | "orange" | "blue" {
   if (status === "SUCCEEDED") return "lime";
   if (status === "PENDING") return "orange";
@@ -36,6 +71,7 @@ export default function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const loadAll = useCallback(() => {
     if (!gymId) return;
@@ -82,6 +118,41 @@ export default function PaymentsPage() {
     };
   }, [payments]);
 
+  const chartData = useMemo(() => {
+    const months = lastNMonthKeys(6);
+    const incomeMap = new Map<string, number>();
+    const expenseMap = new Map<string, number>();
+
+    for (const m of months) {
+      incomeMap.set(m, 0);
+      expenseMap.set(m, 0);
+    }
+
+    for (const p of payments) {
+      if (p.status !== "SUCCEEDED") continue;
+      const dateStr = p.paidAt ?? p.createdAt;
+      const key = dateStr.slice(0, 7);
+      if (incomeMap.has(key)) {
+        incomeMap.set(key, (incomeMap.get(key) ?? 0) + Number(p.amount));
+      }
+    }
+
+    for (const t of transactions) {
+      const key = t.occurredOn.slice(0, 7);
+      if (t.direction === "INCOME" && incomeMap.has(key)) {
+        incomeMap.set(key, (incomeMap.get(key) ?? 0) + Number(t.amount));
+      } else if (t.direction === "EXPENSE" && expenseMap.has(key)) {
+        expenseMap.set(key, (expenseMap.get(key) ?? 0) + Number(t.amount));
+      }
+    }
+
+    return months.map((month) => ({
+      month,
+      income: incomeMap.get(month) ?? 0,
+      expense: expenseMap.get(month) ?? 0,
+    }));
+  }, [payments, transactions]);
+
   const sortedPayments = useMemo(
     () =>
       [...payments].sort(
@@ -114,6 +185,41 @@ export default function PaymentsPage() {
       expense: { total: sum(expense), count: expense.length, currency },
     };
   }, [transactions]);
+
+  const currency = payments[0]?.currency ?? transactions[0]?.currency ?? "INR";
+
+  const CHART_WIDTH = 640;
+  const CHART_HEIGHT = 200;
+  const PAD_TOP = 24;
+  const PAD_BOTTOM = 32;
+  const PAD_LEFT = 54;
+  const PAD_RIGHT = 24;
+
+  const plotWidth = CHART_WIDTH - PAD_LEFT - PAD_RIGHT;
+  const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
+
+  const maxVal = Math.max(
+    1,
+    ...chartData.map((d) => d.income),
+    ...chartData.map((d) => d.expense)
+  );
+
+  const incomePoints = chartData.map((d, index) => ({
+    x: PAD_LEFT + (index / (chartData.length - 1)) * plotWidth,
+    y: PAD_TOP + plotHeight - (d.income / maxVal) * plotHeight,
+    val: d.income,
+    month: d.month,
+  }));
+
+  const expensePoints = chartData.map((d, index) => ({
+    x: PAD_LEFT + (index / (chartData.length - 1)) * plotWidth,
+    y: PAD_TOP + plotHeight - (d.expense / maxVal) * plotHeight,
+    val: d.expense,
+    month: d.month,
+  }));
+
+  const incomePath = smoothPath(incomePoints);
+  const expensePath = smoothPath(expensePoints);
 
   return (
     <div className="page-enter space-y-7">
@@ -159,6 +265,148 @@ export default function PaymentsPage() {
           tone="orange"
           icon={<Clock3 className="size-5" />}
         />
+      </section>
+
+      <section className="border border-[#d8d8d1] bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#e7e7e1] pb-4 mb-5">
+          <div>
+            <p className="ledger-label">Income &amp; Expense Trends</p>
+            <h2 className="mt-1 text-lg font-bold tracking-[-0.02em]">Financial Overview (Last 6 Months)</h2>
+          </div>
+          <div className="flex items-center gap-6 text-xs font-bold">
+            <div className="flex items-center gap-2">
+              <span className="inline-block size-3 rounded-full bg-[#16a34a]" />
+              <span className="text-[#16a34a]">Income (Green)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block size-3 rounded-full bg-[#dc2626]" />
+              <span className="text-[#dc2626]">Expense (Red)</span>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex h-[200px] items-center justify-center text-sm text-[#8a8a82]">Loading financial trends…</div>
+        ) : (
+          <div className="relative">
+            <svg
+              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+              className="w-full overflow-visible"
+              aria-label="Income and expense line graph"
+            >
+              {[0, 0.5, 1].map((ratio) => {
+                const y = PAD_TOP + plotHeight * (1 - ratio);
+                const rawVal = maxVal * ratio;
+                const formattedVal =
+                  rawVal >= 1000000
+                    ? `${(rawVal / 1000000).toFixed(1)}M`
+                    : rawVal >= 1000
+                    ? `${(rawVal / 1000).toFixed(0)}k`
+                    : rawVal.toFixed(0);
+                return (
+                  <g key={ratio}>
+                    <line
+                      x1={PAD_LEFT}
+                      y1={y}
+                      x2={CHART_WIDTH - PAD_RIGHT}
+                      y2={y}
+                      stroke="#e5e5de"
+                      strokeDasharray="4 4"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={PAD_LEFT - 6}
+                      y={y + 3}
+                      textAnchor="end"
+                      fontSize={8}
+                      className="mono fill-[#8a8a82] font-normal"
+                    >
+                      {currency} {formattedVal}
+                    </text>
+                  </g>
+                );
+              })}
+
+              <path
+                d={incomePath}
+                fill="none"
+                stroke="#16a34a"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              <path
+                d={expensePath}
+                fill="none"
+                stroke="#dc2626"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {incomePoints.map((p, i) => (
+                <g
+                  key={`inc-${i}`}
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoveredIndex(i)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
+                  <circle cx={p.x} cy={p.y} r={hoveredIndex === i ? 6 : 4} fill="#16a34a" stroke="white" strokeWidth={2} />
+                </g>
+              ))}
+
+              {expensePoints.map((p, i) => (
+                <g
+                  key={`exp-${i}`}
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoveredIndex(i)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
+                  <circle cx={p.x} cy={p.y} r={hoveredIndex === i ? 6 : 4} fill="#dc2626" stroke="white" strokeWidth={2} />
+                </g>
+              ))}
+
+              {chartData.map((d, index) => {
+                const x = PAD_LEFT + (index / (chartData.length - 1)) * plotWidth;
+                return (
+                  <text
+                    key={d.month}
+                    x={x}
+                    y={CHART_HEIGHT - 6}
+                    textAnchor="middle"
+                    fontSize={8.5}
+                    className={`mono ${hoveredIndex === index ? "fill-[#24241f] font-bold" : "fill-[#8a8a82] font-normal"}`}
+                  >
+                    {monthAbbrev(d.month)}
+                  </text>
+                );
+              })}
+            </svg>
+
+            {hoveredIndex !== null && chartData[hoveredIndex] && (
+              <div
+                className="absolute top-2 right-4 border border-[#d8d8d1] bg-[#fafaf6] p-3 shadow-md text-xs space-y-1"
+              >
+                <p className="font-bold text-[#24241f] border-b border-[#e5e5de] pb-1">
+                  {monthFull(chartData[hoveredIndex].month)}
+                </p>
+                <div className="flex justify-between gap-4 text-[#16a34a] font-semibold">
+                  <span>Income:</span>
+                  <span>{currency} {chartData[hoveredIndex].income.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between gap-4 text-[#dc2626] font-semibold">
+                  <span>Expense:</span>
+                  <span>{currency} {chartData[hoveredIndex].expense.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between gap-4 text-[#24241f] font-bold pt-1 border-t border-[#e5e5de]">
+                  <span>Net:</span>
+                  <span>{currency} {(chartData[hoveredIndex].income - chartData[hoveredIndex].expense).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="border border-[#d8d8d1] bg-white">

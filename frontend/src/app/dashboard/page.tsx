@@ -1,7 +1,7 @@
 "use client";
 
 /* Training Ledger page: Daily command view with warm paper canvas and lime operational signals. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
@@ -10,12 +10,14 @@ import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, MetricCard, StatusPill } from "@/components/dashboard/ui";
 import { useSession } from "@/hooks/useSession";
 import { getCurrentUser } from "@/lib/users";
-import { listMembers } from "@/lib/members";
+import { listMembers, type Member } from "@/lib/members";
 import { listRecentActivity, type ActivityType, type GymActivity } from "@/lib/activity";
 import { listGymPayments } from "@/lib/memberPayments";
-import { listActiveCheckIns, listCheckInsSince, type CheckIn } from "@/lib/checkins";
+import { listActiveCheckIns, type CheckIn } from "@/lib/checkins";
+import { listCurrentSubscriptions, type MemberSubscription } from "@/lib/memberSubscriptions";
 import { listTransactions } from "@/lib/transactions";
 import {
+  AlertTriangle,
   Ban,
   Banknote,
   ArrowUpRight,
@@ -26,7 +28,10 @@ import {
   ChevronRight,
   Clock3,
   Dumbbell,
+  Mail,
+  MessageCircle,
   MoreHorizontal,
+  Phone,
   Plus,
   Receipt,
   Tags,
@@ -73,35 +78,36 @@ function monthAbbrev(monthKey: string) {
   return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString(undefined, { month: "short" }).toUpperCase();
 }
 
-function bucketCheckInsByHour(checkIns: CheckIn[]) {
-  const counts = new Array(24).fill(0) as number[];
-  for (const entry of checkIns) {
-    counts[new Date(entry.checkInTime).getHours()] += 1;
+function formatPaymentCountdown(periodEnd: string | null) {
+  if (!periodEnd) {
+    return { text: "No active plan", detail: "No upcoming payment", tone: "neutral" as const };
   }
-  return counts;
-}
+  const end = new Date(`${periodEnd}T00:00:00`);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const diffMs = end.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-function hourLabel(hour: number) {
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${displayHour}${hour < 12 ? "AM" : "PM"}`;
-}
-
-/** Catmull-Rom → cubic bezier smoothing, for an Apple Health-style curved line. */
-function smoothPath(points: { x: number; y: number }[]) {
-  if (points.length < 2) return "";
-  let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] ?? points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] ?? p2;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
-    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  if (diffDays < 0) {
+    const overdue = Math.abs(diffDays);
+    return {
+      text: `${overdue} day${overdue === 1 ? "" : "s"} overdue`,
+      detail: `Payment was due on ${periodEnd}`,
+      tone: "overdue" as const,
+    };
   }
-  return d;
+  if (diffDays === 0) {
+    return {
+      text: "Payment due today",
+      detail: `Due today (${periodEnd})`,
+      tone: "urgent" as const,
+    };
+  }
+  return {
+    text: `${diffDays} day${diffDays === 1 ? "" : "s"} left for next payment`,
+    detail: `Due on ${periodEnd}`,
+    tone: diffDays <= 7 ? ("urgent" as const) : ("normal" as const),
+  };
 }
 
 function greetingForHour(hour: number) {
@@ -224,7 +230,9 @@ export default function DashboardOverview() {
   const [revenueCurrency, setRevenueCurrency] = useState("INR");
   const [checkedInCount, setCheckedInCount] = useState<number | null>(null);
   const [totalMembersCount, setTotalMembersCount] = useState<number | null>(null);
-  const [hourlyCheckIns, setHourlyCheckIns] = useState<number[] | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [subscriptionsByMember, setSubscriptionsByMember] = useState<Record<number, MemberSubscription>>({});
+  const [membersLoading, setMembersLoading] = useState(true);
   const [monthlyExpenses, setMonthlyExpenses] = useState<number | null>(null);
   const [expensesCurrency, setExpensesCurrency] = useState("INR");
 
@@ -237,27 +245,30 @@ export default function DashboardOverview() {
 
   useEffect(() => {
     if (!session?.gymId) return;
-    listMembers(session.gymId)
-      .then((members) => {
-        setNewMembersCount(members.filter((m) => m.joinDate.startsWith(selectedMonth)).length);
-        setTotalMembersCount(members.length);
+    setMembersLoading(true);
+    Promise.all([
+      listMembers(session.gymId),
+      listCurrentSubscriptions(session.gymId),
+    ])
+      .then(([memberList, subList]) => {
+        setMembers(memberList);
+        setNewMembersCount(memberList.filter((m) => m.joinDate.startsWith(selectedMonth)).length);
+        setTotalMembersCount(memberList.length);
+
+        const subMap: Record<number, MemberSubscription> = {};
+        for (const sub of subList) {
+          subMap[sub.memberId] = sub;
+        }
+        setSubscriptionsByMember(subMap);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setMembersLoading(false));
   }, [session?.gymId, selectedMonth]);
 
   useEffect(() => {
     if (!session?.gymId) return;
     listActiveCheckIns(session.gymId)
       .then((checkIns) => setCheckedInCount(checkIns.length))
-      .catch(() => {});
-  }, [session?.gymId]);
-
-  useEffect(() => {
-    if (!session?.gymId) return;
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-    listCheckInsSince(session.gymId, since)
-      .then((checkIns) => setHourlyCheckIns(bucketCheckInsByHour(checkIns)))
       .catch(() => {});
   }, [session?.gymId]);
 
@@ -308,6 +319,23 @@ export default function DashboardOverview() {
       .catch(() => {});
   }, [session?.gymId, selectedMonth]);
 
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const subA = subscriptionsByMember[a.id];
+      const subB = subscriptionsByMember[b.id];
+
+      const expiryA = subA?.currentPeriodEnd ?? null;
+      const expiryB = subB?.currentPeriodEnd ?? null;
+
+      if (expiryA && expiryB) {
+        return expiryA.localeCompare(expiryB);
+      }
+      if (expiryA) return -1;
+      if (expiryB) return 1;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+  }, [members, subscriptionsByMember]);
+
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 
   const currentMonthRevenue = monthlyRevenue?.[monthlyRevenue.length - 1]?.total ?? 0;
@@ -319,24 +347,6 @@ export default function DashboardOverview() {
         ? 100
         : 0;
   const maxMonthlyRevenue = monthlyRevenue ? Math.max(1, ...monthlyRevenue.map((m) => m.total)) : 1;
-
-  const maxHourlyCheckIns = hourlyCheckIns ? Math.max(1, ...hourlyCheckIns) : 1;
-  const peakHour = hourlyCheckIns
-    ? hourlyCheckIns.reduce((best, count, hour) => (count > hourlyCheckIns[best] ? hour : best), 0)
-    : null;
-  const peakHourCount = peakHour !== null ? hourlyCheckIns![peakHour] : 0;
-  const CHART_WIDTH = 640;
-  const CHART_HEIGHT = 140;
-  const CHART_PAD_TOP = 16;
-  const plotHeight = CHART_HEIGHT - CHART_PAD_TOP;
-  const chartPoints = (hourlyCheckIns ?? new Array(24).fill(0)).map((count, hour) => ({
-    hour,
-    x: (hour / 23) * CHART_WIDTH,
-    y: CHART_PAD_TOP + plotHeight - (count / maxHourlyCheckIns) * plotHeight,
-    count,
-  }));
-  const chartLinePath = smoothPath(chartPoints);
-  const chartAreaPath = `${chartLinePath} L${CHART_WIDTH},${CHART_HEIGHT} L0,${CHART_HEIGHT} Z`;
 
   return (
     <div className="page-enter space-y-7">
@@ -442,52 +452,113 @@ export default function DashboardOverview() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-12">
-        <div className="border border-[#d8d8d1] bg-white xl:col-span-7">
+        <div className="flex flex-col justify-between border border-[#d8d8d1] bg-white xl:col-span-7">
           <div className="flex items-center justify-between border-b border-[#e5e5de] px-5 py-4">
             <div>
-              <p className="ledger-label">Last 7 days</p>
-              <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">Peak hours on the floor</h2>
+              <p className="ledger-label">Member roster</p>
+              <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">Members by expiry date</h2>
             </div>
-            {hourlyCheckIns !== null && peakHour !== null && peakHourCount > 0 && (
-              <span className="flex items-center gap-1.5 bg-[#f1f8de] px-2.5 py-1.5 text-xs font-bold text-[#4c592e]">
-                <span className="size-1.5 rounded-full bg-[#8bb92f]" />
-                Busiest at {hourLabel(peakHour)}
-              </span>
-            )}
+            <Link href="/dashboard/members" className="text-xs font-bold text-[#24241f] hover:underline">
+              View all
+            </Link>
           </div>
-          <div className="px-5 py-6">
-            {hourlyCheckIns === null ? (
-              <div className="flex h-[140px] items-center justify-center text-sm text-[#8a8a82]">Loading…</div>
-            ) : peakHourCount === 0 ? (
-              <div className="flex h-[140px] items-center justify-center text-sm text-[#8a8a82]">
-                No check-ins in the last 7 days yet.
-              </div>
+          <div className="max-h-[380px] divide-y divide-[#ebebe5] overflow-y-auto">
+            {membersLoading ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-[#8a8a82]">Loading members…</div>
+            ) : sortedMembers.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-[#8a8a82]">No members found.</div>
             ) : (
-              <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full overflow-visible" aria-label="Check-ins by hour of day over the last 7 days">
-                <defs>
-                  <linearGradient id="peakHoursFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#c7f36a" stopOpacity="0.55" />
-                    <stop offset="100%" stopColor="#c7f36a" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path d={chartAreaPath} fill="url(#peakHoursFill)" />
-                <path d={chartLinePath} fill="none" stroke="#24241f" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                {chartPoints.map((p) =>
-                  p.hour === peakHour ? (
-                    <g key={p.hour}>
-                      <line x1={p.x} y1={p.y} x2={p.x} y2={CHART_HEIGHT} stroke="#24241f" strokeOpacity={0.18} strokeWidth={1} strokeDasharray="3 3" />
-                      <circle cx={p.x} cy={p.y} r={7} fill="#c7f36a" fillOpacity={0.35} />
-                      <circle cx={p.x} cy={p.y} r={4} fill="#24241f" stroke="white" strokeWidth={1.5} />
-                    </g>
-                  ) : null
-                )}
-              </svg>
+              sortedMembers.slice(0, 10).map((member, index) => {
+                const sub = subscriptionsByMember[member.id];
+                const countdown = formatPaymentCountdown(sub?.currentPeriodEnd ?? null);
+                const hasNoActivePlan = !sub || sub.status !== "ACTIVE" || countdown.tone === "overdue";
+
+                return (
+                  <div key={member.id} className={`flex items-center justify-between gap-3 p-4 transition ${hasNoActivePlan ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-[#fafaf6]"}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative">
+                        <span
+                          className={`grid size-9 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                            index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"
+                          }`}
+                        >
+                          {member.firstName[0]}
+                          {member.lastName[0]}
+                        </span>
+                        {hasNoActivePlan && (
+                          <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-red-600 text-white shadow" title="No active plan — member may have stopped coming">
+                            <AlertTriangle className="size-2.5" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-bold">
+                            {member.firstName} {member.lastName}
+                          </p>
+                          {hasNoActivePlan && (
+                            <span className="flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
+                              <AlertTriangle className="size-2.5 text-red-600" />
+                              No active plan
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-xs text-[#74746d]">
+                          {sub?.planName ?? "Inactive member"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p
+                        className={`text-xs font-bold ${
+                          hasNoActivePlan
+                            ? "text-[#c84b31]"
+                            : "text-[#24241f]"
+                        }`}
+                      >
+                        {countdown.text}
+                      </p>
+                      <span className="mono text-[10px] text-[#8a8a82] uppercase">
+                        {countdown.detail}
+                      </span>
+                      {hasNoActivePlan && (
+                        <div className="mt-1.5 flex items-center justify-end gap-1.5">
+                          {member.phone && (
+                            <a
+                              href={`tel:${member.phone}`}
+                              className="flex items-center gap-1 rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] font-bold text-red-700 shadow-sm transition hover:bg-red-50"
+                              title={`Call ${member.firstName} (${member.phone})`}
+                            >
+                              <Phone className="size-3 text-red-600" /> Call
+                            </a>
+                          )}
+                          {member.phone && (
+                            <a
+                              href={`https://wa.me/${member.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${member.firstName}, we missed seeing you at the gym! Let us know if you need help renewing your membership.`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 rounded border border-emerald-300 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50"
+                              title={`WhatsApp ${member.firstName} (${member.phone})`}
+                            >
+                              <MessageCircle className="size-3 text-emerald-600" /> WhatsApp
+                            </a>
+                          )}
+                          {member.email && (
+                            <a
+                              href={`mailto:${member.email}?subject=We%20miss%20you%20at%20the%20gym!`}
+                              className="flex items-center gap-1 rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] font-bold text-red-700 shadow-sm transition hover:bg-red-50"
+                              title={`Email ${member.firstName} (${member.email})`}
+                            >
+                              <Mail className="size-3 text-red-600" /> Email
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
-            <div className="mono mt-3 flex justify-between text-[10px] text-[#8a8a82]">
-              {[0, 4, 8, 12, 16, 20].map((hour) => (
-                <span key={hour}>{hourLabel(hour)}</span>
-              ))}
-            </div>
           </div>
         </div>
 
