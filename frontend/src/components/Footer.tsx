@@ -52,10 +52,10 @@ export default function Footer() {
         <p className="text-xs leading-5">Gym management, thoughtfully built for India.</p>
         <div className="flex items-center gap-6">
           <div className="flex gap-5 text-xs font-semibold">
-            <a href="mailto:info@gymmanagement.com" className="transition-colors hover:text-paper">
+            <a href="/privacy" className="transition-colors hover:text-paper">
               Privacy
             </a>
-            <a href="mailto:info@gymmanagement.com" className="transition-colors hover:text-paper">
+            <a href="/terms" className="transition-colors hover:text-paper">
               Terms
             </a>
           </div>
