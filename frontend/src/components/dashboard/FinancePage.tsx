@@ -12,6 +12,7 @@ import { getTrainerCompensation, type TrainerCompensation } from "@/lib/trainerC
 import { getManagerCompensation, type ManagerCompensation } from "@/lib/managerCompensation";
 import { listTransactions, type GymTransactionRecord } from "@/lib/transactions";
 import StaffPayModal, { type PayableStaff } from "@/components/dashboard/StaffPayModal";
+import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 
 type StaffRow = {
   key: string;
@@ -166,7 +167,7 @@ export default function FinancePage() {
         {!loading && rows.length === 0 && !error && (
           <p className="p-8 text-center text-sm text-[#76766f]">No trainers or managers yet.</p>
         )}
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[760px] text-left">
             <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
               <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
@@ -236,6 +237,70 @@ export default function FinancePage() {
             </tbody>
           </table>
         </div>
+        {!loading && rows.length > 0 && (
+          <div className="divide-y divide-[#ededE7] md:hidden">
+            {rows.map((row, index) => (
+              <ExpandableRow
+                key={row.key}
+                summary={
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`grid size-10 shrink-0 place-items-center rounded-full text-[11px] font-bold ${index % 2 ? "bg-[#d8e4fe]" : "bg-[#f4d1be]"}`}
+                    >
+                      {row.firstName[0]}
+                      {row.lastName[0]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">
+                        {row.firstName} {row.lastName}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[#8a8a82]">{row.role}</p>
+                    </div>
+                    <span className="mono shrink-0 text-sm font-bold">
+                      {row.accruedThisMonth !== null
+                        ? formatAmount(row.accruedThisMonth, row.compensation?.currency ?? currency)
+                        : "—"}
+                    </span>
+                    <StatusPill
+                      label={!row.compensation ? "No pay rate" : row.paidThisMonth ? "Paid" : "Pending"}
+                      tone={!row.compensation ? "orange" : row.paidThisMonth ? "lime" : "orange"}
+                    />
+                  </div>
+                }
+              >
+                <div className="space-y-1">
+                  <DetailRow label="Pay setup">{payLabel(row.compensation)}</DetailRow>
+                  <DetailRow label="Accrued">
+                    {row.accruedThisMonth !== null
+                      ? formatAmount(row.accruedThisMonth, row.compensation?.currency ?? currency)
+                      : "—"}
+                  </DetailRow>
+                  <DetailRow label="Status">
+                    <StatusPill
+                      label={!row.compensation ? "No pay rate" : row.paidThisMonth ? "Paid" : "Pending"}
+                      tone={!row.compensation ? "orange" : row.paidThisMonth ? "lime" : "orange"}
+                    />
+                  </DetailRow>
+                  <div className="flex items-center gap-2 pt-3">
+                    <TableAction
+                      onClick={() =>
+                        setPayTarget({
+                          id: row.personId,
+                          firstName: row.firstName,
+                          lastName: row.lastName,
+                          role: row.role,
+                          subtitle: payLabel(row.compensation),
+                        })
+                      }
+                    >
+                      Record payment
+                    </TableAction>
+                  </div>
+                </div>
+              </ExpandableRow>
+            ))}
+          </div>
+        )}
       </section>
 
       {payTarget && gymId && (
