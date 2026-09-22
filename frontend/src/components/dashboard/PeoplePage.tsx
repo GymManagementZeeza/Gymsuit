@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, StatusPill, TableAction } from "@/components/dashboard/ui";
-import MemberFormModal, { JoiningFeeStep } from "@/components/dashboard/MemberFormModal";
+import MemberFormModal from "@/components/dashboard/MemberFormModal";
+import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import ChangePlanModal from "@/components/dashboard/ChangePlanModal";
 import TakePaymentModal from "@/components/dashboard/TakePaymentModal";
 import NotifyModal from "@/components/dashboard/NotifyModal";
@@ -24,7 +25,7 @@ import TeamManagerModal from "@/components/dashboard/TeamManagerModal";
 import TrainerFormModal from "@/components/dashboard/TrainerFormModal";
 import TrainerPayModal from "@/components/dashboard/TrainerPayModal";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
-import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
@@ -86,6 +87,171 @@ export default function PeoplePage() {
   );
 }
 
+function MemberMobileCard({
+  member,
+  index,
+  subscription,
+  pending,
+  hasNoActivePlan,
+  trainers,
+  assigningTrainerFor,
+  onAssignTrainer,
+  onTakePayment,
+  onPlan,
+  onEdit,
+  onNotify,
+}: {
+  member: Member;
+  index: number;
+  subscription?: MemberSubscription;
+  pending?: MemberSubscription;
+  hasNoActivePlan: boolean;
+  trainers: Trainer[];
+  assigningTrainerFor: number | null;
+  onAssignTrainer: (trainerId: number | null) => void;
+  onTakePayment: () => void;
+  onPlan: () => void;
+  onEdit: () => void;
+  onNotify: () => void;
+}) {
+  return (
+    <ExpandableRow
+      className={hasNoActivePlan ? "bg-red-50/30" : undefined}
+      summary={
+        <div className="flex items-center gap-3">
+          <div className="relative shrink-0">
+            <span
+              className={`grid size-10 place-items-center rounded-full text-[11px] font-bold ${index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"}`}
+            >
+              {initials(member.firstName, member.lastName)}
+            </span>
+            {hasNoActivePlan && (
+              <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-red-600 text-white shadow">
+                <AlertTriangle className="size-2.5" />
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold">
+              {member.firstName} {member.lastName}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-[#74746d]">
+              {subscription
+                ? `${subscription.planName} · ${subscription.planCurrency} ${subscription.planPrice}`
+                : pending
+                  ? `${pending.planName} · awaiting payment`
+                  : "No active plan"}
+            </p>
+          </div>
+          {pending ? (
+            <StatusPill label="Awaiting" tone="orange" />
+          ) : hasNoActivePlan ? (
+            <StatusPill label="No plan" tone="orange" />
+          ) : null}
+        </div>
+      }
+    >
+      <div className="space-y-1">
+        <DetailRow label="Contact">
+          <p>{member.phone}</p>
+          {member.email && <p className="text-[#696962]">{member.email}</p>}
+        </DetailRow>
+        <DetailRow label="Plan">
+          {subscription ? (
+            <>
+              <p className="font-semibold">{subscription.planName}</p>
+              <p className="text-[#74746d]">
+                {subscription.planCurrency} {subscription.planPrice}
+              </p>
+            </>
+          ) : pending ? (
+            <>
+              <p className="font-semibold">{pending.planName}</p>
+              <StatusPill label="Awaiting payment" tone="orange" />
+            </>
+          ) : (
+            <StatusPill label="No active plan" tone="orange" />
+          )}
+        </DetailRow>
+        <DetailRow label="Trainer">
+          <select
+            value={member.trainerId ?? ""}
+            disabled={assigningTrainerFor === member.id}
+            onChange={(e) => onAssignTrainer(e.target.value ? Number(e.target.value) : null)}
+            className="h-8 max-w-[150px] border border-[#d8d8d1] bg-white px-2 text-xs outline-none focus:border-[#24241f] disabled:opacity-50"
+          >
+            <option value="">No trainer</option>
+            {trainers.map((trainer) => (
+              <option key={trainer.id} value={trainer.id}>
+                {trainer.firstName} {trainer.lastName}
+              </option>
+            ))}
+          </select>
+        </DetailRow>
+        <DetailRow label="Next payment">
+          {subscription && subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[#696962]">{subscription.currentPeriodEnd}</span>
+              <PaymentCountdownBar
+                periodStart={subscription.currentPeriodStart}
+                periodEnd={subscription.currentPeriodEnd}
+              />
+            </div>
+          ) : (
+            <span className="text-[#696962]">—</span>
+          )}
+        </DetailRow>
+        <DetailRow label="Joined">{member.joinDate}</DetailRow>
+        <DetailRow label="Waiver">
+          <StatusPill label={member.waiverAccepted ? "Accepted" : "Missing"} tone={member.waiverAccepted ? "lime" : "orange"} />
+        </DetailRow>
+        <div className="flex flex-wrap items-center gap-2 pt-3">
+          {pending && <TableAction onClick={onTakePayment}>Take payment</TableAction>}
+          <TableAction onClick={onPlan}>Plan</TableAction>
+          <TableAction onClick={onEdit}>Edit</TableAction>
+          <button
+            type="button"
+            className="grid size-8 place-items-center text-[#3154a2] transition hover:bg-[#dce6ff]"
+            aria-label={`Notify ${member.firstName} ${member.lastName}`}
+            onClick={onNotify}
+          >
+            <BellRing className="size-4" />
+          </button>
+          {member.phone && (
+            <a
+              href={`tel:${member.phone}`}
+              className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700"
+              aria-label={`Call ${member.firstName}`}
+            >
+              <Phone className="size-3.5" />
+            </a>
+          )}
+          {member.phone && (
+            <a
+              href={`https://wa.me/${member.phone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="grid size-8 place-items-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
+              aria-label={`WhatsApp ${member.firstName}`}
+            >
+              <MessageCircle className="size-3.5" />
+            </a>
+          )}
+          {member.email && (
+            <a
+              href={`mailto:${member.email}`}
+              className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700"
+              aria-label={`Email ${member.firstName}`}
+            >
+              <Mail className="size-3.5" />
+            </a>
+          )}
+        </div>
+      </div>
+    </ExpandableRow>
+  );
+}
+
 function MembersPanel() {
   const session = useSession();
   const gymId = session?.gymId ?? null;
@@ -105,7 +271,6 @@ function MembersPanel() {
   const [modalState, setModalState] = useState<"closed" | "create" | Member>("closed");
   const [planModalMember, setPlanModalMember] = useState<Member | null>(null);
   const [takePaymentMember, setTakePaymentMember] = useState<Member | null>(null);
-  const [joiningFeeMember, setJoiningFeeMember] = useState<Member | null>(null);
   const [notifyMemberTarget, setNotifyMemberTarget] = useState<Member | null>(null);
   const [assigningTrainerFor, setAssigningTrainerFor] = useState<number | null>(null);
 
@@ -281,7 +446,7 @@ function MembersPanel() {
       )}
 
       {filtered.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1120px] text-left">
             <thead className="border-b border-[#e5e5de] bg-[#fafaf6]">
               <tr className="text-[10px] uppercase tracking-[0.12em] text-[#76766f]">
@@ -299,7 +464,7 @@ function MembersPanel() {
               {paginatedMembers.map((member, index) => {
                 const subscription = subscriptionsByMember[member.id];
                 const pending = pendingByMember[member.id];
-                const hasNoActivePlan = !subscription && !pending;
+                const hasNoActivePlan = !subscription;
                 return (
                 <tr className={`transition ${hasNoActivePlan ? "bg-red-50/30 hover:bg-red-50/60" : "hover:bg-[#fafaf6]"}`} key={member.id}>
                   <td className="px-5 py-4">
@@ -423,9 +588,6 @@ function MembersPanel() {
                       {pending && (
                         <TableAction onClick={() => setTakePaymentMember(member)}>Take payment</TableAction>
                       )}
-                      {!member.joiningFeePaid && gym?.joiningFee != null && (
-                        <TableAction onClick={() => setJoiningFeeMember(member)}>Collect joining fee</TableAction>
-                      )}
                       <TableAction onClick={() => setPlanModalMember(member)}>Plan</TableAction>
                       <TableAction onClick={() => setModalState(member)}>Edit</TableAction>
                       <button
@@ -443,6 +605,33 @@ function MembersPanel() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="divide-y divide-[#efefe9] md:hidden">
+          {paginatedMembers.map((member, index) => {
+            const subscription = subscriptionsByMember[member.id];
+            const pending = pendingByMember[member.id];
+            const hasNoActivePlan = !subscription;
+            return (
+              <MemberMobileCard
+                key={member.id}
+                member={member}
+                index={index}
+                subscription={subscription}
+                pending={pending}
+                hasNoActivePlan={hasNoActivePlan}
+                trainers={trainers}
+                assigningTrainerFor={assigningTrainerFor}
+                onAssignTrainer={(trainerId) => handleAssignTrainer(member.id, trainerId)}
+                onTakePayment={() => setTakePaymentMember(member)}
+                onPlan={() => setPlanModalMember(member)}
+                onEdit={() => setModalState(member)}
+                onNotify={() => setNotifyMemberTarget(member)}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -497,35 +686,6 @@ function MembersPanel() {
             refreshSubscriptions();
           }}
         />
-      )}
-
-      {joiningFeeMember && gymId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141410]/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto border border-[#d8d8d1] bg-white">
-            <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
-              <div>
-                <p className="ledger-label">One-time fee</p>
-                <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">Collect joining fee</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setJoiningFeeMember(null)}
-                className="grid size-8 place-items-center transition hover:bg-[#efefe9]"
-                aria-label="Close"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <JoiningFeeStep
-              gymId={gymId}
-              member={joiningFeeMember}
-              onDone={() => {
-                setJoiningFeeMember(null);
-                listMembers(gymId).then(setMembers).catch(() => {});
-              }}
-            />
-          </div>
-        </div>
       )}
 
       {takePaymentMember && pendingByMember[takePaymentMember.id] && (

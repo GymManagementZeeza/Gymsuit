@@ -6,6 +6,7 @@ import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, MetricCard, StatusPill } from "@/components/dashboard/ui";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import RecordTransactionModal from "@/components/dashboard/RecordTransactionModal";
+import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import MonthlyReportModal from "@/components/dashboard/MonthlyReportModal";
 import { useSession } from "@/hooks/useSession";
 import { listMembers, type Member } from "@/lib/members";
@@ -432,7 +433,7 @@ export default function PaymentsPage() {
         )}
 
         {sortedPayments.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[670px] text-left">
               <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
                 <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
@@ -468,6 +469,47 @@ export default function PaymentsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {sortedPayments.length > 0 && (
+          <div className="divide-y divide-[#ededE7] md:hidden">
+            {sortedPayments.map((payment) => (
+              <ExpandableRow
+                key={payment.id}
+                summary={
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">
+                        {memberNames[payment.memberId] ?? `Member #${payment.memberId}`}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[#8a8a82]">
+                        {new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <span className="mono shrink-0 text-sm font-bold">
+                      {payment.currency} {Number(payment.amount).toFixed(2)}
+                    </span>
+                    <StatusPill label={statusLabel(payment.status)} tone={statusTone(payment.status)} />
+                  </div>
+                }
+              >
+                <div className="space-y-1">
+                  <DetailRow label="Method">{paymentMethodLabel(payment.paymentMethod)}</DetailRow>
+                  <DetailRow label="Date">
+                    {new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </DetailRow>
+                  {payment.notes && <DetailRow label="Notes">{payment.notes}</DetailRow>}
+                </div>
+              </ExpandableRow>
+            ))}
           </div>
         )}
       </section>
@@ -509,7 +551,7 @@ export default function PaymentsPage() {
         )}
 
         {sortedTransactions.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[670px] text-left">
               <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
                 <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
@@ -559,6 +601,59 @@ export default function PaymentsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {sortedTransactions.length > 0 && (
+          <div className="divide-y divide-[#ededE7] md:hidden">
+            {sortedTransactions.map((transaction) => (
+              <ExpandableRow
+                key={transaction.id}
+                summary={
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">{transaction.description}</p>
+                      <p className="mt-0.5 text-xs text-[#8a8a82]">
+                        {new Date(transaction.occurredOn).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <span
+                      className={`mono shrink-0 text-sm font-bold ${
+                        transaction.direction === "EXPENSE" ? "text-red-700" : "text-[#3f7a1f]"
+                      }`}
+                    >
+                      {transaction.direction === "EXPENSE" ? "−" : "+"}
+                      {transaction.currency} {Number(transaction.amount).toFixed(2)}
+                    </span>
+                    <StatusPill
+                      label={transaction.direction === "INCOME" ? "Income" : "Expense"}
+                      tone={transaction.direction === "INCOME" ? "lime" : "orange"}
+                    />
+                  </div>
+                }
+              >
+                <div className="space-y-1">
+                  <DetailRow label="Method">{paymentMethodLabel(transaction.paymentMethod)}</DetailRow>
+                  <DetailRow label="Date">
+                    {new Date(transaction.occurredOn).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </DetailRow>
+                  {(transaction.memberId || transaction.notes) && (
+                    <DetailRow label="Details">
+                      {transaction.memberId ? memberNames[transaction.memberId] ?? `Member #${transaction.memberId}` : ""}
+                      {transaction.memberId && transaction.notes ? " · " : ""}
+                      {transaction.notes ?? ""}
+                    </DetailRow>
+                  )}
+                </div>
+              </ExpandableRow>
+            ))}
           </div>
         )}
       </section>
