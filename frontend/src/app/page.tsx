@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import HeroEmailForm from "@/components/HeroEmailForm";
 
 const featureCards = [
   {
@@ -106,18 +107,7 @@ export default function Home() {
                 GymSuite brings members, payments, notifications and paid-member access into one
                 easy-to-run system — built for independent gyms across India.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href="/login"
-                  className="button-saffron group justify-center px-6 py-3.5 text-base"
-                >
-                  See GymSuite in action{" "}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-                <a href="#pricing" className="button-quiet justify-center px-5 py-3.5 text-base">
-                  Start free for 20 members
-                </a>
-              </div>
+              <HeroEmailForm />
               <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-ink/60">
                 <span className="inline-flex items-center gap-2">
                   <Check className="h-4 w-4 text-sage" /> No setup fee

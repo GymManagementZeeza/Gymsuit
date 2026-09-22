@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
@@ -15,6 +15,18 @@ const navItems = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeMenu = () => setMobileOpen(false);
+
+  // Prevent background scrolling when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/95 backdrop-blur-md">
@@ -53,10 +65,11 @@ export default function Header() {
           </Link>
         </div>
 
+        {/* Mobile Hamburger Button */}
         <button
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
-          className="grid h-10 w-10 place-items-center rounded-full border border-ink/15 bg-white text-ink lg:hidden"
+          className="relative z-50 grid h-10 w-10 place-items-center rounded-full border border-ink/15 bg-white text-ink transition-colors active:scale-95 lg:hidden cursor-pointer"
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           aria-expanded={mobileOpen}
         >
@@ -64,28 +77,38 @@ export default function Header() {
         </button>
       </nav>
 
+      {/* Mobile Drawer Dropdown */}
       {mobileOpen && (
-        <div className="container animate-menu-in border-t border-ink/10 bg-paper pb-6 pt-4 lg:hidden">
-          <div className="flex flex-col gap-1">
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
+        <>
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 top-[76px] z-40 bg-ink/40 backdrop-blur-xs lg:hidden"
+            onClick={closeMenu}
+            aria-hidden="true"
+          />
+
+          <div className="container relative z-50 animate-menu-in border-t border-ink/10 bg-paper pb-6 pt-4 lg:hidden shadow-xl">
+            <div className="flex flex-col gap-1">
+              {navItems.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMenu}
+                  className="rounded-xl px-4 py-3.5 text-base font-semibold text-ink hover:bg-ink/5 transition-colors active:bg-ink/10"
+                >
+                  {item.label}
+                </a>
+              ))}
+              <Link
+                href="/login"
                 onClick={closeMenu}
-                className="rounded-xl px-3 py-3 text-base font-semibold hover:bg-ink/5"
+                className="button-ink mt-3 w-full justify-center py-3.5 text-base shadow-md"
               >
-                {item.label}
-              </a>
-            ))}
-            <Link
-              href="/login"
-              onClick={closeMenu}
-              className="button-ink mt-3 w-full justify-center py-3"
-            >
-              Login
-            </Link>
+                Login
+              </Link>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </header>
   );
