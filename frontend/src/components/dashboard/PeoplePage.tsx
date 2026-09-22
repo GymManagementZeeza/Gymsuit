@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, StatusPill, TableAction } from "@/components/dashboard/ui";
-import MemberFormModal from "@/components/dashboard/MemberFormModal";
+import MemberFormModal, { JoiningFeeStep } from "@/components/dashboard/MemberFormModal";
 import ChangePlanModal from "@/components/dashboard/ChangePlanModal";
 import TakePaymentModal from "@/components/dashboard/TakePaymentModal";
 import NotifyModal from "@/components/dashboard/NotifyModal";
@@ -24,7 +24,7 @@ import TeamManagerModal from "@/components/dashboard/TeamManagerModal";
 import TrainerFormModal from "@/components/dashboard/TrainerFormModal";
 import TrainerPayModal from "@/components/dashboard/TrainerPayModal";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
-import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
@@ -105,6 +105,7 @@ function MembersPanel() {
   const [modalState, setModalState] = useState<"closed" | "create" | Member>("closed");
   const [planModalMember, setPlanModalMember] = useState<Member | null>(null);
   const [takePaymentMember, setTakePaymentMember] = useState<Member | null>(null);
+  const [joiningFeeMember, setJoiningFeeMember] = useState<Member | null>(null);
   const [notifyMemberTarget, setNotifyMemberTarget] = useState<Member | null>(null);
   const [assigningTrainerFor, setAssigningTrainerFor] = useState<number | null>(null);
 
@@ -298,7 +299,7 @@ function MembersPanel() {
               {paginatedMembers.map((member, index) => {
                 const subscription = subscriptionsByMember[member.id];
                 const pending = pendingByMember[member.id];
-                const hasNoActivePlan = !subscription;
+                const hasNoActivePlan = !subscription && !pending;
                 return (
                 <tr className={`transition ${hasNoActivePlan ? "bg-red-50/30 hover:bg-red-50/60" : "hover:bg-[#fafaf6]"}`} key={member.id}>
                   <td className="px-5 py-4">
@@ -422,6 +423,9 @@ function MembersPanel() {
                       {pending && (
                         <TableAction onClick={() => setTakePaymentMember(member)}>Take payment</TableAction>
                       )}
+                      {!member.joiningFeePaid && gym?.joiningFee != null && (
+                        <TableAction onClick={() => setJoiningFeeMember(member)}>Collect joining fee</TableAction>
+                      )}
                       <TableAction onClick={() => setPlanModalMember(member)}>Plan</TableAction>
                       <TableAction onClick={() => setModalState(member)}>Edit</TableAction>
                       <button
@@ -493,6 +497,35 @@ function MembersPanel() {
             refreshSubscriptions();
           }}
         />
+      )}
+
+      {joiningFeeMember && gymId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141410]/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto border border-[#d8d8d1] bg-white">
+            <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
+              <div>
+                <p className="ledger-label">One-time fee</p>
+                <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">Collect joining fee</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setJoiningFeeMember(null)}
+                className="grid size-8 place-items-center transition hover:bg-[#efefe9]"
+                aria-label="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <JoiningFeeStep
+              gymId={gymId}
+              member={joiningFeeMember}
+              onDone={() => {
+                setJoiningFeeMember(null);
+                listMembers(gymId).then(setMembers).catch(() => {});
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {takePaymentMember && pendingByMember[takePaymentMember.id] && (

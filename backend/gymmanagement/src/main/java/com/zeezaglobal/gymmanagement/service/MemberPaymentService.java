@@ -44,6 +44,11 @@ public class MemberPaymentService {
     private final SecurityService securityService;
     private final GymActivityService activityService;
 
+    private static String formatAmount(BigDecimal amount) {
+        if (amount == null) return "";
+        return amount.stripTrailingZeros().toPlainString();
+    }
+
     public MemberPaymentResponse recordCashPayment(Long gymId, Long memberId, CashPaymentRequest request) {
         return recordManualPayment(gymId, memberId, request.subscriptionId(), request.amount(), request.currency(),
                 PaymentMethod.CASH, request.notes());
@@ -86,7 +91,7 @@ public class MemberPaymentService {
 
         payment = memberPaymentRepository.save(payment);
         activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
-                "Payment received " + payment.getCurrency() + " " + payment.getAmount()
+                "Payment received " + payment.getCurrency() + " " + formatAmount(payment.getAmount())
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " (" + method.name() + ")");
         return MemberPaymentResponse.fromEntity(payment);
@@ -123,7 +128,7 @@ public class MemberPaymentService {
 
         payment = memberPaymentRepository.save(payment);
         activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
-                "Payment received " + payment.getCurrency() + " " + payment.getAmount()
+                "Payment received " + payment.getCurrency() + " " + formatAmount(payment.getAmount())
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " for the " + subscription.getPlan().getName() + " plan (" + request.paymentMethod().name() + ")");
         return MemberPaymentResponse.fromEntity(payment);
@@ -167,7 +172,7 @@ public class MemberPaymentService {
         memberRepository.save(member);
 
         activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
-                "Joining fee received " + payment.getCurrency() + " " + payment.getAmount()
+                "Joining fee received " + payment.getCurrency() + " " + formatAmount(payment.getAmount())
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " (" + request.paymentMethod().name() + ")");
         return MemberPaymentResponse.fromEntity(payment);
