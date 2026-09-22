@@ -251,7 +251,7 @@ function PlanStep({
   );
 }
 
-function FeeStep({
+export function JoiningFeeStep({
   gymId,
   member,
   onDone,
@@ -339,7 +339,7 @@ function FeeStep({
     <div className="flex flex-col gap-5 p-5">
       <p className="text-sm text-[#5a5a54]">
         {member.firstName} owes a one-time joining fee of <strong>{currency} {fee}</strong> to finish registration.
-        This isn&apos;t optional — collect it now to complete adding this member.
+        You can collect it now, or skip it and collect it later from the member list.
       </p>
 
       <div className="flex items-end gap-3">
@@ -389,6 +389,14 @@ function FeeStep({
       {error && <ErrorBanner message={error} />}
 
       <div className="flex items-center justify-end gap-2 border-t border-[#e5e5de] pt-5">
+        <button
+          type="button"
+          onClick={onDone}
+          disabled={recording}
+          className="h-9 border border-[#d8d8d1] px-4 text-xs font-bold transition hover:bg-[#f7f7f2] disabled:opacity-60"
+        >
+          Skip for now
+        </button>
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
@@ -527,7 +535,7 @@ export default function MemberFormModal({
           ) : step === "plan" ? (
             createdMember && <PlanStep gymId={gymId} member={createdMember} plans={plans} onDone={handlePlanDone} />
           ) : (
-            createdMember && <FeeStep gymId={gymId} member={createdMember} onDone={handleFeeDone} />
+            createdMember && <JoiningFeeStep gymId={gymId} member={createdMember} onDone={handleFeeDone} />
           ))}
       </div>
     </div>,
