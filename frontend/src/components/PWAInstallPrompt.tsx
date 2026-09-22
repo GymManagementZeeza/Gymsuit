@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Download, X, Share, PlusSquare } from "lucide-react";
+import { Download, X, Share, PlusSquare, MoreVertical, Smartphone } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -14,10 +14,11 @@ export default function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [showPrompt, setShowPrompt] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
-  const [showIOSModal, setShowIOSModal] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Check if app is already running in standalone mode (installed PWA)
+    // 1. Check if app is running in standalone mode (already installed)
     const checkStandalone = () => {
       const isStandaloneMode =
         window.matchMedia("(display-mode: standalone)").matches ||
@@ -27,10 +28,12 @@ export default function PWAInstallPrompt() {
 
     checkStandalone();
 
-    // 2. Detect iOS device
+    // 2. Detect Device Type
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isMobileDevice = /mobi|android|iphone|ipad|ipod/i.test(userAgent);
     setIsIOS(isIosDevice);
+    setIsMobile(isMobileDevice);
 
     // 3. Listen for browser's beforeinstallprompt event (Android / Chrome / Edge)
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -46,7 +49,7 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // 4. Listen for successful installation event
+    // 4. Listen for appinstalled event
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
       setShowPrompt(false);
@@ -55,8 +58,8 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener("appinstalled", handleAppInstalled);
 
-    // 5. On iOS devices not in standalone, show install option if not dismissed
-    if (isIosDevice && !isStandalone) {
+    // 5. On mobile devices (not in standalone), ensure prompt banner shows up
+    if (isMobileDevice && !isStandalone) {
       const isDismissed = sessionStorage.getItem("gymsuite_pwa_dismissed");
       if (!isDismissed) {
         setShowPrompt(true);
@@ -71,16 +74,21 @@ export default function PWAInstallPrompt() {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // Trigger native browser PWA install prompt
-      await deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === "accepted") {
-        setShowPrompt(false);
+      // Trigger native browser install dialog
+      try {
+        await deferredPrompt.prompt();
+        const choiceResult = await deferredPrompt.userChoice;
+        if (choiceResult.outcome === "accepted") {
+          setShowPrompt(false);
+        }
+        setDeferredPrompt(null);
+      } catch (err) {
+        console.error("Install prompt error:", err);
+        setShowHelpModal(true);
       }
-      setDeferredPrompt(null);
-    } else if (isIOS) {
-      // Show iOS step-by-step instructions modal
-      setShowIOSModal(true);
+    } else {
+      // Show manual install guide for iOS or local HTTP connections
+      setShowHelpModal(true);
     }
   };
 
@@ -89,8 +97,8 @@ export default function PWAInstallPrompt() {
     sessionStorage.setItem("gymsuite_pwa_dismissed", "true");
   };
 
-  // Do not render anything if app is already running in standalone mode or prompt dismissed
-  if (isStandalone || (!showPrompt && !showIOSModal)) {
+  // Do not render if app is running in standalone mode or prompt dismissed
+  if (isStandalone || (!showPrompt && !showHelpModal)) {
     return null;
   }
 
@@ -109,7 +117,6 @@ export default function PWAInstallPrompt() {
                   height={44}
                   className="object-cover"
                   onError={(e) => {
-                    // Fallback icon if image path fails
                     (e.target as HTMLElement).style.display = "none";
                   }}
                 />
@@ -119,9 +126,7 @@ export default function PWAInstallPrompt() {
                   Install GymSuit
                 </h4>
                 <p className="text-xs text-slate-400 truncate">
-                  {isIOS
-                    ? "Add to Home Screen for fast access"
-                    : "Install app for full mobile experience"}
+                  Install app on your phone
                 </p>
               </div>
             </div>
@@ -147,8 +152,8 @@ export default function PWAInstallPrompt() {
         </div>
       )}
 
-      {/* iOS Add to Home Screen Instructions Modal */}
-      {showIOSModal && (
+      {/* Manual Install Instructions Modal */}
+      {showHelpModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
@@ -161,48 +166,82 @@ export default function PWAInstallPrompt() {
                   className="rounded-xl"
                 />
                 <div>
-                  <h3 className="font-bold text-base text-slate-100">Install GymSuite</h3>
-                  <p className="text-xs text-slate-400">iOS Safari Instructions</p>
+                  <h3 className="font-bold text-base text-slate-100">Install GymSuit</h3>
+                  <p className="text-xs text-slate-400">
+                    {isIOS ? "iOS Safari Instructions" : "Mobile App Instructions"}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowIOSModal(false)}
+                onClick={() => setShowHelpModal(false)}
                 className="p-1 text-slate-400 hover:text-white rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-sm text-slate-300 my-6">
-              <div className="flex items-start gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
-                <div className="p-2 bg-slate-700/50 rounded-xl text-emerald-400 shrink-0">
-                  <Share className="w-5 h-5" />
+            {isIOS ? (
+              <div className="space-y-3.5 text-sm text-slate-300 my-5">
+                <div className="flex items-start gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
+                  <div className="p-2 bg-slate-700/50 rounded-xl text-emerald-400 shrink-0">
+                    <Share className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-100 text-xs mb-0.5">1. Tap Share</p>
+                    <p className="text-xs text-slate-400">
+                      Tap the Share button in Safari&apos;s bottom toolbar.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-100 text-xs mb-0.5">1. Tap Share</p>
-                  <p className="text-xs text-slate-400">
-                    Tap the Share button in Safari&apos;s bottom navigation bar.
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-start gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
-                <div className="p-2 bg-slate-700/50 rounded-xl text-emerald-400 shrink-0">
-                  <PlusSquare className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-100 text-xs mb-0.5">
-                    2. Add to Home Screen
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Scroll down and tap &quot;Add to Home Screen&quot;.
-                  </p>
+                <div className="flex items-start gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
+                  <div className="p-2 bg-slate-700/50 rounded-xl text-emerald-400 shrink-0">
+                    <PlusSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-100 text-xs mb-0.5">
+                      2. Add to Home Screen
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Scroll down and tap &quot;Add to Home Screen&quot;.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3.5 text-sm text-slate-300 my-5">
+                <div className="flex items-start gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
+                  <div className="p-2 bg-slate-700/50 rounded-xl text-emerald-400 shrink-0">
+                    <MoreVertical className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-100 text-xs mb-0.5">
+                      1. Open Browser Menu
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Tap the 3 dots (&#8482;) menu icon in Chrome top-right corner.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
+                  <div className="p-2 bg-slate-700/50 rounded-xl text-emerald-400 shrink-0">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-100 text-xs mb-0.5">
+                      2. Install App or Add to Home Screen
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Tap &quot;Install App&quot; or &quot;Add to Home screen&quot;.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
-              onClick={() => setShowIOSModal(false)}
+              onClick={() => setShowHelpModal(false)}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-2xl text-sm transition-all"
             >
               Got it
