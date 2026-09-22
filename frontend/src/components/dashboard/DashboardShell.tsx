@@ -10,6 +10,7 @@ import { getGym } from "@/lib/gyms";
 import { getCurrentUser } from "@/lib/users";
 import { listSessionRequests } from "@/lib/sessionRequests";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
+import { BUILD_INFO } from "@/generated/build-info";
 import {
   Bell,
   BookOpenCheck,
@@ -323,6 +324,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">{children}</main>
+        <footer className="shrink-0 px-4 pb-5 sm:px-7 lg:px-9">
+          <p className="text-[11px] text-[#a3a39a]">
+            Version {BUILD_INFO.version} · Built {BUILD_INFO.builtAt}
+          </p>
+        </footer>
       </div>
 
       {logoutConfirmOpen && (

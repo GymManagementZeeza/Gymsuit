@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { BUILD_INFO } from "@/generated/build-info";
 
 const socialLinks = [
   {
@@ -74,6 +75,9 @@ export default function Footer() {
       </div>
       <p className="container mt-6 text-xs text-paper/40">
         &copy; {new Date().getFullYear()} GymSuite. All rights reserved.
+      </p>
+      <p className="container mt-2 text-[11px] text-paper/40">
+        Version {BUILD_INFO.version} · Built {BUILD_INFO.builtAt}
       </p>
     </footer>
   );
