@@ -59,6 +59,91 @@ function AccessCountdown({ subscription }: { subscription: MemberSubscription | 
   );
 }
 
+function MembershipCard({
+  subscription,
+  loading,
+}: {
+  subscription: MemberSubscription | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="cut-corner flex flex-col justify-between bg-[#c7f36a] p-5 text-[#24241f] lg:col-span-4">
+        <p className="text-sm font-bold">Checking your membership…</p>
+      </div>
+    );
+  }
+
+  if (!subscription) {
+    return (
+      <div className="cut-corner flex flex-col justify-between bg-[#c7f36a] p-5 text-[#24241f] lg:col-span-4">
+        <div>
+          <StatusPill label="No active plan" tone="ink" />
+          <h3 className="display-face mt-4 text-2xl leading-[1.1]">
+            No membership
+            <br />
+            yet
+          </h3>
+          <p className="mt-3 text-xs leading-relaxed text-[#4c592e]">
+            Talk to the front desk to get set up on a plan.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const pillLabel =
+    subscription.status === "PENDING"
+      ? "Awaiting payment"
+      : subscription.status === "ACTIVE"
+        ? "Membership active"
+        : subscription.status.charAt(0) + subscription.status.slice(1).toLowerCase();
+  const renewsOn = subscription.currentPeriodEnd
+    ? new Date(`${subscription.currentPeriodEnd}T00:00:00`).toLocaleDateString(undefined, {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+  const renewsShort = subscription.currentPeriodEnd
+    ? new Date(`${subscription.currentPeriodEnd}T00:00:00`)
+        .toLocaleDateString(undefined, { month: "short", day: "2-digit" })
+        .toUpperCase()
+    : null;
+  const price = Number.isInteger(subscription.planPrice)
+    ? String(subscription.planPrice)
+    : subscription.planPrice.toFixed(2);
+
+  return (
+    <div className="cut-corner flex flex-col justify-between bg-[#c7f36a] p-5 text-[#24241f] lg:col-span-4">
+      <div>
+        <StatusPill label={pillLabel} tone="ink" />
+        <h3 className="display-face mt-4 text-2xl leading-[1.1]">{subscription.planName}</h3>
+        {renewsOn && (
+          <p className="mt-3 text-xs leading-relaxed text-[#4c592e]">
+            Your gym membership renews on <b>{renewsOn}</b>.
+          </p>
+        )}
+      </div>
+      <div>
+        <div className="mt-6 flex items-center justify-between border-t border-[#24241f]/15 pt-4 text-xs font-bold">
+          <span>
+            {subscription.planCurrency} {price}
+          </span>
+          <Sparkles className="size-4" />
+          <span>{renewsShort}</span>
+        </div>
+        <Link
+          href="/clientdashboard/payments"
+          className="mt-4 flex items-center justify-center gap-2 bg-[#24241f] px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-[#46463e]"
+        >
+          View membership
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function WeightCard({
   gymId,
   memberId,
@@ -307,32 +392,7 @@ export default function ClientHome() {
           </div>
         </div>
 
-        <div className="cut-corner flex flex-col justify-between bg-[#c7f36a] p-5 text-[#24241f] lg:col-span-4">
-          <div>
-            <StatusPill label="Membership active" tone="ink" />
-            <h3 className="display-face mt-4 text-2xl leading-[1.1]">
-              North Loop
-              <br />
-              Unlimited
-            </h3>
-            <p className="mt-3 text-xs leading-relaxed text-[#4c592e]">
-              Your gym membership renews on <b>01 April 2025</b>.
-            </p>
-          </div>
-          <div>
-            <div className="mt-6 flex items-center justify-between border-t border-[#24241f]/15 pt-4 text-xs font-bold">
-              <span>$69</span>
-              <Sparkles className="size-4" />
-              <span>APR 01</span>
-            </div>
-            <Link
-              href="/clientdashboard/payments"
-              className="mt-4 flex items-center justify-center gap-2 bg-[#24241f] px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-[#46463e]"
-            >
-              View membership
-            </Link>
-          </div>
-        </div>
+        <MembershipCard subscription={subscription} loading={loadingSubscription} />
       </section>
     </div>
   );
