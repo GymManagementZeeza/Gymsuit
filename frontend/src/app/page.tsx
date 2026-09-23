@@ -227,6 +227,109 @@ export default function Home() {
           </div>
         </section>
 
+        <section id="tour" className="border-b border-ink/10 bg-paper py-24 sm:py-32">
+          <div className="container">
+            <div className="max-w-[660px]">
+              <div className="eyebrow mb-5">The product, up close</div>
+              <h2 className="display-title">
+                See GymSuite running
+                <br />
+                a real gym day.
+              </h2>
+              <p className="section-copy mt-6">
+                No mockups, no slideware. These are live screens from a gym operating on
+                GymSuite — members managed, payments collected, expenses tracked.
+              </p>
+            </div>
+
+            <div className="mt-14 grid gap-6">
+              <figure className="overflow-hidden rounded-[1.5rem] border border-ink/15 bg-white shadow-[12px_16px_0_rgba(20,35,33,0.08)]">
+                <div className="flex items-center gap-2 border-b border-ink/10 bg-sand/60 px-5 py-3.5">
+                  <span className="h-3 w-3 rounded-full bg-ink/15" />
+                  <span className="h-3 w-3 rounded-full bg-ink/15" />
+                  <span className="h-3 w-3 rounded-full bg-ink/15" />
+                  <span className="ml-3 hidden rounded-full bg-white px-4 py-1 text-xs font-medium text-ink/50 sm:block">
+                    gymsuit.app/dashboard
+                  </span>
+                </div>
+                <Image
+                  src="/screenshots/dashboard.png"
+                  alt="GymSuite owner dashboard showing membership revenue, new members, expenses and the member roster"
+                  width={1440}
+                  height={900}
+                  className="h-auto w-full"
+                  sizes="(min-width: 1024px) 1200px, 100vw"
+                />
+                <figcaption className="flex flex-col gap-1 border-t border-ink/10 px-6 py-5 sm:flex-row sm:items-baseline sm:justify-between">
+                  <p className="font-display text-xl font-bold tracking-[-0.04em]">
+                    The command overview
+                  </p>
+                  <p className="max-w-[520px] text-sm leading-6 text-ink/60">
+                    Revenue, new members, floor status and expenses — the whole gym in one
+                    glance, every morning.
+                  </p>
+                </figcaption>
+              </figure>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <figure className="overflow-hidden rounded-[1.5rem] border border-ink/15 bg-white shadow-[12px_16px_0_rgba(20,35,33,0.08)]">
+                  <div className="flex items-center gap-2 border-b border-ink/10 bg-sand/60 px-5 py-3.5">
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="ml-3 hidden rounded-full bg-white px-4 py-1 text-xs font-medium text-ink/50 sm:block">
+                      gymsuit.app/dashboard/members
+                    </span>
+                  </div>
+                  <Image
+                    src="/screenshots/members.png"
+                    alt="GymSuite member directory listing members with their plans, next payment dates and contact details"
+                    width={1440}
+                    height={900}
+                    className="h-auto w-full"
+                    sizes="(min-width: 1024px) 590px, 100vw"
+                  />
+                  <figcaption className="border-t border-ink/10 px-6 py-5">
+                    <p className="font-display text-xl font-bold tracking-[-0.04em]">
+                      Every member, one directory
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-ink/60">
+                      Plans, dues, waivers and contact history — no more paper registers.
+                    </p>
+                  </figcaption>
+                </figure>
+
+                <figure className="overflow-hidden rounded-[1.5rem] border border-ink/15 bg-white shadow-[12px_16px_0_rgba(20,35,33,0.08)]">
+                  <div className="flex items-center gap-2 border-b border-ink/10 bg-sand/60 px-5 py-3.5">
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="ml-3 hidden rounded-full bg-white px-4 py-1 text-xs font-medium text-ink/50 sm:block">
+                      gymsuit.app/dashboard/payments
+                    </span>
+                  </div>
+                  <Image
+                    src="/screenshots/expenses.png"
+                    alt="GymSuite payments page showing collected revenue, pending dues and income versus expense trends"
+                    width={1440}
+                    height={900}
+                    className="h-auto w-full"
+                    sizes="(min-width: 1024px) 590px, 100vw"
+                  />
+                  <figcaption className="border-t border-ink/10 px-6 py-5">
+                    <p className="font-display text-xl font-bold tracking-[-0.04em]">
+                      Money in, money out
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-ink/60">
+                      Collections, pending dues and expenses tracked against each other.
+                    </p>
+                  </figcaption>
+                </figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="access" className="bg-ink py-20 text-paper sm:py-28">
           <div className="container grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
             <div className="relative order-2 lg:order-1">
