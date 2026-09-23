@@ -15,7 +15,7 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gymsuit.app";
 const title = "GymSuite — Gym management, without the admin";
 const description =
   "GymSuite brings members, payments, notifications and paid-member access into one easy-to-run system for independent gyms.";
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     siteName: "GymSuite",
     title,
     description,
-    images: [{ url: "/opengraph-image.png", width: 1024, height: 1024, alt: "GymSuite" }],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "GymSuite — Gym management, without the admin" }],
   },
   twitter: {
     card: "summary_large_image",

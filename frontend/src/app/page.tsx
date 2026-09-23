@@ -73,7 +73,61 @@ const faqs = [
     q: "Will members have their own login?",
     a: "Yes. Each member receives their own personalised login for following progress, plans and timely gym updates.",
   },
+  {
+    q: "How does GymSuite handle membership payments and expenses?",
+    a: "GymSuite keeps every membership plan, joining fee and collection in one payments ledger, with pending dues, cash collected and income-versus-expense trends visible on the owner dashboard.",
+  },
+  {
+    q: "Do trainers get their own login?",
+    a: "Yes. Trainers get a dedicated dashboard to manage session requests, class schedules and their assigned members.",
+  },
+  {
+    q: "Can members check in at the front desk?",
+    a: "Yes. GymSuite supports front-desk check-in with a live floor view and attendance history, plus hardware-connected access like tripod entry and fingerprint verification.",
+  },
 ];
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gymsuit.app";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "GymSuite",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: siteUrl,
+      description:
+        "GymSuite brings members, payments, notifications and paid-member access into one easy-to-run system for independent gyms.",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "INR",
+        description: "Free for your first 20 active members",
+      },
+    },
+    {
+      "@type": "Organization",
+      name: "GymSuite",
+      url: siteUrl,
+      logo: `${siteUrl}/icon.png`,
+      contactPoint: {
+        "@type": "ContactPoint",
+        email: "info@gymmanagement.com",
+        contactType: "sales",
+      },
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.q,
+        acceptedAnswer: { "@type": "Answer", text: faq.a },
+      })),
+    },
+  ],
+};
 
 const pricingItems = [
   "Member management",
@@ -87,6 +141,10 @@ const pricingItems = [
 export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-paper text-ink selection:bg-saffron selection:text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Header />
 
       <main id="top">
