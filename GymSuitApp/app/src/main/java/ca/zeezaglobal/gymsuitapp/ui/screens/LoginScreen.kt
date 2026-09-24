@@ -35,36 +35,37 @@ fun LoginScreen(
     onBackClick: () -> Unit = {},
     onLoginClick: (String) -> Unit = {}
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     var email by remember { mutableStateOf("") }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212))
+            .background(colorScheme.surface)
     ) {
-        // Top Header Image (height 260dp)
+        // Top Header Image with light airy gym background
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp)
+                .height(280.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.gym_bg),
-                contentDescription = "Gym Header",
+                painter = painterResource(id = R.drawable.light_gym_bg),
+                contentDescription = "Light Gym Interior",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Overlay gradient
+            // Soft subtle gradient overlay to keep it bright and airy
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x66000000),
-                                Color(0x44000000),
-                                Color(0xAA000000)
+                                Color.Black.copy(alpha = 0.35f),
+                                Color.Transparent,
+                                colorScheme.surface.copy(alpha = 0.3f)
                             )
                         )
                     )
@@ -77,157 +78,136 @@ fun LoginScreen(
                     .statusBarsPadding()
                     .padding(start = 12.dp, top = 8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.25f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
         }
 
-        // White Curved Sheet occupying the bottom portion
+        // Curved Surface occupying the bottom portion
         Surface(
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = Color.White,
+            color = colorScheme.surface,
+            tonalElevation = 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(top = 220.dp)
+                .padding(top = 230.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .navigationBarsPadding()
                     .padding(horizontal = 24.dp)
-                    .padding(top = 40.dp, bottom = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(top = 32.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Title
-                Text(
-                    text = "Welcome Back!",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1A1A),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Subtitle
-                Text(
-                    text = "Log in with your gym-registered email address to access your custom workout plans and trainer.",
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = Color(0xFF666666),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Input Field Section
+                // Top content: Title, Subtitle, and Input Field
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.Start
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Email Address",
+                        text = "Welcome Back!",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Log in with your gym-registered email address to access your custom workout plans and trainer.",
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF222222)
+                        lineHeight = 20.sp,
+                        color = colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(36.dp))
 
-                    TextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        placeholder = {
-                            Text(
-                                text = "member@gymsuit.com",
-                                color = Color(0xFF9E9E9E),
-                                fontSize = 15.sp
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Email,
-                                contentDescription = null,
-                                tint = Color(0xFF757575)
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Done
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFF5F6F8),
-                            unfocusedContainerColor = Color(0xFFF5F6F8),
-                            disabledContainerColor = Color(0xFFF5F6F8),
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor = Color(0xFF1A1A1A),
-                            unfocusedTextColor = Color(0xFF1A1A1A)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                    )
+                    // Input Field Section
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = "Email Address",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colorScheme.onSurface
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            placeholder = {
+                                Text(
+                                    text = "member@gymsuit.com",
+                                    color = Color(0xFF9E9E9E),
+                                    fontSize = 15.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Email,
+                                    contentDescription = null,
+                                    tint = colorScheme.primary
+                                )
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Done
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFF8F9FB),
+                                unfocusedContainerColor = Color(0xFFF8F9FB),
+                                disabledContainerColor = Color(0xFFF8F9FB),
+                                focusedBorderColor = colorScheme.primary,
+                                unfocusedBorderColor = Color(0xFFE2E4E9),
+                                focusedTextColor = Color(0xFF1A1A1A),
+                                unfocusedTextColor = Color(0xFF1A1A1A),
+                                cursorColor = colorScheme.primary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // Log In Action Button
+                // Log In Action Button pinned to bottom, styled with device primary color
                 Button(
                     onClick = { onLoginClick(email) },
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(24.dp), // M3 expressive pill
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2C3E2D),
-                        contentColor = Color.White
+                        containerColor = colorScheme.primary, // Dynamically sourced from device primary color
+                        contentColor = colorScheme.onPrimary
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
+                        .height(56.dp)
                 ) {
                     Text(
                         text = "Log In",
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        // Floating App Logo (Positioned on top of the intersection line)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 196.dp)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = Color.White,
-                shadowElevation = 6.dp,
-                modifier = Modifier.wrapContentSize()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(Color(0xFF1A2A1B), Color(0xFF2C3E2D))
-                            ),
-                            shape = CircleShape
-                        )
-                        .padding(horizontal = 24.dp, vertical = 10.dp)
-                ) {
-                    Text(
-                        text = "GymSuit",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontStyle = FontStyle.Italic,
-                        letterSpacing = (-0.5).sp
                     )
                 }
             }

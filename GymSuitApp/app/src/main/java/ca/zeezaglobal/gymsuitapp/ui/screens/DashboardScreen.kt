@@ -6,9 +6,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -16,6 +14,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -45,10 +47,13 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -79,6 +84,7 @@ data class DayItem(
     val dayNumber: String
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateBack: () -> Unit = {}
@@ -114,6 +120,23 @@ fun DashboardScreen(
         )
     }
 
+    // Curated DiceBear Gaze avatars pool
+    val gazeAvatars = remember {
+        listOf(
+            R.drawable.avatar_gaze_1,
+            R.drawable.avatar_gaze_2,
+            R.drawable.avatar_gaze_3,
+            R.drawable.avatar_gaze_4,
+            R.drawable.avatar_gaze_5,
+            R.drawable.avatar_gaze_6,
+            R.drawable.avatar_gaze_7,
+            R.drawable.avatar_gaze_8
+        )
+    }
+
+    // Pick a random avatar on each new app launch / open
+    val userAvatarResId = remember { gazeAvatars.random() }
+
     // Pick 2 random distinct greeting texts per app load / open
     val sessionGreetingTexts = remember {
         allGreetingTexts.shuffled().take(2)
@@ -125,6 +148,29 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         delay(3500)
         greetingIndex = 1
+    }
+
+    var isRefreshing by remember { mutableStateOf(false) }
+    var syncKey by remember { mutableIntStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Material 3 Motion Curves & Tokens
+    // Emphasized: (0.2, 0.0, 0.0, 1.0)
+    // Emphasized Accelerate: (0.3, 0.0, 0.8, 0.15)
+    // Emphasized Decelerate: (0.05, 0.7, 0.1, 1.0)
+    val m3EmphasizedEasing = remember { CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f) }
+    val m3EmphasizedDecelerateEasing = remember { CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f) }
+
+    fun triggerSync() {
+        if (!isRefreshing) {
+            isRefreshing = true
+            coroutineScope.launch {
+                // Simulate network/sensor refresh & sync Health Connect data
+                delay(1200)
+                syncKey += 1
+                isRefreshing = false
+            }
+        }
     }
 
     Box(
@@ -147,15 +193,15 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // User Avatar
+                    // User Avatar (DiceBear Gaze style - randomized on open)
                     Image(
-                        painter = painterResource(id = R.drawable.trainer_1),
+                        painter = painterResource(id = userAvatarResId),
                         contentDescription = "User Profile",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                            .border(1.5.dp, Color(0xFFE5E7EB), CircleShape)
                     )
 
                     // Material 3 Notification Bell with M3 Shape and Badge
@@ -214,11 +260,41 @@ fun DashboardScreen(
             ) { tab ->
                 when (tab) {
                     DashboardTab.HOME -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                        val pullToRefreshState = rememberPullToRefreshState()
+
+                        PullToRefreshBox(
+                            isRefreshing = isRefreshing,
+                            onRefresh = { triggerSync() },
+                            state = pullToRefreshState,
+                            indicator = {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 16.dp)
+                                ) {
+                                    if (isRefreshing) {
+                                        M3ExpressiveLoadingIndicator(
+                                            size = 48.dp,
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            indicatorColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        PullToRefreshDefaults.Indicator(
+                                            state = pullToRefreshState,
+                                            isRefreshing = false,
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
                         ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                            ) {
                             // Greeting Banner
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
@@ -366,7 +442,7 @@ fun DashboardScreen(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    HealthOverviewWidget()
+                                    HealthOverviewWidget(syncTrigger = syncKey)
                                     ActivityStatisticWidget()
                                 }
                             }
@@ -375,8 +451,10 @@ fun DashboardScreen(
                             Spacer(modifier = Modifier.height(100.dp))
                         }
                     }
+                }
                     DashboardTab.SETTINGS -> {
                         SettingsPageContent(
+                            avatarResId = userAvatarResId,
                             onBackClick = { selectedTab = DashboardTab.HOME }
                         )
                     }
@@ -548,7 +626,9 @@ private fun GymSuitScoreWidget() {
 }
 
 @Composable
-private fun HealthOverviewWidget() {
+private fun HealthOverviewWidget(
+    syncTrigger: Int = 0
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val healthConnectManager = remember { HealthConnectManager(context) }
@@ -558,8 +638,8 @@ private fun HealthOverviewWidget() {
     var isChecking by remember { mutableStateOf(true) }
     val isAvailable = remember { healthConnectManager.isAvailable() }
 
-    // Load initial permission and weight
-    LaunchedEffect(Unit) {
+    // Load initial permission and weight, and reload whenever syncTrigger updates
+    LaunchedEffect(syncTrigger) {
         if (isAvailable) {
             val granted = healthConnectManager.hasWeightPermission()
             hasPermission = granted
@@ -989,6 +1069,173 @@ private fun DashboardFloatingNavBar(
                     modifier = Modifier.size(24.dp)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Material 3 Expressive Loading Indicator matching:
+ * - https://m3.material.io/components/loading-indicator/overview
+ * - https://github.com/material-components/material-components-android/blob/master/docs/components/LoadingIndicator.md
+ *
+ * Supports:
+ * - Default (Contained): Active shape-morphing indicator housed within an elevated container (default 48dp).
+ * - Uncontained: Direct shape-morphing indicator without a background container surface (default 36dp).
+ * - Dynamic color tokens: indicatorColor = colorScheme.primary, containerColor = colorScheme.surfaceContainerHighest.
+ */
+@Composable
+fun M3ExpressiveLoadingIndicator(
+    modifier: Modifier = Modifier,
+    isContained: Boolean = true,
+    size: androidx.compose.ui.unit.Dp = if (isContained) 48.dp else 36.dp,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    indicatorColor: Color = MaterialTheme.colorScheme.primary
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "M3LoadingIndicatorMotion")
+
+    // Slow, graceful continuous rotation (4800ms)
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 4800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "M3LoadingRotation"
+    )
+
+    // Smooth, leisurely shape morphing cycle (5400ms) with M3 Emphasized easing
+    val morphProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 5400,
+                easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f) // M3 Emphasized easing
+            ),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "M3LoadingShapeMorph"
+    )
+
+    // Very gentle, calm breathing pulse (1800ms)
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 1800,
+                easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f) // M3 Emphasized Decelerate
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "M3LoadingScale"
+    )
+
+    val content = @Composable {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .size(if (isContained) size * 0.56f else size * 0.80f)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        rotationZ = rotation
+                    }
+            ) {
+                val canvasSize = this.size.minDimension
+                val center = androidx.compose.ui.geometry.Offset(this.size.width / 2f, this.size.height / 2f)
+                val baseRadius = canvasSize * 0.44f
+
+                // Continuous radial function R(theta, progress) for seamless vertex morphing
+                val progress = morphProgress % 3f
+                val totalSteps = 48
+                val path = Path()
+
+                val points = ArrayList<androidx.compose.ui.geometry.Offset>(totalSteps)
+
+                for (i in 0 until totalSteps) {
+                    val angleRad = (i * 2.0 * Math.PI) / totalSteps
+
+                    // Shape 1 (Clover / 4-petal flower): r = 0.78 + 0.22 * cos(4 * theta)
+                    val rShape1 = (0.78 + 0.22 * Math.cos(4.0 * angleRad)).toFloat()
+
+                    // Shape 2 (Soft Rounded Diamond / 2-fold symmetric): r = 0.82 + 0.18 * cos(2 * theta)
+                    val rShape2 = (0.82 + 0.18 * Math.cos(2.0 * angleRad)).toFloat()
+
+                    // Shape 3 (Soft Rounded Triangle / 3-petal organic): r = 0.80 + 0.20 * cos(3 * theta)
+                    val rShape3 = (0.80 + 0.20 * Math.cos(3.0 * angleRad)).toFloat()
+
+                    // Smooth interpolation between shapes based on current progress phase
+                    val currentR = when {
+                        progress < 1f -> {
+                            val t = progress
+                            // Hermite smoothstep for velvet interpolation
+                            val smoothT = t * t * (3f - 2f * t)
+                            rShape1 * (1f - smoothT) + rShape2 * smoothT
+                        }
+                        progress < 2f -> {
+                            val t = progress - 1f
+                            val smoothT = t * t * (3f - 2f * t)
+                            rShape2 * (1f - smoothT) + rShape3 * smoothT
+                        }
+                        else -> {
+                            val t = progress - 2f
+                            val smoothT = t * t * (3f - 2f * t)
+                            rShape3 * (1f - smoothT) + rShape1 * smoothT
+                        }
+                    }
+
+                    val r = baseRadius * currentR
+                    val x = center.x + (r * Math.cos(angleRad)).toFloat()
+                    val y = center.y + (r * Math.sin(angleRad)).toFloat()
+                    points.add(androidx.compose.ui.geometry.Offset(x, y))
+                }
+
+                // Construct smooth closed spline curve through the points
+                path.moveTo(points[0].x, points[0].y)
+                for (i in 0 until totalSteps) {
+                    val p0 = points[(i - 1 + totalSteps) % totalSteps]
+                    val p1 = points[i]
+                    val p2 = points[(i + 1) % totalSteps]
+                    val p3 = points[(i + 2) % totalSteps]
+
+                    // Catmull-Rom to Cubic Bezier conversion for silky continuous tangent curvature
+                    val cp1x = p1.x + (p2.x - p0.x) / 6f
+                    val cp1y = p1.y + (p2.y - p0.y) / 6f
+                    val cp2x = p2.x - (p3.x - p1.x) / 6f
+                    val cp2y = p2.y - (p3.y - p1.y) / 6f
+
+                    path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y)
+                }
+                path.close()
+
+                drawPath(
+                    path = path,
+                    color = indicatorColor
+                )
+            }
+        }
+    }
+
+    if (isContained) {
+        Surface(
+            shape = CircleShape,
+            color = containerColor,
+            shadowElevation = 6.dp,
+            tonalElevation = 4.dp,
+            modifier = modifier.size(size)
+        ) {
+            content()
+        }
+    } else {
+        Box(
+            modifier = modifier.size(size)
+        ) {
+            content()
         }
     }
 }
