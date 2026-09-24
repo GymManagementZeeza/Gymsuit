@@ -92,40 +92,9 @@ fun OnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: App Tag & Skip Action
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = colorScheme.secondaryContainer,
-                    modifier = Modifier.wrapContentSize()
-                ) {
-                    Text(
-                        text = "GYMSUIT",
-                        color = colorScheme.onSecondaryContainer,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
+            Spacer(modifier = Modifier.height(8.dp))
 
-                TextButton(onClick = onSkipClick) {
-                    Text(
-                        text = "Skip",
-                        color = colorScheme.onSurfaceVariant,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            // Center: Official Material 3 Multi-Browse Carousel
+            // Center: Official Material 3 Multi-Browse Carousel matching reference
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -134,96 +103,72 @@ fun OnboardingScreen(
             ) {
                 HorizontalMultiBrowseCarousel(
                     state = carouselState,
-                    preferredItemWidth = 300.dp,
-                    itemSpacing = 12.dp,
+                    preferredItemWidth = 240.dp,
+                    itemSpacing = 16.dp,
                     contentPadding = PaddingValues(horizontal = 24.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.92f)
+                        .fillMaxHeight(0.88f)
                 ) { index ->
                     val item = carouselItems[index]
 
-                    Surface(
-                        shape = RoundedCornerShape(32.dp), // M3 extra-large shape
-                        color = colorScheme.surfaceContainerHigh,
-                        shadowElevation = 4.dp,
-                        tonalElevation = 2.dp,
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(32.dp))
+                            .maskClip(RoundedCornerShape(40.dp))
                     ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Image(
-                                painter = painterResource(id = item.imageRes),
-                                contentDescription = item.headline,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                        Image(
+                            painter = painterResource(id = item.imageRes),
+                            contentDescription = item.headline,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
 
-                            // Scrim gradient for readability
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = 0.55f),
-                                                Color.Black.copy(alpha = 0.92f)
-                                            )
+                        // Bottom gradient scrim
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            Color.Black.copy(alpha = 0.45f),
+                                            Color.Black.copy(alpha = 0.88f)
                                         )
                                     )
+                                )
+                        )
+
+                        // Content overlay: Headline & Tag at bottom left
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(horizontal = 20.dp, vertical = 24.dp)
+                        ) {
+                            Text(
+                                text = item.headline,
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 24.sp
                             )
 
-                            // Content overlay: Tag, Headline, and Description
-                            Column(
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(horizontal = 22.dp, vertical = 26.dp)
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.White.copy(alpha = 0.22f),
-                                    modifier = Modifier.wrapContentSize()
-                                ) {
-                                    Text(
-                                        text = item.tag,
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        letterSpacing = 0.5.sp,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                    )
-                                }
+                            Spacer(modifier = Modifier.height(6.dp))
 
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Text(
-                                    text = item.headline,
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    lineHeight = 26.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = item.description,
-                                    color = Color.White.copy(alpha = 0.82f),
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    maxLines = 3
-                                )
-                            }
+                            Text(
+                                text = item.description,
+                                color = Color.White.copy(alpha = 0.82f),
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                maxLines = 2
+                            )
                         }
                     }
                 }
             }
 
-            // Bottom Section: Get Started Button
+            // Bottom Section: Get Started Button (Material 3 Button styled with dynamic device primary color)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -233,9 +178,9 @@ fun OnboardingScreen(
             ) {
                 Button(
                     onClick = onContinueClick,
-                    shape = RoundedCornerShape(24.dp), // M3 expressive pill
+                    shape = RoundedCornerShape(24.dp), // M3 expressive pill shape
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = colorScheme.primary,
+                        containerColor = colorScheme.primary, // Dynamically sourced from device primary color
                         contentColor = colorScheme.onPrimary
                     ),
                     modifier = Modifier

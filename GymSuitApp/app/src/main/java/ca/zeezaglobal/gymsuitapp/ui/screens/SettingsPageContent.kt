@@ -41,6 +41,7 @@ enum class AppearanceMode(val label: String, val icon: ImageVector) {
 
 @Composable
 fun SettingsPageContent(
+    avatarResId: Int = R.drawable.avatar_gaze_1,
     onBackClick: () -> Unit = {}
 ) {
     var selectedAppearance by remember { mutableStateOf(AppearanceMode.LIGHT) }
@@ -116,7 +117,7 @@ fun SettingsPageContent(
                 modifier = Modifier.wrapContentSize()
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.trainer_1),
+                    painter = painterResource(id = avatarResId),
                     contentDescription = "Profile Photo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
