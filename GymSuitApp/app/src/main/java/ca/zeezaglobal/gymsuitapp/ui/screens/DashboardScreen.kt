@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.health.connect.client.PermissionController
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import ca.zeezaglobal.gymsuitapp.data.CaloriesBreakdown
 import ca.zeezaglobal.gymsuitapp.data.SleepSessionData
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -470,7 +471,10 @@ fun DashboardScreen(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     HealthOverviewWidget(syncTrigger = syncKey)
-                                    ActivityStatisticWidget()
+                                    CaloriesBurnedWidget(
+                                        selectedDate = days[selectedDayIndex].localDate,
+                                        syncTrigger = syncKey
+                                    )
                                 }
                             }
 
@@ -1193,7 +1197,56 @@ private fun SleepWidget(
 }
 
 @Composable
-private fun ActivityStatisticWidget() {
+private fun CaloriesBurnedWidget(
+    selectedDate: LocalDate = LocalDate.now(),
+    syncTrigger: Int = 0
+) {
+    val context = LocalContext.current
+    val healthConnectManager = remember { HealthConnectManager(context) }
+    var caloriesBreakdown by remember { mutableStateOf<CaloriesBreakdown>(CaloriesBreakdown(0.0, 0.0, 0.0, 0.0, false)) }
+    var hasPermission by remember { mutableStateOf(false) }
+    val isAvailable = remember { healthConnectManager.isAvailable() }
+
+    LaunchedEffect(selectedDate, syncTrigger) {
+        if (isAvailable) {
+            val granted = healthConnectManager.hasCaloriesPermission()
+            hasPermission = granted
+            if (granted) {
+                caloriesBreakdown = healthConnectManager.readCaloriesBreakdownForDate(selectedDate)
+            }
+        }
+    }
+
+    val totalKcal = caloriesBreakdown.totalKcal
+    val hasData = caloriesBreakdown.hasData && totalKcal > 0.0
+
+    // Compute dynamic proportions based on real category values
+    val (pWorkout, pSteps, pMove) = remember(caloriesBreakdown, hasData) {
+        if (!hasData) {
+            Triple(0.33f, 0.33f, 0.34f)
+        } else {
+            val w = caloriesBreakdown.workoutKcal
+            val s = caloriesBreakdown.stepsKcal
+            val m = caloriesBreakdown.moveKcal
+            val sum = (w + s + m).coerceAtLeast(1.0)
+            // Ensure minimum visual share so each category's floating badge is well-spaced
+            val rawW = (w / sum).coerceIn(0.18, 0.64)
+            val rawS = (s / sum).coerceIn(0.18, 0.64)
+            val rawM = (1.0 - rawW - rawS).coerceAtLeast(0.18)
+            val norm = rawW + rawS + rawM
+            Triple((rawW / norm).toFloat(), (rawS / norm).toFloat(), (rawM / norm).toFloat())
+        }
+    }
+
+    val sweepWorkout = pWorkout * 360f
+    val sweepSteps = pSteps * 360f
+    val sweepMove = 360f - sweepWorkout - sweepSteps
+
+    val baseAngle = -90f
+    val midWorkout = baseAngle + sweepWorkout / 2f
+    val midSteps = baseAngle + sweepWorkout + sweepSteps / 2f
+    val midMove = baseAngle + sweepWorkout + sweepSteps + sweepMove / 2f
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
@@ -1204,87 +1257,153 @@ private fun ActivityStatisticWidget() {
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Header: Flame Icon and Title
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Favorite,
-                    contentDescription = null,
-                    tint = Color(0xFF374151),
-                    modifier = Modifier.size(18.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFEDD5)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocalFireDepartment,
+                        contentDescription = "Calories",
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Mood Statistic",
+                    text = "Calories",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF111827)
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // Donut Chart with Floating Category Badges (Reference Style)
             Box(
-                modifier = Modifier.size(110.dp),
+                modifier = Modifier
+                    .size(140.dp)
+                    .padding(vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val strokeWidth = 14.dp.toPx()
+                // Donut Ring Canvas
+                Canvas(modifier = Modifier.size(102.dp)) {
+                    val strokeWidth = 16.dp.toPx()
 
-                    drawArc(
-                        color = Color(0xFF6EE7B7),
-                        startAngle = 130f,
-                        sweepAngle = 220f,
-                        useCenter = false,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-
-                    drawArc(
-                        color = Color(0xFFFDE047),
-                        startAngle = 0f,
-                        sweepAngle = 80f,
-                        useCenter = false,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-
-                    drawArc(
-                        color = Color(0xFFF472B6),
-                        startAngle = 90f,
-                        sweepAngle = 35f,
-                        useCenter = false,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
+                    if (!hasData) {
+                        drawArc(
+                            color = Color(0xFFF1F5F9),
+                            startAngle = 0f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            style = Stroke(width = strokeWidth)
+                        )
+                    } else {
+                        // 1. Workout segment (Soft Blue)
+                        drawArc(
+                            color = Color(0xFF60A5FA),
+                            startAngle = baseAngle,
+                            sweepAngle = sweepWorkout,
+                            useCenter = false,
+                            style = Stroke(width = strokeWidth)
+                        )
+                        // 2. Steps segment (Mint Green)
+                        drawArc(
+                            color = Color(0xFF34D399),
+                            startAngle = baseAngle + sweepWorkout,
+                            sweepAngle = sweepSteps,
+                            useCenter = false,
+                            style = Stroke(width = strokeWidth)
+                        )
+                        // 3. Move segment (Soft Yellow)
+                        drawArc(
+                            color = Color(0xFFFBBF24),
+                            startAngle = baseAngle + sweepWorkout + sweepSteps,
+                            sweepAngle = sweepMove,
+                            useCenter = false,
+                            style = Stroke(width = strokeWidth)
+                        )
+                    }
                 }
 
+                // Center Readout
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "235",
+                        text = if (hasData) "${totalKcal.toInt()}" else "0",
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (hasData) Color(0xFF111827) else Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "Happy Mins",
+                        text = "Total Calories",
                         fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium,
                         color = Color(0xFF6B7280)
+                    )
+                }
+
+                // Floating Category Pill Badges on Perimeter
+                if (hasData) {
+                    FloatingCategoryBadge(
+                        label = "Workout",
+                        angleDegrees = midWorkout,
+                        textColor = Color(0xFF1D4ED8),
+                        radiusDp = 50f
+                    )
+                    FloatingCategoryBadge(
+                        label = "Steps",
+                        angleDegrees = midSteps,
+                        textColor = Color(0xFF047857),
+                        radiusDp = 50f
+                    )
+                    FloatingCategoryBadge(
+                        label = "Move",
+                        angleDegrees = midMove,
+                        textColor = Color(0xFFB45309),
+                        radiusDp = 50f
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                LegendItem(color = Color(0xFF6EE7B7), label = "Happy")
-                LegendItem(color = Color(0xFFFDE047), label = "Sad")
-                LegendItem(color = Color(0xFFF472B6), label = "Angry")
-            }
+            Spacer(modifier = Modifier.height(6.dp))
         }
+    }
+}
+
+@Composable
+private fun FloatingCategoryBadge(
+    label: String,
+    angleDegrees: Float,
+    textColor: Color,
+    radiusDp: Float
+) {
+    val rad = Math.toRadians(angleDegrees.toDouble())
+    val offsetX = (Math.cos(rad) * radiusDp).dp
+    val offsetY = (Math.sin(rad) * radiusDp).dp
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White,
+        shadowElevation = 3.dp,
+        modifier = Modifier.offset(x = offsetX, y = offsetY)
+    ) {
+        Text(
+            text = label,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
 
