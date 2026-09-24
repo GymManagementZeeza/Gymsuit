@@ -8,7 +8,9 @@ import { useSession } from "@/hooks/useSession";
 import { clearSession, dashboardPathForRole, type LoginResponse } from "@/lib/auth";
 import { getGym } from "@/lib/gyms";
 import { getCurrentUser } from "@/lib/users";
+import { listSessionRequests } from "@/lib/sessionRequests";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
+import { BUILD_INFO } from "@/generated/build-info";
 import {
   Bell,
   BookOpenCheck,
@@ -41,7 +43,7 @@ const navGroups = [
   {
     label: "Training",
     items: [
-      { label: "Session requests", href: "/dashboard/session-requests", icon: BookOpenCheck, badge: "3" },
+      { label: "Session requests", href: "/dashboard/session-requests", icon: BookOpenCheck },
       { label: "Schedule", href: "/dashboard/schedule", icon: CalendarCheck2 },
     ],
   },
@@ -86,6 +88,7 @@ function NavContent({
   roleLabel,
   displayName,
   initials,
+  pendingRequests,
 }: {
   pathname: string;
   onNavigate: () => void;
@@ -93,6 +96,7 @@ function NavContent({
   roleLabel: string;
   displayName: string;
   initials: string;
+  pendingRequests: number;
 }) {
   return (
     <>
@@ -130,6 +134,9 @@ function NavContent({
               {group.items.map((item) => {
                 const active = pathname === item.href;
                 const Icon = item.icon;
+                // Live count for session requests; no badge when there is nothing pending.
+                const badge =
+                  item.href === "/dashboard/session-requests" ? pendingRequests : 0;
                 return (
                   <Link
                     key={item.label}
@@ -141,9 +148,9 @@ function NavContent({
                   >
                     <Icon className="size-4" />
                     <span>{item.label}</span>
-                    {"badge" in item && item.badge && (
+                    {badge > 0 && (
                       <span className="ml-auto bg-[#c7f36a] px-1.5 py-0.5 text-[9px] font-bold text-[#24241f]">
-                        {item.badge}
+                        {badge}
                       </span>
                     )}
                   </Link>
@@ -197,6 +204,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const [navOpen, setNavOpen] = useState(false);
   const [gymName, setGymName] = useState<string | null>(null);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [userName, setUserName] = useState<string | null>(null);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const closeNav = () => setNavOpen(false);
@@ -215,6 +223,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       .then((gym) => setGymName(gym.name))
       .catch(() => {});
   }, [session?.gymId]);
+
+  // Keep the Session requests badge honest: reflect the real pending count,
+  // and refresh on navigation so it updates after approve/reject actions.
+  useEffect(() => {
+    if (!session?.gymId) return;
+    listSessionRequests(session.gymId)
+      .then((requests) =>
+        setPendingRequests(requests.filter((r) => r.status === "PENDING").length)
+      )
+      .catch(() => {});
+  }, [session?.gymId, pathname]);
 
   useEffect(() => {
     if (!session) return;
@@ -257,6 +276,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           roleLabel={roleLabel}
           displayName={displayName || "…"}
           initials={initials}
+          pendingRequests={pendingRequests}
         />
       </aside>
 
@@ -304,6 +324,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">{children}</main>
+        <footer className="shrink-0 px-4 pb-5 sm:px-7 lg:px-9">
+          <p className="text-[11px] text-[#a3a39a]">
+            Version {BUILD_INFO.version} · Built {BUILD_INFO.builtAt}
+          </p>
+        </footer>
       </div>
 
       {logoutConfirmOpen && (

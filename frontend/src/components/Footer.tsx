@@ -1,9 +1,10 @@
 import Image from "next/image";
+import { BUILD_INFO } from "@/generated/build-info";
 
 const socialLinks = [
   {
     label: "Instagram",
-    href: "#",
+    href: "https://www.instagram.com/zeeza.global",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
         <rect x="3" y="3" width="18" height="18" rx="5" />
@@ -13,17 +14,8 @@ const socialLinks = [
     ),
   },
   {
-    label: "X",
-    href: "#",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-        <path d="M18.244 2H21.5l-7.5 8.57L22.75 22h-6.83l-5.35-6.99L4.5 22H1.24l8.02-9.17L1 2h6.99l4.84 6.4L18.244 2Zm-1.2 18.17h1.83L7.03 3.72H5.06l11.98 16.45Z" />
-      </svg>
-    ),
-  },
-  {
     label: "LinkedIn",
-    href: "#",
+    href: "https://www.linkedin.com/company/zeeza-winnipeg/",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
         <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9h4v12H3V9Zm7 0h3.83v1.64h.05c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1V21h-4v-5.6c0-1.34-.02-3.06-1.87-3.06-1.87 0-2.16 1.46-2.16 2.96V21h-4V9Z" />
@@ -51,10 +43,10 @@ export default function Footer() {
         <p className="text-xs leading-5">Gym management, thoughtfully built for India.</p>
         <div className="flex items-center gap-6">
           <div className="flex gap-5 text-xs font-semibold">
-            <a href="mailto:info@gymmanagement.com" className="transition-colors hover:text-paper">
+            <a href="/privacy" className="transition-colors hover:text-paper">
               Privacy
             </a>
-            <a href="mailto:info@gymmanagement.com" className="transition-colors hover:text-paper">
+            <a href="/terms" className="transition-colors hover:text-paper">
               Terms
             </a>
           </div>
@@ -74,6 +66,9 @@ export default function Footer() {
       </div>
       <p className="container mt-6 text-xs text-paper/40">
         &copy; {new Date().getFullYear()} GymSuite. All rights reserved.
+      </p>
+      <p className="container mt-2 text-[11px] text-paper/40">
+        Version {BUILD_INFO.version} · Built {BUILD_INFO.builtAt}
       </p>
     </footer>
   );
