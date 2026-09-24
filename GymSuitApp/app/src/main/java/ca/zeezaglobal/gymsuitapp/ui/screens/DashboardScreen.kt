@@ -38,11 +38,17 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.health.connect.client.PermissionController
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import ca.zeezaglobal.gymsuitapp.data.SleepSessionData
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.content.Context
 import androidx.compose.ui.platform.LocalContext
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,7 +87,8 @@ enum class DashboardTab(
 
 data class DayItem(
     val dayName: String,
-    val dayNumber: String
+    val dayNumber: String,
+    val localDate: LocalDate
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,19 +98,22 @@ fun DashboardScreen(
 ) {
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
 
-    var selectedDayIndex by remember { mutableIntStateOf(2) } // Wednesday (index 2) default selected
-
-    val days = remember {
-        listOf(
-            DayItem("Mon", "18"),
-            DayItem("Tue", "19"),
-            DayItem("Wed", "20"),
-            DayItem("Thu", "21"),
-            DayItem("Fri", "22"),
-            DayItem("Sat", "23"),
-            DayItem("Sun", "24")
-        )
+    // Dynamically generate 30 days ending with Today (last index = 29 = Today)
+    val today = remember { LocalDate.now() }
+    val days = remember(today) {
+        val dayNameFormatter = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
+        (29 downTo 0).map { daysAgo ->
+            val date = today.minusDays(daysAgo.toLong())
+            DayItem(
+                dayName = date.format(dayNameFormatter),
+                dayNumber = date.dayOfMonth.toString(),
+                localDate = date
+            )
+        }
     }
+
+    // Default to Today (last index in the 30-day window)
+    var selectedDayIndex by remember { mutableIntStateOf(29) }
 
     val allGreetingTexts = remember {
         listOf(
@@ -161,11 +171,20 @@ fun DashboardScreen(
     val m3EmphasizedEasing = remember { CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f) }
     val m3EmphasizedDecelerateEasing = remember { CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f) }
 
+    val context = LocalContext.current
+    val healthConnectManager = remember { HealthConnectManager(context) }
+
+    // Log complete Health data as formatted JSON on screen load
+    LaunchedEffect(Unit) {
+        healthConnectManager.logAllHealthDataAsJson()
+    }
+
     fun triggerSync() {
         if (!isRefreshing) {
             isRefreshing = true
             coroutineScope.launch {
-                // Simulate network/sensor refresh & sync Health Connect data
+                // Read and log live Health Connect data as JSON
+                healthConnectManager.logAllHealthDataAsJson()
                 delay(1200)
                 syncKey += 1
                 isRefreshing = false
@@ -343,7 +362,8 @@ fun DashboardScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val currentDay = days[selectedDayIndex]
-                                val dateLabel = if (selectedDayIndex == 2) "Today" else "${currentDay.dayName}, May ${currentDay.dayNumber}"
+                                val monthNameFormatter = remember { DateTimeFormatter.ofPattern("MMM", Locale.getDefault()) }
+                                val dateLabel = if (selectedDayIndex == days.lastIndex) "Today" else "${currentDay.dayName}, ${currentDay.localDate.format(monthNameFormatter)} ${currentDay.dayNumber}"
 
                                 Text(
                                     text = dateLabel,
@@ -406,14 +426,14 @@ fun DashboardScreen(
                                             .size(38.dp)
                                             .clip(CircleShape)
                                             .clickable {
-                                                selectedDayIndex = 2 // Reset to Today (Wed 20)
+                                                selectedDayIndex = days.lastIndex // Reset to Today
                                             }
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
                                             Icon(
                                                 imageVector = Icons.Outlined.Refresh,
                                                 contentDescription = "Reset to Today",
-                                                tint = if (selectedDayIndex == 2) Color(0xFF94A3B8) else Color(0xFF1E293B),
+                                                tint = if (selectedDayIndex == days.lastIndex) Color(0xFF94A3B8) else Color(0xFF1E293B),
                                                 modifier = Modifier.size(19.dp)
                                             )
                                         }
@@ -433,8 +453,14 @@ fun DashboardScreen(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    GymSuitScoreWidget()
-                                    GrowthWidget()
+                                    WorkoutCardWidget(
+                                        days = days,
+                                        syncTrigger = syncKey
+                                    )
+                                    SleepWidget(
+                                        selectedDate = days[selectedDayIndex].localDate,
+                                        syncTrigger = syncKey
+                                    )
                                 }
 
                                 // Right Column
@@ -545,7 +571,40 @@ private fun BlankPageContent(tab: DashboardTab) {
 }
 
 @Composable
-private fun GymSuitScoreWidget() {
+private fun WorkoutCardWidget(
+    days: List<DayItem>,
+    syncTrigger: Int = 0
+) {
+    val context = LocalContext.current
+    val healthConnectManager = remember { HealthConnectManager(context) }
+    val today = remember { LocalDate.now() }
+    val prefs = remember { context.getSharedPreferences("gymsuit_workouts", Context.MODE_PRIVATE) }
+
+    // Manually toggled workout dates stored locally
+    var localWorkoutDays by remember {
+        val saved = prefs.getStringSet("completed_dates", emptySet()) ?: emptySet()
+        mutableStateOf(saved.mapNotNull {
+            try { LocalDate.parse(it) } catch (e: Exception) { null }
+        }.toSet())
+    }
+
+    var healthConnectWorkoutDays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
+    val isAvailable = remember { healthConnectManager.isAvailable() }
+
+    LaunchedEffect(syncTrigger) {
+        if (isAvailable && healthConnectManager.hasExercisePermission()) {
+            healthConnectWorkoutDays = healthConnectManager.readWorkoutDays()
+        }
+    }
+
+    val allWorkoutDays = remember(localWorkoutDays, healthConnectWorkoutDays) {
+        localWorkoutDays + healthConnectWorkoutDays
+    }
+
+    val workoutCountInMonth = remember(days, allWorkoutDays) {
+        days.count { it.localDate in allWorkoutDays }
+    }
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         shadowElevation = 2.dp,
@@ -561,36 +620,50 @@ private fun GymSuitScoreWidget() {
                 .padding(16.dp)
         ) {
             Column {
+                // Header Row: Icon & Title
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Star,
-                        contentDescription = null,
+                        imageVector = Icons.Outlined.FitnessCenter,
+                        contentDescription = "Workout",
                         tint = Color(0xFF065F46),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Freud Score",
+                        text = "Workout",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF065F46)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                Text(
-                    text = "36/375",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF064E3B)
-                )
+                // Big Text: Completed Workouts in the 1-month period
+                Row(
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = "$workoutCountInMonth",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF064E3B)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "/30 days",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF065F46).copy(alpha = 0.75f),
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // 5x6 Dot Grid Matrix
+                // 5x6 Dot Grid Matrix (30 Days / One Month)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -599,22 +672,41 @@ private fun GymSuitScoreWidget() {
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             repeat(6) { colIndex ->
-                                val isHighlighted = (rowIndex == 1 && colIndex in 2..3) ||
-                                        (rowIndex == 2 && colIndex in 2..3) ||
-                                        (rowIndex == 3 && colIndex == 3)
-                                val isLight = (rowIndex == 0 && colIndex == 5)
+                                val dotIndex = rowIndex * 6 + colIndex
+                                val dayItem = days.getOrNull(dotIndex)
+                                val date = dayItem?.localDate
+                                val isToday = date == today
+                                val didWorkout = date != null && date in allWorkoutDays
 
                                 Box(
                                     modifier = Modifier
                                         .size(14.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            when {
-                                                isHighlighted -> Color.White
-                                                isLight -> Color.White.copy(alpha = 0.9f)
-                                                else -> Color(0xFF059669).copy(alpha = 0.35f)
+                                            if (didWorkout) Color.White
+                                            else Color(0xFF059669).copy(alpha = 0.35f)
+                                        )
+                                        .then(
+                                            if (isToday && !didWorkout) {
+                                                Modifier.border(1.2.dp, Color.White.copy(alpha = 0.85f), CircleShape)
+                                            } else {
+                                                Modifier
                                             }
                                         )
+                                        .clickable {
+                                            if (date != null) {
+                                                val newSet = if (date in localWorkoutDays) {
+                                                    localWorkoutDays - date
+                                                } else {
+                                                    localWorkoutDays + date
+                                                }
+                                                localWorkoutDays = newSet
+                                                prefs.edit().putStringSet(
+                                                    "completed_dates",
+                                                    newSet.map { it.toString() }.toSet()
+                                                ).apply()
+                                            }
+                                        }
                                 )
                             }
                         }
@@ -756,7 +848,112 @@ private fun HealthOverviewWidget(
 }
 
 @Composable
-private fun GrowthWidget() {
+private fun SleepWidget(
+    selectedDate: LocalDate = LocalDate.now(),
+    syncTrigger: Int = 0
+) {
+    val context = LocalContext.current
+    val healthConnectManager = remember { HealthConnectManager(context) }
+    var realSleepSessions by remember { mutableStateOf<List<SleepSessionData>>(emptyList()) }
+    val isAvailable = remember { healthConnectManager.isAvailable() }
+
+    LaunchedEffect(syncTrigger) {
+        if (isAvailable && healthConnectManager.hasSleepPermission()) {
+            realSleepSessions = healthConnectManager.readRecentSleepSessions()
+        }
+    }
+
+    val zoneId = remember { ZoneId.systemDefault() }
+
+    // Match real sleep sessions by the local date the session ended on or started on
+    val sessionsForDay = remember(realSleepSessions, selectedDate) {
+        realSleepSessions.filter { session ->
+            val endLocalDate = session.endTime.atZone(zoneId).toLocalDate()
+            val startLocalDate = session.startTime.atZone(zoneId).toLocalDate()
+            endLocalDate == selectedDate || startLocalDate == selectedDate
+        }
+    }
+
+    val hasData = sessionsForDay.isNotEmpty()
+    val totalDurationMinutes = remember(sessionsForDay) {
+        sessionsForDay.sumOf { it.durationMinutes }
+    }
+    val displaySleepTime = remember(hasData, totalDurationMinutes) {
+        if (hasData) {
+            val h = totalDurationMinutes / 60
+            val m = totalDurationMinutes % 60
+            "${h}h ${m}m"
+        } else {
+            "No data"
+        }
+    }
+    val startTimeFormatted = remember(sessionsForDay) {
+        sessionsForDay.minByOrNull { it.startTime }?.startTimeFormatted ?: "--"
+    }
+    val endTimeFormatted = remember(sessionsForDay) {
+        sessionsForDay.maxByOrNull { it.endTime }?.endTimeFormatted ?: "--"
+    }
+
+    // Average daily sleep duration across recorded sessions
+    val avgDailySleepMinutes = remember(realSleepSessions) {
+        if (realSleepSessions.isEmpty()) null
+        else {
+            val dailyTotals = realSleepSessions
+                .groupBy { it.endTime.atZone(zoneId).toLocalDate() }
+                .values
+                .map { sessions -> sessions.sumOf { it.durationMinutes } }
+            if (dailyTotals.isEmpty()) null else dailyTotals.average().toInt()
+        }
+    }
+    val avgSleepFormatted = remember(avgDailySleepMinutes) {
+        avgDailySleepMinutes?.let { totalMins ->
+            val h = totalMins / 60
+            val m = totalMins % 60
+            if (h > 0) "${h}h ${m}m" else "${m}m"
+        } ?: "--"
+    }
+
+    // Determine if average sleep is trending up or down
+    val isAverageGoingUp = remember(realSleepSessions) {
+        if (realSleepSessions.isEmpty()) null
+        else {
+            val dayTotals = realSleepSessions
+                .groupBy { it.endTime.atZone(zoneId).toLocalDate() }
+                .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
+                .toList()
+                .sortedBy { it.first } // oldest to newest
+
+            if (dayTotals.size >= 2) {
+                val half = dayTotals.size / 2
+                val olderAvg = dayTotals.take(half).map { it.second }.average()
+                val recentAvg = dayTotals.drop(half).map { it.second }.average()
+                recentAvg >= olderAvg
+            } else if (dayTotals.isNotEmpty() && avgDailySleepMinutes != null) {
+                (dayTotals.last().second) >= 420
+            } else {
+                null
+            }
+        }
+    }
+
+    val sleepHeatColors = remember(hasData) {
+        if (hasData) {
+            listOf(
+                Color(0xFF34D399), // Green
+                Color(0xFF059669), // Deep green
+                Color(0xFFF97316), // Orange REM
+                Color(0xFFEF4444), // Red Awake
+                Color(0xFFFB923C), // Orange REM
+                Color(0xFF059669)  // Deep green
+            )
+        } else {
+            listOf(
+                Color(0xFFF1F5F9),
+                Color(0xFFE2E8F0)
+            )
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
@@ -766,66 +963,190 @@ private fun GrowthWidget() {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // Header Row: Icon & Title
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEDE9FE)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Bedtime,
+                        contentDescription = "Sleep",
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Sleep",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111827)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Average sleep duration on top of today's sleep text with Up/Down Arrow
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Avg: $avgSleepFormatted",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF64748B)
+                )
+                if (isAverageGoingUp != null) {
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isAverageGoingUp) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isAverageGoingUp) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward,
+                            contentDescription = if (isAverageGoingUp) "Trending Up" else "Trending Down",
+                            tint = if (isAverageGoingUp) Color(0xFF16A34A) else Color(0xFFDC2626),
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Duration readout
+            Text(
+                text = displaySleepTime,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (hasData) Color(0xFF111827) else Color(0xFF94A3B8)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Sleep Start Time & End Time Header above the Heatmap Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = startTimeFormatted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF6B7280)
+                )
+                Text(
+                    text = endTimeFormatted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF6B7280)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(5.dp))
+
+            // Sleep Stage Heatmap Bar (Green = Deep sleep, Orange = REM sleep, Red = Awake during sleep)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = sleepHeatColors
+                        )
+                    )
+            ) {
+                if (hasData) {
+                    // Segment marker dividers & pips along the timeline
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(6) {
+                            Box(
+                                modifier = Modifier
+                                    .width(1.5.dp)
+                                    .height(8.dp)
+                                    .background(Color.White.copy(alpha = 0.45f), CircleShape)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Stage legend indicators (Deep Sleep, REM, Awake)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Outlined.ThumbUp,
-                        contentDescription = null,
-                        tint = Color(0xFF374151),
-                        modifier = Modifier.size(18.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF059669))
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "Growth",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        text = "Deep",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF047857)
                     )
                 }
 
-                Text(
-                    text = "8.7%",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF111827)
-                )
-            }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF97316))
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "REM",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFC2410C)
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(90.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                val months = listOf("Jan" to 0.5f, "Feb" to 0.35f, "Mar" to 0.85f, "Apr" to 0.45f)
-
-                months.forEach { (month, ratio) ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(22.dp)
-                                .height((65 * ratio).dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (month == "Mar") Color(0xFFD8B4FE) else Color(0xFFF3E8FF)
-                                )
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = month,
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444))
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "Awake",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFDC2626)
+                    )
                 }
             }
         }
