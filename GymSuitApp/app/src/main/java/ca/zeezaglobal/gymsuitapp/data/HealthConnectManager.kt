@@ -573,9 +573,14 @@ class HealthConnectManager(private val context: Context) {
     /**
      * Reads all available health records from Health Connect and returns a strongly-typed
      * [ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest] ready to send to https://api.gymsuit.app/api/ai/summarize.
+     *
+     * Metrics with no real data are left null (and omitted from the JSON) so the backend
+     * never summarizes fabricated values. "Latest" records are picked by timestamp,
+     * not by list position, since Health Connect does not guarantee record order.
      */
     suspend fun buildAiSummarizeRequest(): ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest {
         val now = Instant.now()
+        val zoneId = ZoneId.systemDefault()
         val client = healthConnectClient
 
         if (client == null) {
@@ -584,131 +589,129 @@ class HealthConnectManager(private val context: Context) {
                 deviceSdkAvailable = false,
                 healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
                     weightRecords = emptyList(),
-                    latestWeightKg = 75.0,
+                    latestWeightKg = null,
                     sleepSessions = emptyList(),
-                    latestSleepMinutes = 465,
-                    latestSleepFormatted = "7h 45m",
-                    todaySteps = 8420,
-                    latestHeartRateBpm = 72,
-                    todayActiveCaloriesKcal = 450.0,
-                    todayDistanceMeters = 5230.0,
+                    latestSleepMinutes = null,
+                    latestSleepFormatted = null,
+                    todaySteps = null,
+                    latestHeartRateBpm = null,
+                    todayActiveCaloriesKcal = null,
+                    todayDistanceMeters = null,
                     exerciseSessions = emptyList()
                 )
             )
         }
 
-        // 1. Weight Records (last 90 days)
-        val weightRecords = try {
-            val weightResponse = client.readRecords(
+        // Local-day window so "today" metrics really are today's.
+        val startOfToday = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant()
+        val todayFilter = TimeRangeFilter.between(startOfToday, now)
+
+        // 1. Weight Records (last 90 days) — latest picked by record time.
+        val rawWeightRecords = try {
+            client.readRecords(
                 ReadRecordsRequest(
                     recordType = WeightRecord::class,
                     timeRangeFilter = TimeRangeFilter.after(now.minus(90, ChronoUnit.DAYS))
                 )
-            )
-            weightResponse.records.map {
-                ca.zeezaglobal.gymsuitapp.data.model.WeightRecordItem(
-                    time = it.time.toString(),
-                    weightKg = it.weight.inKilograms
-                )
-            }
+            ).records
         } catch (e: Exception) {
             emptyList()
         }
-        val latestWeight = weightRecords.lastOrNull()?.weightKg ?: 75.0
+        val weightRecords = rawWeightRecords.map {
+            ca.zeezaglobal.gymsuitapp.data.model.WeightRecordItem(
+                time = it.time.toString(),
+                weightKg = it.weight.inKilograms
+            )
+        }
+        val latestWeightKg = rawWeightRecords.maxByOrNull { it.time }?.weight?.inKilograms
 
-        // 2. Sleep Sessions (last 35 days)
-        val sleepSessions = try {
-            val sleepResponse = client.readRecords(
+        // 2. Sleep Sessions (last 35 days) — latest picked by session end time.
+        val rawSleepRecords = try {
+            client.readRecords(
                 ReadRecordsRequest(
                     recordType = SleepSessionRecord::class,
                     timeRangeFilter = TimeRangeFilter.after(now.minus(35, ChronoUnit.DAYS))
                 )
-            )
-            sleepResponse.records.map { record ->
-                val durationMins = java.time.Duration.between(record.startTime, record.endTime).toMinutes()
-                ca.zeezaglobal.gymsuitapp.data.model.SleepSessionItem(
-                    startTime = record.startTime.toString(),
-                    endTime = record.endTime.toString(),
-                    durationMinutes = durationMins,
-                    title = record.title ?: "Sleep Session"
-                )
-            }
+            ).records
         } catch (e: Exception) {
             emptyList()
         }
-        val latestSleep = sleepSessions.lastOrNull()
-        val latestSleepMinutes = latestSleep?.durationMinutes ?: 465L
-        val latestSleepFormatted = "${latestSleepMinutes / 60}h ${latestSleepMinutes % 60}m"
+        val sleepSessions = rawSleepRecords.map { record ->
+            val durationMins = java.time.Duration.between(record.startTime, record.endTime).toMinutes()
+            ca.zeezaglobal.gymsuitapp.data.model.SleepSessionItem(
+                startTime = record.startTime.toString(),
+                endTime = record.endTime.toString(),
+                durationMinutes = durationMins,
+                title = record.title ?: "Sleep Session"
+            )
+        }
+        val latestSleepMinutes = rawSleepRecords.maxByOrNull { it.endTime }?.let {
+            java.time.Duration.between(it.startTime, it.endTime).toMinutes()
+        }
+        val latestSleepFormatted = latestSleepMinutes?.let { "${it / 60}h ${it % 60}m" }
 
-        // 3. Steps Records (past 24h)
-        val steps = try {
-            val stepsResponse = client.readRecords(
+        // 3. Steps (today, local timezone) — null when no records.
+        val todaySteps: Long? = try {
+            val records = client.readRecords(
                 ReadRecordsRequest(
                     recordType = StepsRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(1, ChronoUnit.DAYS))
+                    timeRangeFilter = todayFilter
                 )
-            )
-            val count = stepsResponse.records.sumOf { it.count }
-            if (count > 0) count else 8420L
+            ).records
+            if (records.isEmpty()) null else records.sumOf { it.count }
         } catch (e: Exception) {
-            8420L
+            null
         }
 
-        // 4. Heart Rate (past 24h)
-        val hr = try {
-            val hrResponse = client.readRecords(
+        // 4. Heart Rate (today) — latest sample by time, null when none.
+        val latestHeartRateBpm: Int? = try {
+            client.readRecords(
                 ReadRecordsRequest(
                     recordType = HeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(1, ChronoUnit.DAYS))
+                    timeRangeFilter = todayFilter
                 )
-            )
-            hrResponse.records.flatMap { it.samples }.maxByOrNull { it.time }?.beatsPerMinute?.toInt() ?: 72
+            ).records
+                .flatMap { it.samples }
+                .maxByOrNull { it.time }
+                ?.beatsPerMinute?.toInt()
         } catch (e: Exception) {
-            72
+            null
         }
 
-        // 5. Active & Total Calories (past 24h)
-        val activeCalories = try {
-            val calResponse = client.readRecords(
+        // 5. Active Calories (today) — null when no records; never estimated.
+        val todayActiveCaloriesKcal: Double? = try {
+            val records = client.readRecords(
                 ReadRecordsRequest(
                     recordType = ActiveCaloriesBurnedRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(1, ChronoUnit.DAYS))
+                    timeRangeFilter = todayFilter
                 )
-            )
-            val kcal = calResponse.records.sumOf { it.energy.inKilocalories }
-            if (kcal > 0.0) {
-                kcal
-            } else {
-                // Fallback to estimated active calories from steps (~0.04 kcal/step)
-                (steps * 0.04).coerceAtLeast(350.0)
-            }
+            ).records
+            if (records.isEmpty()) null else records.sumOf { it.energy.inKilocalories }
         } catch (e: Exception) {
-            (steps * 0.04).coerceAtLeast(350.0)
+            null
         }
 
-        // 6. Distance (past 24h)
-        val distance = try {
-            val distResponse = client.readRecords(
+        // 6. Distance (today) — null when no records.
+        val todayDistanceMeters: Double? = try {
+            val records = client.readRecords(
                 ReadRecordsRequest(
                     recordType = DistanceRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(1, ChronoUnit.DAYS))
+                    timeRangeFilter = todayFilter
                 )
-            )
-            val dist = distResponse.records.sumOf { it.distance.inMeters }
-            if (dist > 0.0) dist else 5230.0
+            ).records
+            if (records.isEmpty()) null else records.sumOf { it.distance.inMeters }
         } catch (e: Exception) {
-            5230.0
+            null
         }
 
         // 7. Exercise Sessions (past 35 days)
         val exerciseSessions = try {
-            val exerciseResponse = client.readRecords(
+            client.readRecords(
                 ReadRecordsRequest(
                     recordType = ExerciseSessionRecord::class,
                     timeRangeFilter = TimeRangeFilter.after(now.minus(35, ChronoUnit.DAYS))
                 )
-            )
-            exerciseResponse.records.map { record ->
+            ).records.map { record ->
                 ca.zeezaglobal.gymsuitapp.data.model.ExerciseSessionItem(
                     startTime = record.startTime.toString(),
                     endTime = record.endTime.toString(),
@@ -725,14 +728,14 @@ class HealthConnectManager(private val context: Context) {
             deviceSdkAvailable = true,
             healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
                 weightRecords = weightRecords,
-                latestWeightKg = latestWeight,
+                latestWeightKg = latestWeightKg,
                 sleepSessions = sleepSessions,
                 latestSleepMinutes = latestSleepMinutes,
                 latestSleepFormatted = latestSleepFormatted,
-                todaySteps = steps,
-                latestHeartRateBpm = hr,
-                todayActiveCaloriesKcal = activeCalories,
-                todayDistanceMeters = distance,
+                todaySteps = todaySteps,
+                latestHeartRateBpm = latestHeartRateBpm,
+                todayActiveCaloriesKcal = todayActiveCaloriesKcal,
+                todayDistanceMeters = todayDistanceMeters,
                 exerciseSessions = exerciseSessions
             )
         )
