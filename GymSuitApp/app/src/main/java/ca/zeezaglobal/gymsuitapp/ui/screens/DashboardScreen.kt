@@ -46,6 +46,7 @@ import androidx.compose.runtime.*
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -572,12 +573,20 @@ private fun BlankPageContent(tab: DashboardTab) {
 
 @Composable
 private fun WorkoutCardWidget(
-    days: List<DayItem>,
+    days: List<DayItem> = emptyList(),
     syncTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
     val today = remember { LocalDate.now() }
+    val currentYearMonth = remember(today) { YearMonth.from(today) }
+    val daysInCurrentMonth = remember(currentYearMonth) { currentYearMonth.lengthOfMonth() }
+    val monthName = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault())) }
+    val currentMonthDates = remember(currentYearMonth, daysInCurrentMonth) {
+        (1..daysInCurrentMonth).map { dayNum ->
+            currentYearMonth.atDay(dayNum)
+        }
+    }
     val prefs = remember { context.getSharedPreferences("gymsuit_workouts", Context.MODE_PRIVATE) }
 
     // Manually toggled workout dates stored locally
@@ -601,9 +610,11 @@ private fun WorkoutCardWidget(
         localWorkoutDays + healthConnectWorkoutDays
     }
 
-    val workoutCountInMonth = remember(days, allWorkoutDays) {
-        days.count { it.localDate in allWorkoutDays }
+    val workoutCountInMonth = remember(currentMonthDates, allWorkoutDays) {
+        currentMonthDates.count { it in allWorkoutDays }
     }
+
+    val totalRows = (daysInCurrentMonth + 5) / 6
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -620,28 +631,45 @@ private fun WorkoutCardWidget(
                 .padding(16.dp)
         ) {
             Column {
-                // Header Row: Icon & Title
+                // Header Row: Icon, Title & Month Tag
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.FitnessCenter,
-                        contentDescription = "Workout",
-                        tint = Color(0xFF065F46),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Workout",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF065F46)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.FitnessCenter,
+                            contentDescription = "Workout",
+                            tint = Color(0xFF065F46),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Workout",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF065F46)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF065F46).copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = monthName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF065F46),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Big Text: Completed Workouts in the 1-month period
+                // Big Text: Completed Workouts in the current calendar month
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
@@ -653,7 +681,7 @@ private fun WorkoutCardWidget(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "/30 days",
+                        text = "/$daysInCurrentMonth days",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF065F46).copy(alpha = 0.75f),
@@ -663,38 +691,47 @@ private fun WorkoutCardWidget(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 5x6 Dot Grid Matrix (30 Days / One Month)
+                // Dot Grid Matrix representing the days of the current month (e.g. 30 dots for September)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    repeat(5) { rowIndex ->
+                    repeat(totalRows) { rowIndex ->
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             repeat(6) { colIndex ->
-                                val dotIndex = rowIndex * 6 + colIndex
-                                val dayItem = days.getOrNull(dotIndex)
-                                val date = dayItem?.localDate
-                                val isToday = date == today
-                                val didWorkout = date != null && date in allWorkoutDays
+                                val dayNum = rowIndex * 6 + colIndex + 1
+                                if (dayNum <= daysInCurrentMonth) {
+                                    val date = currentYearMonth.atDay(dayNum)
+                                    val isToday = (date == today)
+                                    val didWorkout = date in allWorkoutDays
+                                    val isFuture = date > today
 
-                                Box(
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (didWorkout) Color.White
-                                            else Color(0xFF059669).copy(alpha = 0.35f)
-                                        )
-                                        .then(
-                                            if (isToday && !didWorkout) {
-                                                Modifier.border(1.2.dp, Color.White.copy(alpha = 0.85f), CircleShape)
-                                            } else {
-                                                Modifier
-                                            }
-                                        )
-                                        .clickable {
-                                            if (date != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                when {
+                                                    didWorkout -> Color.White
+                                                    isToday -> Color(0xFF059669).copy(alpha = 0.6f)
+                                                    isFuture -> Color(0xFF059669).copy(alpha = 0.15f)
+                                                    else -> Color(0xFF059669).copy(alpha = 0.35f)
+                                                }
+                                            )
+                                            .then(
+                                                if (isToday) {
+                                                    // Highlight today's dot (e.g. 23rd dot)
+                                                    if (didWorkout) {
+                                                        Modifier.border(2.dp, Color(0xFF065F46), CircleShape)
+                                                    } else {
+                                                        Modifier.border(2.dp, Color.White, CircleShape)
+                                                    }
+                                                } else {
+                                                    Modifier
+                                                }
+                                            )
+                                            .clickable {
                                                 val newSet = if (date in localWorkoutDays) {
                                                     localWorkoutDays - date
                                                 } else {
@@ -706,8 +743,10 @@ private fun WorkoutCardWidget(
                                                     newSet.map { it.toString() }.toSet()
                                                 ).apply()
                                             }
-                                        }
-                                )
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.size(14.dp))
+                                }
                             }
                         }
                     }
