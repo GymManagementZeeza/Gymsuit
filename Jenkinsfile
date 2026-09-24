@@ -29,7 +29,8 @@ pipeline {
                     string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
                     string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET'),
                     string(credentialsId: 'resend-api-key', variable: 'RESEND_API_KEY'),
-                    string(credentialsId: 'resend-from-email', variable: 'RESEND_FROM_EMAIL')
+                    string(credentialsId: 'resend-from-email', variable: 'RESEND_FROM_EMAIL'),
+                    string(credentialsId: 'openrouter-api-key', variable: 'OPENROUTER_API_KEY')
                 ]) {
                     sh 'docker compose build'
                 }
@@ -42,7 +43,8 @@ pipeline {
                     string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),
                     string(credentialsId: 'gymmanagement-jwt-secret', variable: 'APP_JWT_SECRET'),
                     string(credentialsId: 'resend-api-key', variable: 'RESEND_API_KEY'),
-                    string(credentialsId: 'resend-from-email', variable: 'RESEND_FROM_EMAIL')
+                    string(credentialsId: 'resend-from-email', variable: 'RESEND_FROM_EMAIL'),
+                    string(credentialsId: 'openrouter-api-key', variable: 'OPENROUTER_API_KEY')
                 ]) {
                     sh 'docker compose down --remove-orphans || true'
                     sh 'docker compose up -d --remove-orphans'
