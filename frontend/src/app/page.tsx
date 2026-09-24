@@ -73,7 +73,61 @@ const faqs = [
     q: "Will members have their own login?",
     a: "Yes. Each member receives their own personalised login for following progress, plans and timely gym updates.",
   },
+  {
+    q: "How does GymSuite handle membership payments and expenses?",
+    a: "GymSuite keeps every membership plan, joining fee and collection in one payments ledger, with pending dues, cash collected and income-versus-expense trends visible on the owner dashboard.",
+  },
+  {
+    q: "Do trainers get their own login?",
+    a: "Yes. Trainers get a dedicated dashboard to manage session requests, class schedules and their assigned members.",
+  },
+  {
+    q: "Can members check in at the front desk?",
+    a: "Yes. GymSuite supports front-desk check-in with a live floor view and attendance history, plus hardware-connected access like tripod entry and fingerprint verification.",
+  },
 ];
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gymsuit.app";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "GymSuite",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: siteUrl,
+      description:
+        "GymSuite brings members, payments, notifications and paid-member access into one easy-to-run system for independent gyms.",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "INR",
+        description: "Free for your first 20 active members",
+      },
+    },
+    {
+      "@type": "Organization",
+      name: "GymSuite",
+      url: siteUrl,
+      logo: `${siteUrl}/icon.png`,
+      contactPoint: {
+        "@type": "ContactPoint",
+        email: "info@gymmanagement.com",
+        contactType: "sales",
+      },
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.q,
+        acceptedAnswer: { "@type": "Answer", text: faq.a },
+      })),
+    },
+  ],
+};
 
 const pricingItems = [
   "Member management",
@@ -87,6 +141,10 @@ const pricingItems = [
 export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-paper text-ink selection:bg-saffron selection:text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Header />
 
       <main id="top">
@@ -223,6 +281,109 @@ export default function Home() {
                   </article>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        <section id="tour" className="border-b border-ink/10 bg-paper py-24 sm:py-32">
+          <div className="container">
+            <div className="max-w-[660px]">
+              <div className="eyebrow mb-5">The product, up close</div>
+              <h2 className="display-title">
+                See GymSuite running
+                <br />
+                a real gym day.
+              </h2>
+              <p className="section-copy mt-6">
+                No mockups, no slideware. These are live screens from a gym operating on
+                GymSuite — members managed, payments collected, expenses tracked.
+              </p>
+            </div>
+
+            <div className="mt-14 grid gap-6">
+              <figure className="overflow-hidden rounded-[1.5rem] border border-ink/15 bg-white shadow-[12px_16px_0_rgba(20,35,33,0.08)]">
+                <div className="flex items-center gap-2 border-b border-ink/10 bg-sand/60 px-5 py-3.5">
+                  <span className="h-3 w-3 rounded-full bg-ink/15" />
+                  <span className="h-3 w-3 rounded-full bg-ink/15" />
+                  <span className="h-3 w-3 rounded-full bg-ink/15" />
+                  <span className="ml-3 hidden rounded-full bg-white px-4 py-1 text-xs font-medium text-ink/50 sm:block">
+                    gymsuit.app/dashboard
+                  </span>
+                </div>
+                <Image
+                  src="/screenshots/dashboard.png"
+                  alt="GymSuite owner dashboard showing membership revenue, new members, expenses and the member roster"
+                  width={1440}
+                  height={900}
+                  className="h-auto w-full"
+                  sizes="(min-width: 1024px) 1200px, 100vw"
+                />
+                <figcaption className="flex flex-col gap-1 border-t border-ink/10 px-6 py-5 sm:flex-row sm:items-baseline sm:justify-between">
+                  <p className="font-display text-xl font-bold tracking-[-0.04em]">
+                    The command overview
+                  </p>
+                  <p className="max-w-[520px] text-sm leading-6 text-ink/60">
+                    Revenue, new members, floor status and expenses — the whole gym in one
+                    glance, every morning.
+                  </p>
+                </figcaption>
+              </figure>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <figure className="overflow-hidden rounded-[1.5rem] border border-ink/15 bg-white shadow-[12px_16px_0_rgba(20,35,33,0.08)]">
+                  <div className="flex items-center gap-2 border-b border-ink/10 bg-sand/60 px-5 py-3.5">
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="ml-3 hidden rounded-full bg-white px-4 py-1 text-xs font-medium text-ink/50 sm:block">
+                      gymsuit.app/dashboard/members
+                    </span>
+                  </div>
+                  <Image
+                    src="/screenshots/members.png"
+                    alt="GymSuite member directory listing members with their plans, next payment dates and contact details"
+                    width={1440}
+                    height={900}
+                    className="h-auto w-full"
+                    sizes="(min-width: 1024px) 590px, 100vw"
+                  />
+                  <figcaption className="border-t border-ink/10 px-6 py-5">
+                    <p className="font-display text-xl font-bold tracking-[-0.04em]">
+                      Every member, one directory
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-ink/60">
+                      Plans, dues, waivers and contact history — no more paper registers.
+                    </p>
+                  </figcaption>
+                </figure>
+
+                <figure className="overflow-hidden rounded-[1.5rem] border border-ink/15 bg-white shadow-[12px_16px_0_rgba(20,35,33,0.08)]">
+                  <div className="flex items-center gap-2 border-b border-ink/10 bg-sand/60 px-5 py-3.5">
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="h-3 w-3 rounded-full bg-ink/15" />
+                    <span className="ml-3 hidden rounded-full bg-white px-4 py-1 text-xs font-medium text-ink/50 sm:block">
+                      gymsuit.app/dashboard/payments
+                    </span>
+                  </div>
+                  <Image
+                    src="/screenshots/expenses.png"
+                    alt="GymSuite payments page showing collected revenue, pending dues and income versus expense trends"
+                    width={1440}
+                    height={900}
+                    className="h-auto w-full"
+                    sizes="(min-width: 1024px) 590px, 100vw"
+                  />
+                  <figcaption className="border-t border-ink/10 px-6 py-5">
+                    <p className="font-display text-xl font-bold tracking-[-0.04em]">
+                      Money in, money out
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-ink/60">
+                      Collections, pending dues and expenses tracked against each other.
+                    </p>
+                  </figcaption>
+                </figure>
+              </div>
             </div>
           </div>
         </section>

@@ -6,6 +6,7 @@ import { PageHeading } from "@/components/dashboard/DashboardShell";
 import { ActionButton, MetricCard, TableAction } from "@/components/dashboard/ui";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import PlanFormModal from "@/components/dashboard/PlanFormModal";
+import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import PlanReassignModal from "@/components/dashboard/PlanReassignModal";
 import { useSession } from "@/hooks/useSession";
 import { deleteMembershipPlan, listMembershipPlans, type BillingCycle, type MembershipPlan } from "@/lib/membershipPlans";
@@ -112,7 +113,7 @@ export default function MembershipPage() {
         )}
 
         {plans.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[640px] text-left">
               <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
                 <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
@@ -147,6 +148,48 @@ export default function MembershipPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {plans.length > 0 && (
+          <div className="divide-y divide-[#ededE7] md:hidden">
+            {plans.map((plan) => (
+              <ExpandableRow
+                key={plan.id}
+                summary={
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">{plan.name}</p>
+                      <p className="mt-0.5 text-xs text-[#8a8a82]">{cycleLabel(plan.billingCycle)}</p>
+                    </div>
+                    <span className="mono shrink-0 text-sm font-bold">
+                      {plan.currency} {plan.price}
+                    </span>
+                    <span
+                      className={`shrink-0 text-[10px] font-bold uppercase tracking-[0.08em] ${
+                        plan.active ? "text-[#3f7a1f]" : "text-[#8a8a82]"
+                      }`}
+                    >
+                      {plan.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                }
+              >
+                <div className="space-y-1">
+                  <DetailRow label="Price">
+                    {plan.currency} {plan.price}
+                  </DetailRow>
+                  <DetailRow label="Billing">{cycleLabel(plan.billingCycle)}</DetailRow>
+                  <DetailRow label="Status">{plan.active ? "Active" : "Inactive"}</DetailRow>
+                  {plan.description && <DetailRow label="About">{plan.description}</DetailRow>}
+                  <div className="flex items-center gap-2 pt-3">
+                    <TableAction onClick={() => setFormState(plan)}>Edit</TableAction>
+                    <TableAction onClick={() => handleRemove(plan)} disabled={plans.length <= 1}>
+                      {plans.length <= 1 ? "Only plan" : "Remove"}
+                    </TableAction>
+                  </div>
+                </div>
+              </ExpandableRow>
+            ))}
           </div>
         )}
       </section>
