@@ -40,6 +40,7 @@ import androidx.health.connect.client.PermissionController
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.CaloriesBreakdown
 import ca.zeezaglobal.gymsuitapp.data.SleepSessionData
+import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -175,10 +176,16 @@ fun DashboardScreen(
 
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
+    val appComponent = remember { AppComponent.from(context) }
+    val viewModel = remember(appComponent) {
+        appComponent.dashboardViewModelFactory.create(DashboardViewModel::class.java)
+    }
+    val aiSummaryState by viewModel.summaryState.collectAsState()
 
-    // Log complete Health data as formatted JSON on screen load
+    // Log complete Health data as formatted JSON and fetch AI summary on screen load
     LaunchedEffect(Unit) {
         healthConnectManager.logAllHealthDataAsJson()
+        viewModel.loadAiSummary()
     }
 
     fun triggerSync() {
@@ -187,6 +194,7 @@ fun DashboardScreen(
             coroutineScope.launch {
                 // Read and log live Health Connect data as JSON
                 healthConnectManager.logAllHealthDataAsJson()
+                viewModel.loadAiSummary(forceRefresh = true)
                 delay(1200)
                 syncKey += 1
                 isRefreshing = false
@@ -477,6 +485,14 @@ fun DashboardScreen(
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            // AI Health Summary Section below the cards
+                            AiSummaryCardWidget(
+                                uiState = aiSummaryState,
+                                onRetry = { viewModel.loadAiSummary(forceRefresh = true) }
+                            )
 
                             // Extra bottom padding so floating nav bar doesn't obscure content
                             Spacer(modifier = Modifier.height(100.dp))
@@ -1424,6 +1440,185 @@ private fun LegendItem(color: Color, label: String) {
             fontSize = 11.sp,
             color = Color(0xFF4B5563)
         )
+    }
+}
+
+/**
+ * Clean AI Summary card displayed below the dashboard grid cards.
+ * Uses Material 3 Expressive Loading Indicator while loading from https://api.gymsuit.app/api/ai/summarize.
+ */
+@Composable
+private fun AiSummaryCardWidget(
+    uiState: AiSummaryUiState,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            // Header with Sparkles / AutoAwesome AI icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF818CF8), Color(0xFF6366F1))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoAwesome,
+                            contentDescription = "AI Summary",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "AI Health Summary",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827)
+                        )
+                        Text(
+                            text = "Daily wellness insights",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF6B7280)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFEEF2FF)
+                ) {
+                    Text(
+                        text = "LIVE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF4F46E5),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Body content depending on MVVM UiState
+            AnimatedContent(
+                targetState = uiState,
+                transitionSpec = {
+                    fadeIn(tween(300)) togetherWith fadeOut(tween(200))
+                },
+                label = "AiSummaryStateAnimation"
+            ) { state ->
+                when (state) {
+                    is AiSummaryUiState.Loading, AiSummaryUiState.Idle -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Material 3 Expressive Loading Indicator
+                            M3ExpressiveLoadingIndicator(
+                                size = 48.dp,
+                                isContained = true,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                indicatorColor = Color(0xFF6366F1)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Analyzing your health & activity data...",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF6B7280)
+                            )
+                        }
+                    }
+
+                    is AiSummaryUiState.Success -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = Color(0xFFF8FAFC),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .padding(14.dp)
+                        ) {
+                            Text(
+                                text = state.summary,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = Color(0xFF334155)
+                            )
+                        }
+                    }
+
+                    is AiSummaryUiState.Error -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = Color(0xFFFEF2F2),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .padding(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = state.message,
+                                fontSize = 12.sp,
+                                color = Color(0xFF991B1B),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = onRetry,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF4F46E5)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Refresh,
+                                    contentDescription = "Retry",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Retry",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
