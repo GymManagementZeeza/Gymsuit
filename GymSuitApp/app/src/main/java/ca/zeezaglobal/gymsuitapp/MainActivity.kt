@@ -16,13 +16,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import ca.zeezaglobal.gymsuitapp.ui.screens.DashboardScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.HealthConnectPermissionScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.LoginScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.OnboardingScreen
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
 
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import kotlinx.coroutines.launch
+
 enum class AppScreen {
     ONBOARDING,
     LOGIN,
+    HEALTH_CONNECT_PERMISSION,
     DASHBOARD
 }
 
@@ -32,6 +39,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             GymSuitAppTheme {
+                val context = LocalContext.current
+                val coroutineScope = rememberCoroutineScope()
+                val healthConnectManager = remember { HealthConnectManager(context) }
                 var currentScreen by remember { mutableStateOf(AppScreen.ONBOARDING) }
 
                 AnimatedContent(
@@ -64,6 +74,24 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = AppScreen.ONBOARDING
                                 },
                                 onLoginClick = { email ->
+                                    coroutineScope.launch {
+                                        val alreadyAccepted = healthConnectManager.isAvailable() &&
+                                                healthConnectManager.hasAnyPermissions()
+                                        currentScreen = if (alreadyAccepted) {
+                                            AppScreen.DASHBOARD
+                                        } else {
+                                            AppScreen.HEALTH_CONNECT_PERMISSION
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        AppScreen.HEALTH_CONNECT_PERMISSION -> {
+                            HealthConnectPermissionScreen(
+                                onContinue = {
+                                    currentScreen = AppScreen.DASHBOARD
+                                },
+                                onSkip = {
                                     currentScreen = AppScreen.DASHBOARD
                                 }
                             )

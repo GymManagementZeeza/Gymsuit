@@ -49,7 +49,7 @@ fun SettingsPageContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp)
+            .padding(bottom = 100.dp)
     ) {
         // Top Header
         Row(
