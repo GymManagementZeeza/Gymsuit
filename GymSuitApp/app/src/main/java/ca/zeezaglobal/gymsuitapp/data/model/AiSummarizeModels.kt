@@ -8,7 +8,6 @@ data class WeightRecordItem(
     val weightKg: Double
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
-        put("time", time)
         put("weight_kg", weightKg)
     }
 }
@@ -20,8 +19,6 @@ data class SleepSessionItem(
     val title: String
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
-        put("start_time", startTime)
-        put("end_time", endTime)
         put("duration_minutes", durationMinutes)
         put("title", title)
     }
@@ -34,8 +31,6 @@ data class ExerciseSessionItem(
     val exerciseType: Int
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
-        put("start_time", startTime)
-        put("end_time", endTime)
         put("title", title)
         put("exercise_type", exerciseType)
     }
