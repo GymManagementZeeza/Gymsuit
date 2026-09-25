@@ -41,32 +41,37 @@ data class ExerciseSessionItem(
     }
 }
 
+/**
+ * Nullable "latest" fields: a null means there is no real data for that metric
+ * (permission denied, no records, Health Connect unavailable). Nulls are omitted
+ * from the JSON so the backend never summarizes fabricated values.
+ */
 data class HealthDataPayload(
     val weightRecords: List<WeightRecordItem>,
-    val latestWeightKg: Double,
+    val latestWeightKg: Double?,
     val sleepSessions: List<SleepSessionItem>,
-    val latestSleepMinutes: Long,
-    val latestSleepFormatted: String,
-    val todaySteps: Long,
-    val latestHeartRateBpm: Int,
-    val todayActiveCaloriesKcal: Double,
-    val todayDistanceMeters: Double,
+    val latestSleepMinutes: Long?,
+    val latestSleepFormatted: String?,
+    val todaySteps: Long?,
+    val latestHeartRateBpm: Int?,
+    val todayActiveCaloriesKcal: Double?,
+    val todayDistanceMeters: Double?,
     val exerciseSessions: List<ExerciseSessionItem>
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
         put("weight_records", JSONArray().apply {
             weightRecords.forEach { put(it.toJsonObject()) }
         })
-        put("latest_weight_kg", latestWeightKg)
+        latestWeightKg?.let { put("latest_weight_kg", it) }
         put("sleep_sessions", JSONArray().apply {
             sleepSessions.forEach { put(it.toJsonObject()) }
         })
-        put("latest_sleep_minutes", latestSleepMinutes)
-        put("latest_sleep_formatted", latestSleepFormatted)
-        put("today_steps", todaySteps)
-        put("latest_heart_rate_bpm", latestHeartRateBpm)
-        put("today_active_calories_kcal", todayActiveCaloriesKcal)
-        put("today_distance_meters", todayDistanceMeters)
+        latestSleepMinutes?.let { put("latest_sleep_minutes", it) }
+        latestSleepFormatted?.let { put("latest_sleep_formatted", it) }
+        todaySteps?.let { put("today_steps", it) }
+        latestHeartRateBpm?.let { put("latest_heart_rate_bpm", it) }
+        todayActiveCaloriesKcal?.let { put("today_active_calories_kcal", it) }
+        todayDistanceMeters?.let { put("today_distance_meters", it) }
         put("exercise_sessions", JSONArray().apply {
             exerciseSessions.forEach { put(it.toJsonObject()) }
         })
