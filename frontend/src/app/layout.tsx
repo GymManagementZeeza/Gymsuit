@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, DM_Sans } from "next/font/google";
+import { Space_Grotesk, DM_Sans, Noto_Sans_Malayalam } from "next/font/google";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import "./globals.css";
@@ -13,6 +13,12 @@ const spaceGrotesk = Space_Grotesk({
 const dmSans = DM_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
+});
+
+const notoSansMalayalam = Noto_Sans_Malayalam({
+  variable: "--font-malayalam",
+  subsets: ["malayalam", "latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gymsuit.app";
@@ -77,7 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${dmSans.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${dmSans.variable} ${notoSansMalayalam.variable} h-full antialiased`}
     >
       <body className="h-full">
         <ServiceWorkerRegister />

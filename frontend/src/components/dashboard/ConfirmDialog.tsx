@@ -2,12 +2,13 @@
 
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function ConfirmDialog({
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
   disabled = false,
@@ -20,6 +21,9 @@ export default function ConfirmDialog({
   onCancel: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useLanguage();
+  const finalConfirmLabel = confirmLabel ?? t.common.confirm;
+  const finalCancelLabel = cancelLabel ?? t.common.cancel;
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#141410]/50 p-4">
       <div className="w-full max-w-sm border border-[#d8d8d1] bg-white p-5">
@@ -39,7 +43,7 @@ export default function ConfirmDialog({
             disabled={disabled}
             className="h-9 border border-[#d8d8d1] px-4 text-xs font-bold transition hover:bg-[#f7f7f2] disabled:opacity-50"
           >
-            {cancelLabel}
+            {finalCancelLabel}
           </button>
           <button
             type="button"
@@ -47,7 +51,7 @@ export default function ConfirmDialog({
             disabled={disabled}
             className="h-9 bg-red-600 px-4 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
           >
-            {confirmLabel}
+            {finalConfirmLabel}
           </button>
         </div>
       </div>

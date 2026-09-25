@@ -68,6 +68,7 @@ export function MetricCard({
   tone,
   icon,
   href,
+  linkSuffix = "view details",
 }: {
   label: string;
   value: string;
@@ -75,6 +76,7 @@ export function MetricCard({
   tone: "lime" | "paper" | "orange" | "blue";
   icon: ReactNode;
   href?: string;
+  linkSuffix?: string;
 }) {
   const tones = {
     lime: "border border-[#c7f36a] bg-[#fcfcf5] text-[#24241f]",
@@ -105,7 +107,7 @@ export function MetricCard({
     return (
       <Link
         href={href}
-        aria-label={`${label} — view details`}
+        aria-label={`${label} — ${linkSuffix}`}
         className={`relative flex flex-col justify-between overflow-hidden p-4 ${tones[tone]} ${clickable}`}
       >
         {card}
