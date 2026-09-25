@@ -30,7 +30,6 @@ import {
   Dumbbell,
   Mail,
   MessageCircle,
-  MoreHorizontal,
   Phone,
   Plus,
   Receipt,
@@ -379,9 +378,8 @@ export default function DashboardOverview() {
             className="object-cover opacity-[0.14] mix-blend-screen"
           />
           <div className="relative flex h-full flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="ledger-label !text-[#bdbdb2] before:!bg-[#c7f36a]">Membership revenue</p>
+            <div>
+              <p className="ledger-label !text-[#bdbdb2] before:!bg-[#c7f36a]">Membership revenue</p>
                 <div className="mt-4 flex items-end gap-3">
                   <p className="display-face text-5xl leading-none">
                     {monthlyRevenue === null ? "…" : `${revenueCurrency} ${currentMonthRevenue.toFixed(0)}`}
@@ -398,10 +396,6 @@ export default function DashboardOverview() {
                     ? "Loading…"
                     : `vs. ${revenueCurrency} ${previousMonthRevenue.toFixed(0)} this time last month`}
                 </p>
-              </div>
-              <button className="grid size-9 place-items-center border border-white/20 text-white transition hover:bg-white/10" aria-label="More revenue options">
-                <MoreHorizontal className="size-5" />
-              </button>
             </div>
             <div className="mt-8">
               <div className="flex h-24 items-end gap-2" aria-label="Monthly revenue chart">
@@ -431,14 +425,16 @@ export default function DashboardOverview() {
               detail={`joined in ${monthLabel(selectedMonth)}`}
               tone="lime"
               icon={<UserPlus className="size-5" />}
+              href="/dashboard/members"
             />
-            <MetricCard label="Session requests" value="08" detail="3 need review" tone="paper" icon={<CalendarDays className="size-5" />} />
+            <MetricCard label="Session requests" value="08" detail="3 need review" tone="paper" icon={<CalendarDays className="size-5" />} href="/dashboard/session-requests" />
             <MetricCard
               label="On the floor now"
               value={checkedInCount === null ? "…" : String(checkedInCount)}
               detail="currently checked in"
               tone="paper"
               icon={<Dumbbell className="size-5" />}
+              href="/dashboard/live-floor"
             />
             <MetricCard
               label="Expenses"
@@ -446,6 +442,7 @@ export default function DashboardOverview() {
               detail={`spent in ${monthLabel(selectedMonth)}`}
               tone="orange"
               icon={<Clock3 className="size-5" />}
+              href="/dashboard/payments"
             />
           </div>
         </div>
