@@ -10,6 +10,7 @@ import { getGym } from "@/lib/gyms";
 import { getCurrentUser } from "@/lib/users";
 import { listSessionRequests } from "@/lib/sessionRequests";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
+import NotificationSheet from "@/components/dashboard/NotificationSheet";
 import { BUILD_INFO } from "@/generated/build-info";
 import {
   Bell,
@@ -207,6 +208,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [pendingRequests, setPendingRequests] = useState(0);
   const [userName, setUserName] = useState<string | null>(null);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const closeNav = () => setNavOpen(false);
   const sectionLabel = sectionLabels[pathname] ?? "Operations";
 
@@ -305,9 +307,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative grid size-9 place-items-center border border-[#dddDd6] bg-white transition hover:border-[#24241f]" aria-label="Open notifications">
+            <button
+              type="button"
+              onClick={() => setNotificationsOpen(true)}
+              className="relative grid size-9 place-items-center border border-[#dddDd6] bg-white transition hover:border-[#24241f]"
+              aria-label="Open notifications"
+            >
               <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#ff825d]" />
             </button>
             <button className="hidden items-center gap-2 bg-[#24241f] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#42423a] sm:flex">
               <Landmark className="size-3.5 text-[#c7f36a]" /> Gym administration
@@ -340,6 +346,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           onCancel={() => setLogoutConfirmOpen(false)}
         />
       )}
+      {notificationsOpen && <NotificationSheet onClose={() => setNotificationsOpen(false)} />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 /* Training Ledger component: Sharp operational controls, status markers, and ledger-ready summaries. */
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export function ActionButton({
@@ -66,12 +67,14 @@ export function MetricCard({
   detail,
   tone,
   icon,
+  href,
 }: {
   label: string;
   value: string;
   detail: string;
   tone: "lime" | "paper" | "orange" | "blue";
   icon: ReactNode;
+  href?: string;
 }) {
   const tones = {
     lime: "border border-[#c7f36a] bg-[#fcfcf5] text-[#24241f]",
@@ -79,8 +82,9 @@ export function MetricCard({
     orange: "bg-[#ffded2] text-[#512319]",
     blue: "border border-[#c3d3fb] bg-[#eef2ff] text-[#24241f]",
   };
-  return (
-    <article className={`relative flex flex-col justify-between overflow-hidden p-4 ${tones[tone]}`}>
+  const clickable = href ? "cursor-pointer transition hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(20,20,16,0.10)]" : "";
+  const card = (
+    <>
       {tone === "lime" && <span className="absolute inset-y-0 left-0 w-1 bg-[#c7f36a]" />}
       {tone === "blue" && <span className="absolute inset-y-0 left-0 w-1 bg-[#4a72db]" />}
       <div className="flex items-start justify-between">
@@ -95,6 +99,22 @@ export function MetricCard({
         </p>
         <p className="mt-2 text-[11px] font-medium opacity-65">{detail}</p>
       </div>
+    </>
+  );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        aria-label={`${label} — view details`}
+        className={`relative flex flex-col justify-between overflow-hidden p-4 ${tones[tone]} ${clickable}`}
+      >
+        {card}
+      </Link>
+    );
+  }
+  return (
+    <article className={`relative flex flex-col justify-between overflow-hidden p-4 ${tones[tone]}`}>
+      {card}
     </article>
   );
 }
