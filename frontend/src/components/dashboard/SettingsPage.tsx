@@ -12,7 +12,7 @@ import { useSession } from "@/hooks/useSession";
 import { getGym, type Gym } from "@/lib/gyms";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { LOCALES, type Dictionary, type Locale } from "@/lib/i18n/dictionaries";
-import { BellRing, Building2, Check, CreditCard, Globe2, Image as ImageIcon, Languages, LockKeyhole, Save, UsersRound, Wallet } from "lucide-react";
+import { BellRing, Building2, Check, CreditCard, Image as ImageIcon, Languages, LockKeyhole, Save, UsersRound, Wallet } from "lucide-react";
 
 function gymProfileSummary(gym: Gym, t: Dictionary) {
   const parts = [gym.addressLine, gym.city, gym.phone, gym.email].filter(Boolean);
@@ -78,7 +78,6 @@ export default function SettingsPage() {
     { icon: ImageIcon, title: t.settings.branding, text: t.settings.brandingText, action: t.settings.manageBranding, status: t.settings.updated },
     { icon: UsersRound, title: t.settings.rolesAccess, text: t.settings.rolesAccessText, action: t.settings.reviewRoles, status: t.settings.rolesCount },
     { icon: BellRing, title: t.settings.notifications, text: t.settings.notificationsText, action: t.settings.editAlerts, status: t.settings.alertsEnabled },
-    { icon: Globe2, title: t.settings.regionalFormat, text: t.settings.regionalFormatText, action: t.settings.editRegional, status: t.settings.regionalStatus(languageName) },
   ];
 
   return (
