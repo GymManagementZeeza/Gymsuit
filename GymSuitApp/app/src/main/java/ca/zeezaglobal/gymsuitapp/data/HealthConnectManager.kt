@@ -571,6 +571,194 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
+     * Reads health records specifically for [targetDate] and builds a strongly-typed
+     * [ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest] ready for the summarize API.
+     */
+    suspend fun buildAiSummarizeRequestForDate(targetDate: LocalDate): ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest {
+        val zoneId = ZoneId.systemDefault()
+        val startOfDay = targetDate.atStartOfDay(zoneId).toInstant()
+        val endOfDay = targetDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+        val client = healthConnectClient
+
+        if (client == null) {
+            return ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest(
+                timestamp = Instant.now().toString(),
+                deviceSdkAvailable = false,
+                healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
+                    weightRecords = emptyList(),
+                    latestWeightKg = 75.0,
+                    sleepSessions = emptyList(),
+                    latestSleepMinutes = 465,
+                    latestSleepFormatted = "7h 45m",
+                    todaySteps = 8420,
+                    latestHeartRateBpm = 72,
+                    todayActiveCaloriesKcal = 450.0,
+                    todayDistanceMeters = 5230.0,
+                    exerciseSessions = emptyList()
+                )
+            )
+        }
+
+        // 1. Weight Records (up to end of targetDate)
+        val weightRecords = try {
+            val weightResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = WeightRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(
+                        targetDate.minusDays(90).atStartOfDay(zoneId).toInstant(),
+                        endOfDay
+                    )
+                )
+            )
+            weightResponse.records.map {
+                ca.zeezaglobal.gymsuitapp.data.model.WeightRecordItem(
+                    time = it.time.toString(),
+                    weightKg = it.weight.inKilograms
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val latestWeight = weightRecords.lastOrNull()?.weightKg ?: 75.0
+
+        // 2. Sleep Sessions for targetDate
+        val sleepSessions = try {
+            val sleepResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(
+                        targetDate.minusDays(1).atStartOfDay(zoneId).toInstant(),
+                        endOfDay.plus(12, ChronoUnit.HOURS)
+                    )
+                )
+            )
+            sleepResponse.records
+                .filter { record ->
+                    val endLocalDate = record.endTime.atZone(zoneId).toLocalDate()
+                    val startLocalDate = record.startTime.atZone(zoneId).toLocalDate()
+                    endLocalDate == targetDate || startLocalDate == targetDate
+                }
+                .map { record ->
+                    val durationMins = java.time.Duration.between(record.startTime, record.endTime).toMinutes()
+                    ca.zeezaglobal.gymsuitapp.data.model.SleepSessionItem(
+                        startTime = record.startTime.toString(),
+                        endTime = record.endTime.toString(),
+                        durationMinutes = durationMins,
+                        title = record.title ?: "Sleep Session"
+                    )
+                }
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val latestSleep = sleepSessions.lastOrNull()
+        val latestSleepMinutes = latestSleep?.durationMinutes ?: if (sleepSessions.isNotEmpty()) sleepSessions.sumOf { it.durationMinutes } else 0L
+        val latestSleepFormatted = if (latestSleepMinutes > 0) "${latestSleepMinutes / 60}h ${latestSleepMinutes % 60}m" else "--"
+
+        // 3. Steps on targetDate
+        val steps = try {
+            val stepsResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            stepsResponse.records.sumOf { it.count }
+        } catch (e: Exception) {
+            0L
+        }
+
+        // 4. Heart Rate on targetDate
+        val hr = try {
+            val hrResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            hrResponse.records.flatMap { it.samples }.maxByOrNull { it.time }?.beatsPerMinute?.toInt() ?: 72
+        } catch (e: Exception) {
+            72
+        }
+
+        // 5. Active & Total Calories on targetDate
+        val activeCalories = try {
+            val calResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ActiveCaloriesBurnedRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            val kcal = calResponse.records.sumOf { it.energy.inKilocalories }
+            if (kcal > 0.0) {
+                kcal
+            } else {
+                val totalCalResponse = try {
+                    client.readRecords(
+                        ReadRecordsRequest(
+                            recordType = TotalCaloriesBurnedRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                        )
+                    )
+                } catch (e: Exception) { null }
+                val tot = totalCalResponse?.records?.sumOf { it.energy.inKilocalories } ?: 0.0
+                if (tot > 0.0) tot else (steps * 0.04)
+            }
+        } catch (e: Exception) {
+            steps * 0.04
+        }
+
+        // 6. Distance on targetDate
+        val distance = try {
+            val distResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = DistanceRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            distResponse.records.sumOf { it.distance.inMeters }
+        } catch (e: Exception) {
+            0.0
+        }
+
+        // 7. Exercise Sessions on targetDate
+        val exerciseSessions = try {
+            val exerciseResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            exerciseResponse.records.map { record ->
+                ca.zeezaglobal.gymsuitapp.data.model.ExerciseSessionItem(
+                    startTime = record.startTime.toString(),
+                    endTime = record.endTime.toString(),
+                    title = record.title ?: "Workout",
+                    exerciseType = record.exerciseType
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        return ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest(
+            timestamp = Instant.now().toString(),
+            deviceSdkAvailable = true,
+            healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
+                weightRecords = weightRecords,
+                latestWeightKg = latestWeight,
+                sleepSessions = sleepSessions,
+                latestSleepMinutes = latestSleepMinutes,
+                latestSleepFormatted = latestSleepFormatted,
+                todaySteps = steps,
+                latestHeartRateBpm = hr,
+                todayActiveCaloriesKcal = activeCalories,
+                todayDistanceMeters = distance,
+                exerciseSessions = exerciseSessions
+            )
+        )
+    }
+
+    /**
      * Reads all available health records from Health Connect and returns a strongly-typed
      * [ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest] ready to send to https://api.gymsuit.app/api/ai/summarize.
      *

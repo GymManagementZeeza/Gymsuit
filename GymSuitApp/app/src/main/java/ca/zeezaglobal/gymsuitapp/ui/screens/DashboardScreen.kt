@@ -182,10 +182,15 @@ fun DashboardScreen(
     }
     val aiSummaryState by viewModel.summaryState.collectAsState()
 
-    // Log complete Health data as formatted JSON and fetch AI summary on screen load
+    // Trigger AI summary whenever selected date changes (immediate loading, 3s hold debounce)
+    val selectedLocalDate = days[selectedDayIndex].localDate
+    LaunchedEffect(selectedLocalDate) {
+        viewModel.onDateSelected(selectedLocalDate)
+    }
+
+    // Log complete Health data as formatted JSON on screen load
     LaunchedEffect(Unit) {
         healthConnectManager.logAllHealthDataAsJson()
-        viewModel.loadAiSummary()
     }
 
     fun triggerSync() {
@@ -194,7 +199,7 @@ fun DashboardScreen(
             coroutineScope.launch {
                 // Read and log live Health Connect data as JSON
                 healthConnectManager.logAllHealthDataAsJson()
-                viewModel.loadAiSummary(forceRefresh = true)
+                viewModel.onDateSelected(days[selectedDayIndex].localDate, forceRefresh = true)
                 delay(1200)
                 syncKey += 1
                 isRefreshing = false
@@ -491,7 +496,8 @@ fun DashboardScreen(
                             // AI Health Summary Section below the cards
                             AiSummaryCardWidget(
                                 uiState = aiSummaryState,
-                                onRetry = { viewModel.loadAiSummary(forceRefresh = true) }
+                                selectedDate = days[selectedDayIndex].localDate,
+                                onRetry = { viewModel.retryCurrentDate() }
                             )
 
                             // Extra bottom padding so floating nav bar doesn't obscure content
@@ -1450,9 +1456,14 @@ private fun LegendItem(color: Color, label: String) {
 @Composable
 private fun AiSummaryCardWidget(
     uiState: AiSummaryUiState,
+    selectedDate: LocalDate,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val today = remember { LocalDate.now() }
+    val isToday = (selectedDate == today)
+    val dateTag = if (isToday) "Today" else selectedDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
@@ -1511,7 +1522,7 @@ private fun AiSummaryCardWidget(
                     color = Color(0xFFEEF2FF)
                 ) {
                     Text(
-                        text = "LIVE",
+                        text = dateTag.uppercase(),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF4F46E5),
