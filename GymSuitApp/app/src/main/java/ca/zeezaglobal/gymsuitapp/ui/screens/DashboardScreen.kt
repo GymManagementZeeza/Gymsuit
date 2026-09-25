@@ -1592,19 +1592,20 @@ private fun AiSummaryCardWidget(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    color = Color(0xFFFEF2F2),
+                                    color = Color(0xFFF8FAFC),
                                     shape = RoundedCornerShape(14.dp)
                                 )
-                                .padding(14.dp),
+                                .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
                                 text = state.message,
                                 fontSize = 12.sp,
-                                color = Color(0xFF991B1B),
+                                lineHeight = 18.sp,
+                                color = Color(0xFF64748B),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             OutlinedButton(
                                 onClick = onRetry,
                                 shape = RoundedCornerShape(10.dp),
@@ -1615,12 +1616,12 @@ private fun AiSummaryCardWidget(
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Refresh,
-                                    contentDescription = "Retry",
+                                    contentDescription = "Try Again",
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Retry",
+                                    text = "Try Again",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )

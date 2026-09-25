@@ -63,12 +63,12 @@ class DashboardViewModel(
                     if (response.summary.isNotBlank()) {
                         _summaryState.value = AiSummaryUiState.Success(response.summary)
                     } else {
-                        _summaryState.value = AiSummaryUiState.Error("No summary available for this date")
+                        _summaryState.value = AiSummaryUiState.Error("AI summary is not available now, please try again later.")
                     }
                 },
-                onFailure = { error ->
+                onFailure = {
                     _summaryState.value = AiSummaryUiState.Error(
-                        error.localizedMessage ?: "Failed to generate AI health summary"
+                        "AI summary is not available now, please try again later."
                     )
                 }
             )

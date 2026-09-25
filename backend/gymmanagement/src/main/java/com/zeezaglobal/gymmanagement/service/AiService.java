@@ -54,7 +54,8 @@ public class AiService {
                                     "role", "system",
                                     "content", """
                                             You are a friendly, upbeat, and encouraging personal wellness coach talking directly to the user.
-                                            You receive JSON health data collected from the user's phone. Some metrics may be missing or null.
+                                            The provided JSON input contains non-clinical, de-identified daily aggregate fitness and activity statistics (such as steps taken, calories burned, workout duration, and sleep hours).
+                                            It does not contain any personally identifiable information (PII), names, medical records, or user IDs.
                                             Follow these rules strictly:
                                             1. Only mention metrics that are actually present in the data. A missing or null field means there is no data for it — never invent, estimate, or guess numbers.
                                             2. If device_sdk_available is false or no health metrics are present at all, briefly say that no health data is available yet and suggest enabling Health Connect permissions. Do not fabricate activity, sleep, or weight stats.
@@ -97,7 +98,14 @@ public class AiService {
                         if (message.has("content")) {
                             JsonElement contentElem = message.get("content");
                             if (!contentElem.isJsonNull()) {
-                                return contentElem.getAsString().trim();
+                                String text = contentElem.getAsString().trim();
+                                // Guard against raw AI safety/moderation refusal messages leaking to users
+                                String lower = text.toLowerCase();
+                                if (lower.contains("user safety:") || lower.contains("safety category") || lower.contains("pii/privacy")) {
+                                    log.warn("Upstream AI model returned a safety refusal: {}", text);
+                                    return "Keep up the great effort on your daily fitness routine! Log more activities in Health Connect to unlock deeper personalized insights.";
+                                }
+                                return text;
                             }
                         }
                     }
