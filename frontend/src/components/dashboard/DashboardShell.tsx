@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
-import { clearSession, dashboardPathForRole, type LoginResponse } from "@/lib/auth";
+import { dashboardPathForRole, logout, type LoginResponse } from "@/lib/auth";
 import { getGym } from "@/lib/gyms";
 import { getCurrentUser } from "@/lib/users";
 import { listSessionRequests } from "@/lib/sessionRequests";
@@ -254,8 +254,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       .join("") || "…";
 
   const handleLogout = () => {
-    clearSession();
-    router.push("/login");
+    void logout().finally(() => router.push("/login"));
   };
 
   if (session && !STAFF_ROLES.includes(session.role)) {
