@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import java.time.LocalDate
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+
 sealed interface AiSummaryUiState {
     data object Idle : AiSummaryUiState
     data object Loading : AiSummaryUiState
@@ -23,20 +27,43 @@ class DashboardViewModel(
     private val _summaryState = MutableStateFlow<AiSummaryUiState>(AiSummaryUiState.Idle)
     val summaryState: StateFlow<AiSummaryUiState> = _summaryState.asStateFlow()
 
-    fun loadAiSummary(forceRefresh: Boolean = false) {
-        if (!forceRefresh && _summaryState.value is AiSummaryUiState.Loading) {
-            return
+    private var activeJob: Job? = null
+    private var currentDate: LocalDate = LocalDate.now()
+
+    /**
+     * Called whenever a date is selected or navigated to.
+     * 1. If cached, immediately displays cached summary without triggering API.
+     * 2. If not cached (or expired for today), immediately starts loading animation
+     *    and waits for 3 seconds of hold before calling the API.
+     * 3. If user rapidly changes dates, previous pending timer/request is cancelled immediately.
+     */
+    fun onDateSelected(date: LocalDate, forceRefresh: Boolean = false) {
+        currentDate = date
+        activeJob?.cancel()
+
+        // Check local cache first
+        if (!forceRefresh) {
+            val cached = aiSummaryRepository.getCachedSummary(date)
+            if (cached != null) {
+                _summaryState.value = AiSummaryUiState.Success(cached)
+                return
+            }
         }
 
+        // Start loading animation immediately as requested
         _summaryState.value = AiSummaryUiState.Loading
-        viewModelScope.launch {
-            val result = aiSummaryRepository.fetchAiSummary()
+
+        activeJob = viewModelScope.launch {
+            // Wait 3 seconds hold on the page before firing API call
+            delay(3000L)
+
+            val result = aiSummaryRepository.getSummaryForDate(date, forceRefresh = forceRefresh)
             result.fold(
                 onSuccess = { response ->
                     if (response.summary.isNotBlank()) {
                         _summaryState.value = AiSummaryUiState.Success(response.summary)
                     } else {
-                        _summaryState.value = AiSummaryUiState.Error("No summary available")
+                        _summaryState.value = AiSummaryUiState.Error("No summary available for this date")
                     }
                 },
                 onFailure = { error ->
@@ -46,6 +73,10 @@ class DashboardViewModel(
                 }
             )
         }
+    }
+
+    fun retryCurrentDate() {
+        onDateSelected(currentDate, forceRefresh = true)
     }
 }
 

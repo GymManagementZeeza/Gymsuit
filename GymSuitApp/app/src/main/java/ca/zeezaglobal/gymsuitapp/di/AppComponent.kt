@@ -24,6 +24,7 @@ class AppComponent private constructor(private val appContext: Context) {
 
     val aiSummaryRepository: AiSummaryRepository by lazy {
         AiSummaryRepositoryImpl(
+            context = appContext,
             healthConnectManager = healthConnectManager,
             aiSummarizeService = aiSummarizeService
         )
