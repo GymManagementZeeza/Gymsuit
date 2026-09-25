@@ -22,6 +22,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroEmailForm from "@/components/HeroEmailForm";
+import HomeSessionRedirect from "@/components/HomeSessionRedirect";
 
 const featureCards = [
   {
@@ -141,6 +142,7 @@ const pricingItems = [
 export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-paper text-ink selection:bg-saffron selection:text-white">
+      <HomeSessionRedirect />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
