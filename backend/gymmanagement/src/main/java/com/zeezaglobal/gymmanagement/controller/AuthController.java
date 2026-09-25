@@ -6,10 +6,14 @@ import com.zeezaglobal.gymmanagement.dto.GoogleLoginRequest;
 import com.zeezaglobal.gymmanagement.dto.LoginRequest;
 import com.zeezaglobal.gymmanagement.dto.LoginResponse;
 import com.zeezaglobal.gymmanagement.dto.OtpVerifyRequest;
+import com.zeezaglobal.gymmanagement.dto.RefreshRequest;
+import com.zeezaglobal.gymmanagement.security.RefreshCookieFactory;
 import com.zeezaglobal.gymmanagement.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,15 +25,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final RefreshCookieFactory refreshCookieFactory;
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return withRefreshCookie(authService.login(request));
     }
 
     @PostMapping("/google")
-    public LoginResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
-        return authService.loginWithGoogle(request);
+    public ResponseEntity<LoginResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return withRefreshCookie(authService.loginWithGoogle(request));
     }
 
     @PostMapping("/email/check")
@@ -44,7 +49,39 @@ public class AuthController {
     }
 
     @PostMapping("/otp/verify")
-    public LoginResponse verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
-        return authService.verifyOtp(request.email(), request.otp());
+    public ResponseEntity<LoginResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
+        return withRefreshCookie(authService.verifyOtp(request.email(), request.otp()));
+    }
+
+    /**
+     * Silent session renewal. Accepts the refresh token from the httpOnly
+     * cookie (web) or the JSON body (native clients). Rotates the refresh
+     * token on every call.
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(
+            @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String cookieToken,
+            @RequestBody(required = false) RefreshRequest body) {
+        String rawToken = cookieToken != null ? cookieToken
+                : (body != null ? body.refreshToken() : null);
+        return withRefreshCookie(authService.refreshSession(rawToken));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String cookieToken,
+            @RequestBody(required = false) RefreshRequest body) {
+        String rawToken = cookieToken != null ? cookieToken
+                : (body != null ? body.refreshToken() : null);
+        authService.logout(rawToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.clear().toString())
+                .build();
+    }
+
+    private ResponseEntity<LoginResponse> withRefreshCookie(LoginResponse response) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.issue(response.refreshToken()).toString())
+                .body(response);
     }
 }
