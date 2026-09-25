@@ -180,12 +180,12 @@ fun DashboardScreen(
     val viewModel = remember(appComponent) {
         appComponent.dashboardViewModelFactory.create(DashboardViewModel::class.java)
     }
-    val aiSummaryState by viewModel.summaryState.collectAsState()
+    val summaryUiState by viewModel.summaryState.collectAsState()
 
     // Log complete Health data as formatted JSON and fetch AI summary on screen load
     LaunchedEffect(Unit) {
         healthConnectManager.logAllHealthDataAsJson()
-        viewModel.loadAiSummary()
+        viewModel.loadSummary()
     }
 
     fun triggerSync() {
@@ -194,7 +194,7 @@ fun DashboardScreen(
             coroutineScope.launch {
                 // Read and log live Health Connect data as JSON
                 healthConnectManager.logAllHealthDataAsJson()
-                viewModel.loadAiSummary(forceRefresh = true)
+                viewModel.loadSummary(forceRefresh = true)
                 delay(1200)
                 syncKey += 1
                 isRefreshing = false
@@ -488,10 +488,10 @@ fun DashboardScreen(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // AI Health Summary Section below the cards
-                            AiSummaryCardWidget(
-                                uiState = aiSummaryState,
-                                onRetry = { viewModel.loadAiSummary(forceRefresh = true) }
+                            // Wellness Summary Section below the cards
+                            SummaryCardWidget(
+                                uiState = summaryUiState,
+                                onRetry = { viewModel.loadSummary(forceRefresh = true) }
                             )
 
                             // Extra bottom padding so floating nav bar doesn't obscure content
@@ -1444,12 +1444,12 @@ private fun LegendItem(color: Color, label: String) {
 }
 
 /**
- * Clean AI Summary card displayed below the dashboard grid cards.
- * Uses Material 3 Expressive Loading Indicator while loading from https://api.gymsuit.app/api/ai/summarize.
+ * Wellness summary card displayed below the dashboard grid cards.
+ * The summary is generated fully on-device from Health Connect data — no network calls.
  */
 @Composable
-private fun AiSummaryCardWidget(
-    uiState: AiSummaryUiState,
+private fun SummaryCardWidget(
+    uiState: SummaryUiState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1484,7 +1484,7 @@ private fun AiSummaryCardWidget(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.AutoAwesome,
-                            contentDescription = "AI Summary",
+                            contentDescription = "Wellness summary",
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
@@ -1492,7 +1492,7 @@ private fun AiSummaryCardWidget(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = "AI Health Summary",
+                            text = "Wellness Summary",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF111827)
@@ -1511,7 +1511,7 @@ private fun AiSummaryCardWidget(
                     color = Color(0xFFEEF2FF)
                 ) {
                     Text(
-                        text = "LIVE",
+                        text = "ON-DEVICE",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF4F46E5),
@@ -1528,10 +1528,10 @@ private fun AiSummaryCardWidget(
                 transitionSpec = {
                     fadeIn(tween(300)) togetherWith fadeOut(tween(200))
                 },
-                label = "AiSummaryStateAnimation"
+                label = "SummaryStateAnimation"
             ) { state ->
                 when (state) {
-                    is AiSummaryUiState.Loading, AiSummaryUiState.Idle -> {
+                    is SummaryUiState.Loading, SummaryUiState.Idle -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1548,7 +1548,7 @@ private fun AiSummaryCardWidget(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "Analyzing your health & activity data...",
+                                text = "Summarizing your health on-device...",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = Color(0xFF6B7280)
@@ -1556,7 +1556,7 @@ private fun AiSummaryCardWidget(
                         }
                     }
 
-                    is AiSummaryUiState.Success -> {
+                    is SummaryUiState.Success -> {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1576,7 +1576,7 @@ private fun AiSummaryCardWidget(
                         }
                     }
 
-                    is AiSummaryUiState.Error -> {
+                    is SummaryUiState.Error -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

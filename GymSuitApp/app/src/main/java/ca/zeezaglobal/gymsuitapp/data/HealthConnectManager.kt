@@ -390,7 +390,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
-     * Reads all available health records from Health Connect (or fallback sample data)
+     * Reads all available health records from Health Connect (nulls where data is missing)
      * and logs the complete health data payload as structured, formatted JSON in Android Logcat.
      */
     suspend fun logAllHealthDataAsJson(): String {
@@ -402,16 +402,7 @@ class HealthConnectManager(private val context: Context) {
         val client = healthConnectClient
         if (client == null) {
             rootJson.put("status", "Health Connect unavailable on device")
-            val sampleData = JSONObject().apply {
-                put("weight_kg", 75.0)
-                put("sleep_minutes", 465)
-                put("sleep_formatted", "7h 45m")
-                put("steps", 8420)
-                put("heart_rate_bpm", 72)
-                put("active_calories_kcal", 450)
-                put("distance_meters", 5230.0)
-            }
-            rootJson.put("sample_health_data", sampleData)
+            rootJson.put("sample_health_data", JSONObject.NULL)
             val jsonString = rootJson.toString(2)
             Log.d("HEALTH_DATA_JSON", jsonString)
             return jsonString
@@ -435,10 +426,12 @@ class HealthConnectManager(private val context: Context) {
                     })
                 }
                 dataJson.put("weight_records", weightsArray)
-                dataJson.put("latest_weight_kg", weightResponse.records.maxByOrNull { it.time }?.weight?.inKilograms ?: 75.0)
+                val latestWeightKg = weightResponse.records.maxByOrNull { it.time }?.weight?.inKilograms
+                if (latestWeightKg != null) dataJson.put("latest_weight_kg", latestWeightKg)
+                else dataJson.put("latest_weight_kg", JSONObject.NULL)
             } catch (e: Exception) {
                 dataJson.put("weight_error", e.message)
-                dataJson.put("latest_weight_kg", 75.0)
+                dataJson.put("latest_weight_kg", JSONObject.NULL)
             }
 
             // 2. Sleep Sessions
@@ -461,13 +454,18 @@ class HealthConnectManager(private val context: Context) {
                 }
                 dataJson.put("sleep_sessions", sleepArray)
                 val latestSleep = sleepResponse.records.maxByOrNull { it.endTime }
-                val latestMins = latestSleep?.let { java.time.Duration.between(it.startTime, it.endTime).toMinutes() } ?: 465L
-                dataJson.put("latest_sleep_minutes", latestMins)
-                dataJson.put("latest_sleep_formatted", "${latestMins / 60}h ${latestMins % 60}m")
+                val latestMins = latestSleep?.let { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }
+                if (latestMins != null) {
+                    dataJson.put("latest_sleep_minutes", latestMins)
+                    dataJson.put("latest_sleep_formatted", "${latestMins / 60}h ${latestMins % 60}m")
+                } else {
+                    dataJson.put("latest_sleep_minutes", JSONObject.NULL)
+                    dataJson.put("latest_sleep_formatted", JSONObject.NULL)
+                }
             } catch (e: Exception) {
                 dataJson.put("sleep_error", e.message)
-                dataJson.put("latest_sleep_minutes", 465)
-                dataJson.put("latest_sleep_formatted", "7h 45m")
+                dataJson.put("latest_sleep_minutes", JSONObject.NULL)
+                dataJson.put("latest_sleep_formatted", JSONObject.NULL)
             }
 
             // 3. Steps Records
@@ -479,9 +477,10 @@ class HealthConnectManager(private val context: Context) {
                     )
                 )
                 val totalSteps = stepsResponse.records.sumOf { it.count }
-                dataJson.put("today_steps", if (totalSteps > 0) totalSteps else 8420)
+                if (totalSteps > 0) dataJson.put("today_steps", totalSteps)
+                else dataJson.put("today_steps", JSONObject.NULL)
             } catch (e: Exception) {
-                dataJson.put("today_steps", 8420)
+                dataJson.put("today_steps", JSONObject.NULL)
             }
 
             // 4. Heart Rate Records
@@ -492,10 +491,11 @@ class HealthConnectManager(private val context: Context) {
                         timeRangeFilter = TimeRangeFilter.after(now.minus(1, ChronoUnit.DAYS))
                     )
                 )
-                val latestHr = hrResponse.records.flatMap { it.samples }.maxByOrNull { it.time }?.beatsPerMinute ?: 72
-                dataJson.put("latest_heart_rate_bpm", latestHr)
+                val latestHr = hrResponse.records.flatMap { it.samples }.maxByOrNull { it.time }?.beatsPerMinute
+                if (latestHr != null) dataJson.put("latest_heart_rate_bpm", latestHr)
+                else dataJson.put("latest_heart_rate_bpm", JSONObject.NULL)
             } catch (e: Exception) {
-                dataJson.put("latest_heart_rate_bpm", 72)
+                dataJson.put("latest_heart_rate_bpm", JSONObject.NULL)
             }
 
             // 5. Active & Total Calories Burned
@@ -532,9 +532,10 @@ class HealthConnectManager(private val context: Context) {
                     )
                 )
                 val totalDist = distResponse.records.sumOf { it.distance.inMeters }
-                dataJson.put("today_distance_meters", if (totalDist > 0) totalDist else 5230.0)
+                if (totalDist > 0) dataJson.put("today_distance_meters", totalDist)
+                else dataJson.put("today_distance_meters", JSONObject.NULL)
             } catch (e: Exception) {
-                dataJson.put("today_distance_meters", 5230.0)
+                dataJson.put("today_distance_meters", JSONObject.NULL)
             }
 
             // 7. Exercise / Workout Sessions
@@ -571,173 +572,74 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
-     * Reads all available health records from Health Connect and returns a strongly-typed
-     * [ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest] ready to send to https://api.gymsuit.app/api/ai/summarize.
-     *
-     * Metrics with no real data are left null (and omitted from the JSON) so the backend
-     * never summarizes fabricated values. "Latest" records are picked by timestamp,
-     * not by list position, since Health Connect does not guarantee record order.
+     * Reads total steps recorded today (local timezone).
+     * Returns null when Health Connect is unavailable or no step records exist.
      */
-    suspend fun buildAiSummarizeRequest(): ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest {
-        val now = Instant.now()
+    suspend fun readTodaySteps(): Long? {
+        val client = healthConnectClient ?: return null
         val zoneId = ZoneId.systemDefault()
-        val client = healthConnectClient
-
-        if (client == null) {
-            return ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest(
-                timestamp = now.toString(),
-                deviceSdkAvailable = false,
-                healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
-                    weightRecords = emptyList(),
-                    latestWeightKg = null,
-                    sleepSessions = emptyList(),
-                    latestSleepMinutes = null,
-                    latestSleepFormatted = null,
-                    todaySteps = null,
-                    latestHeartRateBpm = null,
-                    todayActiveCaloriesKcal = null,
-                    todayDistanceMeters = null,
-                    exerciseSessions = emptyList()
-                )
-            )
-        }
-
-        // Local-day window so "today" metrics really are today's.
+        val now = Instant.now()
         val startOfToday = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant()
-        val todayFilter = TimeRangeFilter.between(startOfToday, now)
-
-        // 1. Weight Records (last 90 days) — latest picked by record time.
-        val rawWeightRecords = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = WeightRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(90, ChronoUnit.DAYS))
-                )
-            ).records
-        } catch (e: Exception) {
-            emptyList()
-        }
-        val weightRecords = rawWeightRecords.map {
-            ca.zeezaglobal.gymsuitapp.data.model.WeightRecordItem(
-                time = it.time.toString(),
-                weightKg = it.weight.inKilograms
-            )
-        }
-        val latestWeightKg = rawWeightRecords.maxByOrNull { it.time }?.weight?.inKilograms
-
-        // 2. Sleep Sessions (last 35 days) — latest picked by session end time.
-        val rawSleepRecords = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = SleepSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(35, ChronoUnit.DAYS))
-                )
-            ).records
-        } catch (e: Exception) {
-            emptyList()
-        }
-        val sleepSessions = rawSleepRecords.map { record ->
-            val durationMins = java.time.Duration.between(record.startTime, record.endTime).toMinutes()
-            ca.zeezaglobal.gymsuitapp.data.model.SleepSessionItem(
-                startTime = record.startTime.toString(),
-                endTime = record.endTime.toString(),
-                durationMinutes = durationMins,
-                title = record.title ?: "Sleep Session"
-            )
-        }
-        val latestSleepMinutes = rawSleepRecords.maxByOrNull { it.endTime }?.let {
-            java.time.Duration.between(it.startTime, it.endTime).toMinutes()
-        }
-        val latestSleepFormatted = latestSleepMinutes?.let { "${it / 60}h ${it % 60}m" }
-
-        // 3. Steps (today, local timezone) — null when no records.
-        val todaySteps: Long? = try {
+        return try {
             val records = client.readRecords(
                 ReadRecordsRequest(
                     recordType = StepsRecord::class,
-                    timeRangeFilter = todayFilter
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, now)
                 )
             ).records
             if (records.isEmpty()) null else records.sumOf { it.count }
         } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
+    }
 
-        // 4. Heart Rate (today) — latest sample by time, null when none.
-        val latestHeartRateBpm: Int? = try {
+    /**
+     * Reads total distance in meters recorded today (local timezone).
+     * Returns null when Health Connect is unavailable or no distance records exist.
+     */
+    suspend fun readTodayDistanceMeters(): Double? {
+        val client = healthConnectClient ?: return null
+        val zoneId = ZoneId.systemDefault()
+        val now = Instant.now()
+        val startOfToday = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant()
+        return try {
+            val records = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = DistanceRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, now)
+                )
+            ).records
+            if (records.isEmpty()) null else records.sumOf { it.distance.inMeters }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Reads the latest heart-rate sample recorded today (local timezone), in bpm.
+     * The latest sample is picked by timestamp since Health Connect does not
+     * guarantee record order. Returns null when unavailable.
+     */
+    suspend fun readTodayLatestHeartRateBpm(): Int? {
+        val client = healthConnectClient ?: return null
+        val zoneId = ZoneId.systemDefault()
+        val now = Instant.now()
+        val startOfToday = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant()
+        return try {
             client.readRecords(
                 ReadRecordsRequest(
                     recordType = HeartRateRecord::class,
-                    timeRangeFilter = todayFilter
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, now)
                 )
             ).records
                 .flatMap { it.samples }
                 .maxByOrNull { it.time }
                 ?.beatsPerMinute?.toInt()
         } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
-
-        // 5. Active Calories (today) — null when no records; never estimated.
-        val todayActiveCaloriesKcal: Double? = try {
-            val records = client.readRecords(
-                ReadRecordsRequest(
-                    recordType = ActiveCaloriesBurnedRecord::class,
-                    timeRangeFilter = todayFilter
-                )
-            ).records
-            if (records.isEmpty()) null else records.sumOf { it.energy.inKilocalories }
-        } catch (e: Exception) {
-            null
-        }
-
-        // 6. Distance (today) — null when no records.
-        val todayDistanceMeters: Double? = try {
-            val records = client.readRecords(
-                ReadRecordsRequest(
-                    recordType = DistanceRecord::class,
-                    timeRangeFilter = todayFilter
-                )
-            ).records
-            if (records.isEmpty()) null else records.sumOf { it.distance.inMeters }
-        } catch (e: Exception) {
-            null
-        }
-
-        // 7. Exercise Sessions (past 35 days)
-        val exerciseSessions = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = ExerciseSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(now.minus(35, ChronoUnit.DAYS))
-                )
-            ).records.map { record ->
-                ca.zeezaglobal.gymsuitapp.data.model.ExerciseSessionItem(
-                    startTime = record.startTime.toString(),
-                    endTime = record.endTime.toString(),
-                    title = record.title ?: "Workout",
-                    exerciseType = record.exerciseType
-                )
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
-
-        return ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest(
-            timestamp = now.toString(),
-            deviceSdkAvailable = true,
-            healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
-                weightRecords = weightRecords,
-                latestWeightKg = latestWeightKg,
-                sleepSessions = sleepSessions,
-                latestSleepMinutes = latestSleepMinutes,
-                latestSleepFormatted = latestSleepFormatted,
-                todaySteps = todaySteps,
-                latestHeartRateBpm = latestHeartRateBpm,
-                todayActiveCaloriesKcal = todayActiveCaloriesKcal,
-                todayDistanceMeters = todayDistanceMeters,
-                exerciseSessions = exerciseSessions
-            )
-        )
     }
 }
