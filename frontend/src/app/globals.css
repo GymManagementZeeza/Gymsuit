@@ -261,6 +261,15 @@ html {
 .mono {
   font-family: var(--font-dm-mono), monospace;
 }
+/* Malayalam has no glyphs in the Latin display/mono faces — fall back to
+   Noto Sans Malayalam whenever the dashboard locale is Malayalam. */
+html[lang="ml"] body,
+html[lang="ml"] .display-face,
+html[lang="ml"] .font-display,
+html[lang="ml"] .ledger-label,
+html[lang="ml"] .mono {
+  font-family: var(--font-malayalam), "Noto Sans Malayalam", ui-sans-serif, system-ui, sans-serif;
+}
 .cut-corner {
   clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
 }
