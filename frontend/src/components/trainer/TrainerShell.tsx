@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { clearSession } from "@/lib/auth";
+import { logout } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
 import { getCurrentUser } from "@/lib/users";
 import { getTrainer } from "@/lib/trainers";
@@ -156,8 +156,7 @@ export function TrainerShell({ children }: { children: ReactNode }) {
       .join("") || "…";
 
   const handleLogout = () => {
-    clearSession();
-    router.push("/login");
+    void logout().finally(() => router.push("/login"));
   };
 
   return (
