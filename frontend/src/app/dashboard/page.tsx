@@ -474,8 +474,8 @@ export default function DashboardOverview() {
                 const hasNoActivePlan = !sub || sub.status !== "ACTIVE" || countdown.tone === "overdue";
 
                 return (
-                  <div key={member.id} className={`flex items-center justify-between gap-3 p-4 transition ${hasNoActivePlan ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-[#fafaf6]"}`}>
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div key={member.id} className={`flex flex-wrap items-center justify-between gap-3 p-4 transition ${hasNoActivePlan ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-[#fafaf6]"}`}>
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <div className="relative">
                         <span
                           className={`grid size-9 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
@@ -508,7 +508,7 @@ export default function DashboardOverview() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="min-w-0 text-right">
                       <p
                         className={`text-xs font-bold ${
                           hasNoActivePlan
@@ -522,7 +522,7 @@ export default function DashboardOverview() {
                         {countdown.detail}
                       </span>
                       {hasNoActivePlan && (
-                        <div className="mt-1.5 flex items-center justify-end gap-1.5">
+                        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1.5">
                           {member.phone && (
                             <a
                               href={`tel:${member.phone}`}
@@ -578,8 +578,8 @@ export default function DashboardOverview() {
               <StatusPill label="Open" tone="lime" />
             </div>
             <div>
-              <div className="flex items-end justify-between">
-                <div>
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-4xl font-bold tracking-[-0.06em]">
                     {checkedInCount === null ? "…" : checkedInCount}
                     {totalMembersCount !== null && (
@@ -588,7 +588,7 @@ export default function DashboardOverview() {
                   </p>
                   <p className="mt-1 text-xs text-white/70">members currently in the gym</p>
                 </div>
-                <Link href="/dashboard/live-floor" className="flex items-center gap-1 border border-white/30 px-3 py-2 text-xs font-bold backdrop-blur-sm transition hover:bg-white hover:text-[#24241f]">
+                <Link href="/dashboard/live-floor" className="flex shrink-0 items-center gap-1 border border-white/30 px-3 py-2 text-xs font-bold backdrop-blur-sm transition hover:bg-white hover:text-[#24241f]">
                   View live floor <ArrowUpRight className="size-3" />
                 </Link>
               </div>
