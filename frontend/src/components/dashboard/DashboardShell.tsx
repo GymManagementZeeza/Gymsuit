@@ -11,6 +11,8 @@ import { getCurrentUser } from "@/lib/users";
 import { listSessionRequests } from "@/lib/sessionRequests";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
 import NotificationSheet from "@/components/dashboard/NotificationSheet";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { BUILD_INFO } from "@/generated/build-info";
 import {
   Bell,
@@ -31,56 +33,61 @@ import {
   X,
 } from "lucide-react";
 
-const navGroups = [
-  { label: "Command", items: [{ label: "Overview", href: "/dashboard", icon: Gauge }] },
-  {
-    label: "People",
-    items: [
-      { label: "Members", href: "/dashboard/members", icon: UsersRound },
-      { label: "Trainers", href: "/dashboard/trainers", icon: Dumbbell },
-      { label: "Team access", href: "/dashboard/team-access", icon: ShieldCheck },
-    ],
-  },
-  {
-    label: "Training",
-    items: [
-      { label: "Session requests", href: "/dashboard/session-requests", icon: BookOpenCheck },
-      { label: "Schedule", href: "/dashboard/schedule", icon: CalendarCheck2 },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [{ label: "Live floor", href: "/dashboard/live-floor", icon: Gauge }],
-  },
-  {
-    label: "Hardware",
-    items: [{ label: "Attendance", href: "/dashboard/attendance", icon: LockKeyhole }],
-  },
-  {
-    label: "Finance",
-    items: [
-      { label: "Staff pay", href: "/dashboard/staff-pay", icon: WalletCards },
-      { label: "Membership plans", href: "/dashboard/membership", icon: CreditCard },
-      { label: "Payments", href: "/dashboard/payments", icon: Receipt },
-    ],
-  },
-];
+function buildNavGroups(t: Dictionary) {
+  return [
+    { label: t.nav.groups.command, items: [{ label: t.nav.overview, href: "/dashboard", icon: Gauge }] },
+    {
+      label: t.nav.groups.people,
+      items: [
+        { label: t.nav.members, href: "/dashboard/members", icon: UsersRound },
+        { label: t.nav.trainers, href: "/dashboard/trainers", icon: Dumbbell },
+        { label: t.nav.teamAccess, href: "/dashboard/team-access", icon: ShieldCheck },
+      ],
+    },
+    {
+      label: t.nav.groups.training,
+      items: [
+        { label: t.nav.sessionRequests, href: "/dashboard/session-requests", icon: BookOpenCheck },
+        { label: t.nav.schedule, href: "/dashboard/schedule", icon: CalendarCheck2 },
+      ],
+    },
+    {
+      label: t.nav.groups.operations,
+      items: [{ label: t.nav.liveFloor, href: "/dashboard/live-floor", icon: Gauge }],
+    },
+    {
+      label: t.nav.groups.hardware,
+      items: [{ label: t.nav.attendance, href: "/dashboard/attendance", icon: LockKeyhole }],
+    },
+    {
+      label: t.nav.groups.finance,
+      items: [
+        { label: t.nav.staffPay, href: "/dashboard/staff-pay", icon: WalletCards },
+        { label: t.nav.membershipPlans, href: "/dashboard/membership", icon: CreditCard },
+        { label: t.nav.payments, href: "/dashboard/payments", icon: Receipt },
+      ],
+    },
+  ];
+}
 
-const sectionLabels: Record<string, string> = {
-  "/dashboard": "Command · Overview",
-  "/dashboard/members": "People · Members",
-  "/dashboard/trainers": "People · Trainers",
-  "/dashboard/team-access": "People · Team access",
-  "/dashboard/session-requests": "Training · Session requests",
-  "/dashboard/schedule": "Training · Schedule",
-  "/dashboard/classes": "Training · Classes",
-  "/dashboard/attendance": "Hardware · Attendance",
-  "/dashboard/live-floor": "Operations · Live floor",
-  "/dashboard/staff-pay": "Finance · Staff pay",
-  "/dashboard/membership": "Finance · Membership plans",
-  "/dashboard/payments": "Finance · Payments",
-  "/dashboard/settings": "System · Settings",
-};
+function sectionLabelFor(pathname: string, t: Dictionary): string {
+  const labels: Record<string, string> = {
+    "/dashboard": `${t.nav.groups.command} · ${t.nav.overview}`,
+    "/dashboard/members": `${t.nav.groups.people} · ${t.nav.members}`,
+    "/dashboard/trainers": `${t.nav.groups.people} · ${t.nav.trainers}`,
+    "/dashboard/team-access": `${t.nav.groups.people} · ${t.nav.teamAccess}`,
+    "/dashboard/session-requests": `${t.nav.groups.training} · ${t.nav.sessionRequests}`,
+    "/dashboard/schedule": `${t.nav.groups.training} · ${t.nav.schedule}`,
+    "/dashboard/classes": `${t.nav.groups.training} · ${t.nav.classes}`,
+    "/dashboard/attendance": `${t.nav.groups.hardware} · ${t.nav.attendance}`,
+    "/dashboard/live-floor": `${t.nav.groups.operations} · ${t.nav.liveFloor}`,
+    "/dashboard/staff-pay": `${t.nav.groups.finance} · ${t.nav.staffPay}`,
+    "/dashboard/membership": `${t.nav.groups.finance} · ${t.nav.membershipPlans}`,
+    "/dashboard/payments": `${t.nav.groups.finance} · ${t.nav.payments}`,
+    "/dashboard/settings": `${t.nav.groups.system} · ${t.nav.settings}`,
+  };
+  return labels[pathname] ?? t.nav.groups.operations;
+}
 
 function NavContent({
   pathname,
@@ -99,6 +106,8 @@ function NavContent({
   initials: string;
   pendingRequests: number;
 }) {
+  const { t } = useLanguage();
+  const navGroups = buildNavGroups(t);
   return (
     <>
       <div className="p-4 pb-3">
@@ -114,13 +123,13 @@ function NavContent({
           </span>
           <div>
             <p className="text-[15px] font-bold tracking-[-0.04em] text-white">GymSuite</p>
-            <p className="mono mt-0.5 text-[9px] tracking-[0.14em] text-[#a7a79e]">OPERATIONS</p>
+            <p className="mono mt-0.5 text-[9px] tracking-[0.14em] text-[#a7a79e]">{t.nav.operationsTag.toUpperCase()}</p>
           </div>
         </Link>
         <div className="mt-5 flex w-full items-center justify-between border border-white/15 bg-white/[0.05] px-3 py-2.5 text-left">
           <span>
             <span className="block truncate text-xs font-bold text-white">{gymName}</span>
-            <span className="mt-0.5 block text-[10px] text-[#adada4]">1 of 1 gym</span>
+            <span className="mt-0.5 block text-[10px] text-[#adada4]">{t.nav.gymCount}</span>
           </span>
         </div>
       </div>
@@ -169,7 +178,7 @@ function NavContent({
             pathname === "/dashboard/settings" ? "bg-[#c7f36a] text-[#24241f]" : "text-[#d0d0c8] hover:bg-white/10 hover:text-white"
           }`}
         >
-          <Settings2 className="size-4" /> Settings
+          <Settings2 className="size-4" /> {t.nav.settings}
         </Link>
         <div className="mx-0 my-3 h-px bg-white/10" />
         <div className="flex items-center gap-2.5 px-2 pt-1">
@@ -188,14 +197,6 @@ function NavContent({
   );
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Admin",
-  OWNER: "Owner",
-  MANAGER: "Manager",
-  TRAINER: "Trainer",
-  MEMBER: "Member",
-};
-
 // /dashboard is the staff console — trainers and members have their own dashboards and don't belong here.
 const STAFF_ROLES: LoginResponse["role"][] = ["ADMIN", "OWNER", "MANAGER"];
 
@@ -203,6 +204,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const session = useSession();
+  const { t } = useLanguage();
   const [navOpen, setNavOpen] = useState(false);
   const [gymName, setGymName] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState(0);
@@ -210,7 +212,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const closeNav = () => setNavOpen(false);
-  const sectionLabel = sectionLabels[pathname] ?? "Operations";
+  const sectionLabel = sectionLabelFor(pathname, t);
 
   useEffect(() => {
     if (!session) return;
@@ -244,8 +246,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, [session]);
 
-  const displayGymName = gymName ?? "Your gym";
-  const roleLabel = session ? (ROLE_LABELS[session.role] ?? session.role) : "";
+  const displayGymName = gymName ?? t.settings.yourGym;
+  const roleLabel = session ? (t.roles[session.role] ?? session.role) : "";
   const displayName = userName ?? "";
   const initials =
     displayName
@@ -296,7 +298,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => setNavOpen((open) => !open)}
               className="grid size-9 place-items-center border border-[#dddDd6] bg-white lg:hidden"
-              aria-label={navOpen ? "Close menu" : "Open menu"}
+              aria-label={navOpen ? t.header.closeMenu : t.header.openMenu}
               aria-expanded={navOpen}
             >
               {navOpen ? <X className="size-4" /> : <Menu className="size-4" />}
@@ -310,19 +312,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => setNotificationsOpen(true)}
               className="relative grid size-9 place-items-center border border-[#dddDd6] bg-white transition hover:border-[#24241f]"
-              aria-label="Open notifications"
+              aria-label={t.header.openNotifications}
             >
               <Bell className="size-4" />
             </button>
             <button className="hidden items-center gap-2 bg-[#24241f] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#42423a] sm:flex">
-              <Landmark className="size-3.5 text-[#c7f36a]" /> Gym administration
+              <Landmark className="size-3.5 text-[#c7f36a]" /> {t.header.gymAdministration}
             </button>
             <button
               type="button"
               onClick={() => setLogoutConfirmOpen(true)}
               className="grid size-9 place-items-center border border-[#dddDd6] bg-white transition hover:border-[#24241f]"
-              aria-label="Log out"
-              title="Log out"
+              aria-label={t.header.logOut}
+              title={t.header.logOut}
             >
               <LogOut className="size-4" />
             </button>
@@ -338,9 +340,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
       {logoutConfirmOpen && (
         <ConfirmDialog
-          title="Log out?"
-          description="You'll need to sign in again to get back to your dashboard."
-          confirmLabel="Log out"
+          title={t.header.logOutTitle}
+          description={t.header.logOutDescription}
+          confirmLabel={t.header.logOut}
           onConfirm={handleLogout}
           onCancel={() => setLogoutConfirmOpen(false)}
         />
