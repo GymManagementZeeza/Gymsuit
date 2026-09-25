@@ -21,6 +21,7 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
     private final GoogleIdTokenVerifierService googleIdTokenVerifierService;
     private final UserRepository userRepository;
     private final OtpService otpService;
@@ -81,6 +82,23 @@ public class AuthService {
 
     public LoginResponse issueSession(UserPrincipal principal) {
         String token = jwtService.generateToken(principal);
-        return new LoginResponse(token, principal.getRole().name(), principal.getGymId(), principal.getTrainerId(), principal.getMemberId(), principal.getManagerId());
+        String refreshToken = refreshTokenService.createToken(principal);
+        return new LoginResponse(token, principal.getRole().name(), principal.getGymId(), principal.getTrainerId(), principal.getMemberId(), principal.getManagerId(), refreshToken);
+    }
+
+    public LoginResponse refreshSession(String rawRefreshToken) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            throw new BadRequestException("Invalid refresh token");
+        }
+        RefreshTokenService.RefreshedSession refreshed = refreshTokenService.rotate(rawRefreshToken);
+        UserPrincipal principal = refreshed.principal();
+        String token = jwtService.generateToken(principal);
+        return new LoginResponse(token, principal.getRole().name(), principal.getGymId(), principal.getTrainerId(), principal.getMemberId(), principal.getManagerId(), refreshed.refreshToken());
+    }
+
+    public void logout(String rawRefreshToken) {
+        if (rawRefreshToken != null) {
+            refreshTokenService.revoke(rawRefreshToken);
+        }
     }
 }

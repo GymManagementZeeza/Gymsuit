@@ -8,7 +8,7 @@ import { useSession } from "@/hooks/useSession";
 import { getMember } from "@/lib/members";
 import { getGym } from "@/lib/gyms";
 import { listCheckInHistory } from "@/lib/checkins";
-import { clearSession } from "@/lib/auth";
+import { logout } from "@/lib/auth";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
 import {
   Bell,
@@ -192,8 +192,7 @@ export function ClientShell({ children }: { children: ReactNode }) {
       .join("") || "…";
 
   const handleLogout = () => {
-    clearSession();
-    router.push("/login");
+    void logout().finally(() => router.push("/login"));
   };
 
   return (
