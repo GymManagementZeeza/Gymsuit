@@ -24,8 +24,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,11 +47,12 @@ fun RegisterScreen(
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var otp by remember { mutableStateOf("") }
+    var otpSent by remember { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var infoMessage by remember { mutableStateOf<String?>(null) }
 
     val scrollState = rememberScrollState()
 
@@ -131,7 +130,7 @@ fun RegisterScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Create Account",
+                    text = if (!otpSent) "Create Account" else "Verify Your Email",
                     fontFamily = PoppinsFontFamily,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
@@ -142,7 +141,11 @@ fun RegisterScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Join GymSuit to track your workouts, wellness, and gym membership.",
+                    text = if (!otpSent) {
+                        "Join GymSuit with your details. We'll send a 6-digit code to verify your email."
+                    } else {
+                        "We sent a 6-digit verification code to $email. Enter it below to complete registration."
+                    },
                     fontFamily = PoppinsFontFamily,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -158,7 +161,7 @@ fun RegisterScreen(
                         color = Color(0xFFFEE2E2),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp)
+                            .padding(bottom = 14.dp)
                     ) {
                         Text(
                             text = errorMessage ?: "",
@@ -171,10 +174,29 @@ fun RegisterScreen(
                     }
                 }
 
-                // Name Row
+                if (infoMessage != null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFDCFCE7),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 14.dp)
+                    ) {
+                        Text(
+                            text = infoMessage ?: "",
+                            fontFamily = PoppinsFontFamily,
+                            color = Color(0xFF16A34A),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
+                // Name Fields (First & Last)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -188,8 +210,10 @@ fun RegisterScreen(
                         OutlinedTextField(
                             value = firstName,
                             onValueChange = { firstName = it; errorMessage = null },
-                            placeholder = { Text("Alex", fontSize = 14.sp) },
+                            enabled = !otpSent && !isLoading,
+                            placeholder = { Text("John", color = Color(0xFF9E9E9E), fontSize = 14.sp) },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -207,8 +231,10 @@ fun RegisterScreen(
                         OutlinedTextField(
                             value = lastName,
                             onValueChange = { lastName = it; errorMessage = null },
-                            placeholder = { Text("Miller", fontSize = 14.sp) },
+                            enabled = !otpSent && !isLoading,
+                            placeholder = { Text("Doe", color = Color(0xFF9E9E9E), fontSize = 14.sp) },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -217,8 +243,11 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Email
-                Column(modifier = Modifier.fillMaxWidth()) {
+                // Email Field
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
+                ) {
                     Text(
                         text = "Email Address",
                         fontFamily = PoppinsFontFamily,
@@ -229,10 +258,31 @@ fun RegisterScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = email,
-                        onValueChange = { email = it; errorMessage = null },
-                        placeholder = { Text("alex@example.com", fontSize = 14.sp) },
+                        onValueChange = { email = it; errorMessage = null; infoMessage = null },
+                        enabled = !otpSent && !isLoading,
+                        placeholder = { Text("john.doe@example.com", color = Color(0xFF9E9E9E), fontSize = 14.sp) },
                         leadingIcon = {
-                            Icon(Icons.Outlined.Email, contentDescription = null, tint = colorScheme.primary)
+                            Icon(imageVector = Icons.Outlined.Email, contentDescription = null, tint = colorScheme.primary)
+                        },
+                        trailingIcon = {
+                            if (otpSent) {
+                                TextButton(
+                                    onClick = {
+                                        otpSent = false
+                                        otp = ""
+                                        infoMessage = null
+                                        errorMessage = null
+                                    }
+                                ) {
+                                    Text(
+                                        text = "Change",
+                                        fontFamily = PoppinsFontFamily,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colorScheme.primary
+                                    )
+                                }
+                            }
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -243,8 +293,11 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Phone
-                Column(modifier = Modifier.fillMaxWidth()) {
+                // Phone Field
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
+                ) {
                     Text(
                         text = "Phone Number",
                         fontFamily = PoppinsFontFamily,
@@ -256,85 +309,143 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it; errorMessage = null },
-                        placeholder = { Text("+1 (555) 000-0000", fontSize = 14.sp) },
+                        enabled = !otpSent && !isLoading,
+                        placeholder = { Text("+1 (555) 000-0000", color = Color(0xFF9E9E9E), fontSize = 14.sp) },
                         leadingIcon = {
-                            Icon(Icons.Outlined.Phone, contentDescription = null, tint = colorScheme.primary)
+                            Icon(imageVector = Icons.Outlined.Phone, contentDescription = null, tint = colorScheme.primary)
                         },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = if (otpSent) ImeAction.Next else ImeAction.Done),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                // OTP Verification Code Field
+                if (otpSent) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Password
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Password (min 6 chars)",
-                        fontFamily = PoppinsFontFamily,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it; errorMessage = null },
-                        placeholder = { Text("••••••••", fontSize = 14.sp) },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Lock, contentDescription = null, tint = colorScheme.primary)
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                )
-                            }
-                        },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = "Verification Code (OTP)",
+                            fontFamily = PoppinsFontFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = otp,
+                            onValueChange = {
+                                if (it.length <= 6) {
+                                    otp = it
+                                    errorMessage = null
+                                }
+                            },
+                            enabled = !isLoading,
+                            placeholder = { Text("123456", color = Color(0xFF9E9E9E), fontSize = 14.sp) },
+                            leadingIcon = {
+                                Icon(imageVector = Icons.Outlined.Key, contentDescription = null, tint = colorScheme.primary)
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                Spacer(modifier = Modifier.height(26.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                // Sign Up Button
-                Button(
-                    onClick = {
-                        if (firstName.isBlank() || lastName.isBlank() || email.isBlank() || phone.isBlank() || password.isBlank()) {
-                            errorMessage = "Please fill in all fields"
-                            return@Button
-                        }
-                        if (password.length < 6) {
-                            errorMessage = "Password must be at least 6 characters"
-                            return@Button
-                        }
-                        isLoading = true
-                        errorMessage = null
-                        coroutineScope.launch {
-                            val result = appComponent.mobileAuthApi.register(
-                                firstName = firstName,
-                                lastName = lastName,
-                                email = email,
-                                phone = phone,
-                                password = password
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Didn't receive code? ",
+                                fontFamily = PoppinsFontFamily,
+                                fontSize = 12.sp,
+                                color = colorScheme.onSurfaceVariant
                             )
-                            isLoading = false
-                            result.fold(
-                                onSuccess = { session ->
-                                    appComponent.authManager.saveSession(session)
-                                    onRegisterSuccess()
-                                },
-                                onFailure = { error ->
-                                    errorMessage = error.message ?: "Registration failed"
+                            Text(
+                                text = "Resend OTP",
+                                fontFamily = PoppinsFontFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.primary,
+                                modifier = Modifier.clickable {
+                                    if (isLoading) return@clickable
+                                    isLoading = true
+                                    errorMessage = null
+                                    coroutineScope.launch {
+                                        val res = appComponent.mobileAuthApi.sendOtp(email, "register")
+                                        isLoading = false
+                                        res.fold(
+                                            onSuccess = { msg -> infoMessage = msg },
+                                            onFailure = { err -> errorMessage = err.message ?: "Failed to resend code" }
+                                        )
+                                    }
                                 }
                             )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Sign Up Action Button
+                Button(
+                    onClick = {
+                        if (!otpSent) {
+                            if (firstName.isBlank() || lastName.isBlank() || email.isBlank() || phone.isBlank()) {
+                                errorMessage = "Please fill in all fields"
+                                return@Button
+                            }
+                            isLoading = true
+                            errorMessage = null
+                            infoMessage = null
+                            coroutineScope.launch {
+                                val result = appComponent.mobileAuthApi.sendOtp(email, "register")
+                                isLoading = false
+                                result.fold(
+                                    onSuccess = { msg ->
+                                        otpSent = true
+                                        infoMessage = msg
+                                    },
+                                    onFailure = { error ->
+                                        errorMessage = error.message ?: "Failed to send code"
+                                    }
+                                )
+                            }
+                        } else {
+                            if (otp.trim().length != 6) {
+                                errorMessage = "Please enter the 6-digit verification code"
+                                return@Button
+                            }
+                            isLoading = true
+                            errorMessage = null
+                            infoMessage = null
+                            coroutineScope.launch {
+                                val result = appComponent.mobileAuthApi.registerWithOtp(
+                                    firstName = firstName,
+                                    lastName = lastName,
+                                    email = email,
+                                    phone = phone,
+                                    otp = otp
+                                )
+                                isLoading = false
+                                result.fold(
+                                    onSuccess = { session ->
+                                        appComponent.authManager.saveSession(session)
+                                        onRegisterSuccess()
+                                    },
+                                    onFailure = { error ->
+                                        errorMessage = error.message ?: "Registration failed"
+                                    }
+                                )
+                            }
                         }
                     },
                     enabled = !isLoading,
@@ -355,7 +466,7 @@ fun RegisterScreen(
                         )
                     } else {
                         Text(
-                            text = "Create Account",
+                            text = if (!otpSent) "Send Verification Code" else "Verify & Complete Registration",
                             fontFamily = PoppinsFontFamily,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold

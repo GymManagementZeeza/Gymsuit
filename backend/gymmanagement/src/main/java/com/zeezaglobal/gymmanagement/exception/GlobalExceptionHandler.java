@@ -47,13 +47,24 @@ public class GlobalExceptionHandler {
     }
 
     // Safety net for any FK/unique-constraint violation we haven't explicitly guarded against in a service —
-    // keeps raw SQL error text from ever reaching a client.
+    // Safety net for any FK/unique-constraint violation we haven't explicitly guarded against in a service —
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.error("DataIntegrityViolationException caught: ", ex);
+        String mostSpecific = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        String message = "Database constraint violation";
+        if (mostSpecific != null && (mostSpecific.contains("Duplicate entry") || mostSpecific.toLowerCase().contains("unique"))) {
+            message = "An account or record with this information already exists.";
+        } else if (mostSpecific != null && mostSpecific.contains("foreign key constraint")) {
+            message = "This action can't be completed because other records still depend on it.";
+        } else if (mostSpecific != null) {
+            message = mostSpecific;
+        }
+
         ApiError body = new ApiError(
                 HttpStatus.CONFLICT.value(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
-                "This action can't be completed because other records still depend on it."
+                message
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
