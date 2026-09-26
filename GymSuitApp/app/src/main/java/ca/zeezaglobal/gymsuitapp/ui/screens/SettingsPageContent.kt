@@ -42,8 +42,12 @@ enum class AppearanceMode(val label: String, val icon: ImageVector) {
 @Composable
 fun SettingsPageContent(
     avatarResId: Int = R.drawable.avatar_gaze_1,
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val appComponent = remember { ca.zeezaglobal.gymsuitapp.di.AppComponent.from(context) }
+    val userSession = remember { appComponent.authManager.getSession() }
     var selectedAppearance by remember { mutableStateOf(AppearanceMode.LIGHT) }
 
     Column(
@@ -148,8 +152,15 @@ fun SettingsPageContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            val displayName = if (userSession != null && (userSession.firstName.isNotBlank() || userSession.lastName.isNotBlank())) {
+                "${userSession.firstName} ${userSession.lastName}".trim()
+            } else {
+                "Member"
+            }
+            val displayEmail = userSession?.email ?: "member@gymsuit.com"
+
             Text(
-                text = "Sam Altman Atlas",
+                text = displayName,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF111827)
@@ -158,7 +169,7 @@ fun SettingsPageContent(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "sa.atlas@gmail.com",
+                text = displayEmail,
                 fontSize = 14.sp,
                 color = Color(0xFF6B7280)
             )
@@ -320,6 +331,13 @@ fun SettingsPageContent(
                 icon = Icons.Outlined.Info,
                 title = "Gym & Trainer Information"
             )
+            SettingListItem(
+                icon = Icons.Outlined.ExitToApp,
+                title = "Log Out",
+                textColor = Color(0xFFDC2626),
+                iconTint = Color(0xFFDC2626),
+                onClick = onLogoutClick
+            )
         }
     }
 }
@@ -328,6 +346,8 @@ fun SettingsPageContent(
 private fun SettingListItem(
     icon: ImageVector,
     title: String,
+    textColor: Color = Color(0xFF111827),
+    iconTint: Color = Color(0xFF374151),
     onClick: () -> Unit = {}
 ) {
     Surface(
@@ -350,14 +370,14 @@ private fun SettingListItem(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFF3F4F6),
+                    color = if (iconTint == Color(0xFFDC2626)) Color(0xFFFEE2E2) else Color(0xFFF3F4F6),
                     modifier = Modifier.size(36.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = Color(0xFF374151),
+                            tint = iconTint,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -369,7 +389,7 @@ private fun SettingListItem(
                     text = title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF111827)
+                    color = textColor
                 )
             }
 

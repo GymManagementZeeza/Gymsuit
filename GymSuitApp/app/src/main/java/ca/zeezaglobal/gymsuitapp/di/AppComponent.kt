@@ -2,8 +2,8 @@ package ca.zeezaglobal.gymsuitapp.di
 
 import android.content.Context
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
-import ca.zeezaglobal.gymsuitapp.data.remote.AiSummarizeService
-import ca.zeezaglobal.gymsuitapp.data.remote.AiSummarizeServiceImpl
+import ca.zeezaglobal.gymsuitapp.data.local.HybridLocalAiEngine
+import ca.zeezaglobal.gymsuitapp.data.local.LocalAiEngine
 import ca.zeezaglobal.gymsuitapp.data.repository.AiSummaryRepository
 import ca.zeezaglobal.gymsuitapp.data.repository.AiSummaryRepositoryImpl
 import ca.zeezaglobal.gymsuitapp.ui.screens.DashboardViewModelFactory
@@ -18,15 +18,23 @@ class AppComponent private constructor(private val appContext: Context) {
         HealthConnectManager(appContext)
     }
 
-    val aiSummarizeService: AiSummarizeService by lazy {
-        AiSummarizeServiceImpl()
+    val authManager: ca.zeezaglobal.gymsuitapp.data.local.AuthManager by lazy {
+        ca.zeezaglobal.gymsuitapp.data.local.AuthManager(appContext)
+    }
+
+    val mobileAuthApi: ca.zeezaglobal.gymsuitapp.data.remote.MobileAuthApi by lazy {
+        ca.zeezaglobal.gymsuitapp.data.remote.MobileAuthApi()
+    }
+
+    val localAiEngine: LocalAiEngine by lazy {
+        HybridLocalAiEngine(appContext)
     }
 
     val aiSummaryRepository: AiSummaryRepository by lazy {
         AiSummaryRepositoryImpl(
             context = appContext,
             healthConnectManager = healthConnectManager,
-            aiSummarizeService = aiSummarizeService
+            localAiEngine = localAiEngine
         )
     }
 
