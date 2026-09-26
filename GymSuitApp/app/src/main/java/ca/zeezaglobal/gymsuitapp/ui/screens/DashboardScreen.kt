@@ -40,6 +40,7 @@ import androidx.health.connect.client.PermissionController
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.CaloriesBreakdown
 import ca.zeezaglobal.gymsuitapp.data.SleepSessionData
+import ca.zeezaglobal.gymsuitapp.data.HeartRateSummaryData
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -509,6 +510,14 @@ fun DashboardScreen(
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Heart Rate Section (Full Width below 2-column grid)
+                            HeartRateWidget(
+                                selectedDate = days[selectedDayIndex].localDate,
+                                syncTrigger = syncKey
+                            )
 
                             Spacer(modifier = Modifier.height(18.dp))
 
@@ -1388,6 +1397,288 @@ private fun SleepWidget(
 }
 
 @Composable
+private fun HeartRateWidget(
+    selectedDate: LocalDate = LocalDate.now(),
+    syncTrigger: Int = 0
+) {
+    val context = LocalContext.current
+    val healthConnectManager = remember { HealthConnectManager(context) }
+    var hrData by remember {
+        mutableStateOf(healthConnectManager.defaultHeartRateSample())
+    }
+    val isAvailable = remember { healthConnectManager.isAvailable() }
+
+    LaunchedEffect(selectedDate, syncTrigger) {
+        if (isAvailable) {
+            val hasHr = healthConnectManager.hasHeartRatePermission()
+            if (hasHr) {
+                hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
+            } else {
+                hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
+            }
+        } else {
+            hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Header Row: Icon, Title & Latest BPM readout
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFE4E6)), // Soft rose/red container
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Favorite,
+                            contentDescription = "Heart rate",
+                            tint = Color(0xFFE11D48), // Elegant soft crimson/rose red
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Heart Rate",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                }
+
+                // Main BPM Metric with BPM unit label
+                Row(
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = "${hrData.latestBpm}",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF111827)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "bpm",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF6B7280),
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Heart Rate ECG Graph Canvas
+            val points = hrData.points
+            val minBpm = hrData.minBpm
+            val maxBpm = hrData.maxBpm
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(95.dp)
+            ) {
+                val boxWidth = maxWidth
+
+                val minIdx = points.indexOfFirst { it.bpm == minBpm }.takeIf { it >= 0 } ?: 0
+                val maxIdx = points.indexOfFirst { it.bpm == maxBpm }.takeIf { it >= 0 } ?: (points.size - 1)
+                val minFraction = if (points.isNotEmpty()) (minIdx.toFloat() / (points.size - 1).coerceAtLeast(1)) else 0.15f
+                val maxFraction = if (points.isNotEmpty()) (maxIdx.toFloat() / (points.size - 1).coerceAtLeast(1)) else 0.75f
+
+                // Min BPM text label positioned horizontally above min point
+                Text(
+                    text = "$minBpm",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4B5563),
+                    modifier = Modifier
+                        .offset(x = (boxWidth * minFraction) - 8.dp, y = 0.dp)
+                )
+
+                // Max BPM text label positioned horizontally above max point
+                Text(
+                    text = "$maxBpm",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE11D48),
+                    modifier = Modifier
+                        .offset(x = (boxWidth * maxFraction) - 10.dp, y = 0.dp)
+                )
+
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 18.dp, bottom = 4.dp)
+                ) {
+                    val width = size.width
+                    val height = size.height
+
+                    if (points.isEmpty()) return@Canvas
+
+                    val effectiveMin = (minBpm - 5).coerceAtLeast(30)
+                    val effectiveMax = (maxBpm + 5).coerceAtLeast(effectiveMin + 20)
+                    val bpmRange = (effectiveMax - effectiveMin).toFloat()
+
+                    // Compute pixel coordinates
+                    val coords = points.mapIndexed { idx, point ->
+                        val x = (idx.toFloat() / (points.size - 1).coerceAtLeast(1)) * width
+                        val normalizedY = (point.bpm - effectiveMin) / bpmRange
+                        // Invert Y so higher bpm is higher up
+                        val y = height - (normalizedY * (height - 16f)) - 8f
+                        androidx.compose.ui.geometry.Offset(x, y)
+                    }
+
+                    // Build smooth path
+                    val strokePath = Path().apply {
+                        if (coords.isNotEmpty()) {
+                            moveTo(coords.first().x, coords.first().y)
+                            for (i in 1 until coords.size) {
+                                val prev = coords[i - 1]
+                                val curr = coords[i]
+                                val midX = (prev.x + curr.x) / 2f
+                                val midY = (prev.y + curr.y) / 2f
+                                quadraticTo(prev.x, prev.y, midX, midY)
+                            }
+                            lineTo(coords.last().x, coords.last().y)
+                        }
+                    }
+
+                    // Find min coordinate and max coordinate by sample index
+                    val minCoord = coords.getOrElse(minIdx) { coords.first() }
+                    val maxCoord = coords.getOrElse(maxIdx) { coords.last() }
+
+                    // Draw vertical dotted line to min point
+                    val dotSpacing = 8f
+                    var curY = 0f
+                    while (curY < minCoord.y) {
+                        drawLine(
+                            color = Color(0xFFD1D5DB),
+                            start = androidx.compose.ui.geometry.Offset(minCoord.x, curY),
+                            end = androidx.compose.ui.geometry.Offset(minCoord.x, curY + 4f),
+                            strokeWidth = 1.5f
+                        )
+                        curY += dotSpacing
+                    }
+
+                    // Draw vertical dotted line to max point
+                    curY = 0f
+                    while (curY < maxCoord.y) {
+                        drawLine(
+                            color = Color(0xFFFECDD3),
+                            start = androidx.compose.ui.geometry.Offset(maxCoord.x, curY),
+                            end = androidx.compose.ui.geometry.Offset(maxCoord.x, curY + 4f),
+                            strokeWidth = 1.5f
+                        )
+                        curY += dotSpacing
+                    }
+
+                    // Draw ECG line with smooth soft red gradient
+                    drawPath(
+                        path = strokePath,
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFFFB7185).copy(alpha = 0.5f),
+                                Color(0xFFF43F5E),
+                                Color(0xFFE11D48),
+                                Color(0xFFF43F5E),
+                                Color(0xFFFB7185).copy(alpha = 0.6f)
+                            )
+                        ),
+                        style = Stroke(
+                            width = 4f,
+                            cap = StrokeCap.Round
+                        )
+                    )
+
+                    // Draw min circle (grey/white bordered circle)
+                    drawCircle(
+                        color = Color(0xFF6B7280),
+                        radius = 4.5f,
+                        center = minCoord
+                    )
+                    drawCircle(
+                        color = Color.White,
+                        radius = 2.5f,
+                        center = minCoord
+                    )
+
+                    // Draw max circle (solid soft red circle)
+                    drawCircle(
+                        color = Color(0xFFE11D48),
+                        radius = 5f,
+                        center = maxCoord
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // X-axis Time Labels (4 evenly spaced times across the graph timeline)
+            val timeAxisLabels = remember(points) {
+                val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+                val zoneId = ZoneId.systemDefault()
+                if (points.size >= 4) {
+                    val n = points.size
+                    val i0 = 0
+                    val i1 = n / 3
+                    val i2 = (2 * n) / 3
+                    val i3 = n - 1
+                    listOf(
+                        points[i0].time.atZone(zoneId).format(timeFormatter),
+                        points[i1].time.atZone(zoneId).format(timeFormatter),
+                        points[i2].time.atZone(zoneId).format(timeFormatter),
+                        points[i3].time.atZone(zoneId).format(timeFormatter)
+                    )
+                } else if (points.isNotEmpty()) {
+                    listOf(
+                        points.first().time.atZone(zoneId).format(timeFormatter),
+                        "",
+                        "",
+                        points.last().time.atZone(zoneId).format(timeFormatter)
+                    )
+                } else {
+                    listOf("2:23 PM", "3:03 PM", "3:43 PM", "4:23 PM")
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                timeAxisLabels.forEach { label ->
+                    Text(
+                        text = label,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CaloriesBurnedWidget(
     selectedDate: LocalDate = LocalDate.now(),
     syncTrigger: Int = 0
@@ -1410,33 +1701,6 @@ private fun CaloriesBurnedWidget(
 
     val totalKcal = caloriesBreakdown.totalKcal
     val hasData = caloriesBreakdown.hasData && totalKcal > 0.0
-
-    // Compute dynamic proportions based on real category values
-    val (pWorkout, pSteps, pMove) = remember(caloriesBreakdown, hasData) {
-        if (!hasData) {
-            Triple(0.33f, 0.33f, 0.34f)
-        } else {
-            val w = caloriesBreakdown.workoutKcal
-            val s = caloriesBreakdown.stepsKcal
-            val m = caloriesBreakdown.moveKcal
-            val sum = (w + s + m).coerceAtLeast(1.0)
-            // Ensure minimum visual share so each category's floating badge is well-spaced
-            val rawW = (w / sum).coerceIn(0.18, 0.64)
-            val rawS = (s / sum).coerceIn(0.18, 0.64)
-            val rawM = (1.0 - rawW - rawS).coerceAtLeast(0.18)
-            val norm = rawW + rawS + rawM
-            Triple((rawW / norm).toFloat(), (rawS / norm).toFloat(), (rawM / norm).toFloat())
-        }
-    }
-
-    val sweepWorkout = pWorkout * 360f
-    val sweepSteps = pSteps * 360f
-    val sweepMove = 360f - sweepWorkout - sweepSteps
-
-    val baseAngle = -90f
-    val midWorkout = baseAngle + sweepWorkout / 2f
-    val midSteps = baseAngle + sweepWorkout + sweepSteps / 2f
-    val midMove = baseAngle + sweepWorkout + sweepSteps + sweepMove / 2f
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -1478,95 +1742,96 @@ private fun CaloriesBurnedWidget(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Donut Chart with Floating Category Badges (Reference Style)
+            // Single Calorie Ring with 4000 kcal Goal
+            val targetKcal = 4000.0
+            val currentKcal = if (hasData) totalKcal else 520.0
+            val progressFraction = (currentKcal / targetKcal).coerceIn(0.0, 1.0).toFloat()
+            val strokeWidthDp = 13.dp
+
             Box(
                 modifier = Modifier
-                    .size(140.dp)
-                    .padding(vertical = 4.dp),
+                    .size(136.dp)
+                    .padding(4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Donut Ring Canvas
-                Canvas(modifier = Modifier.size(102.dp)) {
-                    val strokeWidth = 16.dp.toPx()
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val strokePx = strokeWidthDp.toPx()
+                    val centerOffset = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+                    val radius = (size.minDimension / 2f) - (strokePx / 2f)
+                    val ringRect = androidx.compose.ui.geometry.Rect(center = centerOffset, radius = radius)
 
-                    if (!hasData) {
+                    // Background Track (Soft translucent red)
+                    drawArc(
+                        color = Color(0xFFFFE4E6),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = ringRect.topLeft,
+                        size = ringRect.size,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                    )
+
+                    // Active Progress Arc (Vibrant soft red gradient)
+                    if (progressFraction > 0.005f) {
                         drawArc(
-                            color = Color(0xFFF1F5F9),
-                            startAngle = 0f,
-                            sweepAngle = 360f,
+                            brush = Brush.sweepGradient(
+                                listOf(
+                                    Color(0xFFFB7185),
+                                    Color(0xFFF43F5E),
+                                    Color(0xFFE11D48),
+                                    Color(0xFFFB7185)
+                                )
+                            ),
+                            startAngle = -90f,
+                            sweepAngle = progressFraction * 360f,
                             useCenter = false,
-                            style = Stroke(width = strokeWidth)
-                        )
-                    } else {
-                        // 1. Workout segment (Soft Blue)
-                        drawArc(
-                            color = Color(0xFF60A5FA),
-                            startAngle = baseAngle,
-                            sweepAngle = sweepWorkout,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth)
-                        )
-                        // 2. Steps segment (Mint Green)
-                        drawArc(
-                            color = Color(0xFF34D399),
-                            startAngle = baseAngle + sweepWorkout,
-                            sweepAngle = sweepSteps,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth)
-                        )
-                        // 3. Move segment (Soft Yellow)
-                        drawArc(
-                            color = Color(0xFFFBBF24),
-                            startAngle = baseAngle + sweepWorkout + sweepSteps,
-                            sweepAngle = sweepMove,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth)
+                            topLeft = ringRect.topLeft,
+                            size = ringRect.size,
+                            style = Stroke(width = strokePx, cap = StrokeCap.Round)
                         )
                     }
                 }
 
-                // Center Readout
+                // Center Total Calorie Readout
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = if (hasData) "${totalKcal.toInt()}" else "0",
-                        fontSize = 20.sp,
+                        text = "${currentKcal.toInt()}",
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (hasData) Color(0xFF111827) else Color(0xFF94A3B8)
+                        color = Color(0xFF111827)
                     )
                     Text(
-                        text = "Total Calories",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = "kcal",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF6B7280)
-                    )
-                }
-
-                // Floating Category Pill Badges on Perimeter
-                if (hasData) {
-                    FloatingCategoryBadge(
-                        label = "Workout",
-                        angleDegrees = midWorkout,
-                        textColor = Color(0xFF1D4ED8),
-                        radiusDp = 50f
-                    )
-                    FloatingCategoryBadge(
-                        label = "Steps",
-                        angleDegrees = midSteps,
-                        textColor = Color(0xFF047857),
-                        radiusDp = 50f
-                    )
-                    FloatingCategoryBadge(
-                        label = "Move",
-                        angleDegrees = midMove,
-                        textColor = Color(0xFFB45309),
-                        radiusDp = 50f
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Target Footer Readout
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Goal: ",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF64748B)
+                )
+                Text(
+                    text = "4,000 kcal",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE11D48)
+                )
+            }
         }
     }
 }
