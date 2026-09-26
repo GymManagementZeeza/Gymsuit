@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
-import ca.zeezaglobal.gymsuitapp.ui.theme.PoppinsFontFamily
 import kotlinx.coroutines.launch
 
 @Composable
@@ -133,7 +132,6 @@ fun LoginScreen(
                 ) {
                     Text(
                         text = if (!otpSent) "Welcome Back!" else "Enter Verification Code",
-                        fontFamily = PoppinsFontFamily,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         color = colorScheme.onSurface,
@@ -148,7 +146,6 @@ fun LoginScreen(
                         } else {
                             "We sent a 6-digit verification code to $email. Enter it below to log in."
                         },
-                        fontFamily = PoppinsFontFamily,
                         fontSize = 13.sp,
                         lineHeight = 19.sp,
                         color = colorScheme.onSurfaceVariant,
@@ -167,7 +164,6 @@ fun LoginScreen(
                         ) {
                             Text(
                                 text = errorMessage ?: "",
-                                fontFamily = PoppinsFontFamily,
                                 color = Color(0xFFDC2626),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
@@ -186,7 +182,6 @@ fun LoginScreen(
                         ) {
                             Text(
                                 text = infoMessage ?: "",
-                                fontFamily = PoppinsFontFamily,
                                 color = Color(0xFF16A34A),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
@@ -202,7 +197,6 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = "Email Address",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = colorScheme.onSurface
@@ -244,7 +238,6 @@ fun LoginScreen(
                                     ) {
                                         Text(
                                             text = "Change",
-                                            fontFamily = PoppinsFontFamily,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = colorScheme.primary
@@ -272,7 +265,6 @@ fun LoginScreen(
                         ) {
                             Text(
                                 text = "Verification Code (OTP)",
-                                fontFamily = PoppinsFontFamily,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = colorScheme.onSurface
@@ -321,13 +313,11 @@ fun LoginScreen(
                             ) {
                                 Text(
                                     text = "Didn't receive code? ",
-                                    fontFamily = PoppinsFontFamily,
                                     fontSize = 12.sp,
                                     color = colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = "Resend OTP",
-                                    fontFamily = PoppinsFontFamily,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = colorScheme.primary,
@@ -426,7 +416,6 @@ fun LoginScreen(
                         } else {
                             Text(
                                 text = if (!otpSent) "Send Verification Code" else "Verify & Sign In",
-                                fontFamily = PoppinsFontFamily,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -442,13 +431,11 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = "Don't have an account? ",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 13.sp,
                             color = colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "Register",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = colorScheme.primary,

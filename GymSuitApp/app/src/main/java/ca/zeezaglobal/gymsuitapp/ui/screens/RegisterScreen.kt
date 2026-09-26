@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
-import ca.zeezaglobal.gymsuitapp.ui.theme.PoppinsFontFamily
 import kotlinx.coroutines.launch
 
 @Composable
@@ -131,7 +130,6 @@ fun RegisterScreen(
             ) {
                 Text(
                     text = if (!otpSent) "Create Account" else "Verify Your Email",
-                    fontFamily = PoppinsFontFamily,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorScheme.onSurface,
@@ -146,7 +144,6 @@ fun RegisterScreen(
                     } else {
                         "We sent a 6-digit verification code to $email. Enter it below to complete registration."
                     },
-                    fontFamily = PoppinsFontFamily,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                     color = colorScheme.onSurfaceVariant,
@@ -165,7 +162,6 @@ fun RegisterScreen(
                     ) {
                         Text(
                             text = errorMessage ?: "",
-                            fontFamily = PoppinsFontFamily,
                             color = Color(0xFFDC2626),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
@@ -184,7 +180,6 @@ fun RegisterScreen(
                     ) {
                         Text(
                             text = infoMessage ?: "",
-                            fontFamily = PoppinsFontFamily,
                             color = Color(0xFF16A34A),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
@@ -201,7 +196,6 @@ fun RegisterScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "First Name",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = colorScheme.onSurface
@@ -222,7 +216,6 @@ fun RegisterScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Last Name",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = colorScheme.onSurface
@@ -250,7 +243,6 @@ fun RegisterScreen(
                 ) {
                     Text(
                         text = "Email Address",
-                        fontFamily = PoppinsFontFamily,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = colorScheme.onSurface
@@ -276,7 +268,6 @@ fun RegisterScreen(
                                 ) {
                                     Text(
                                         text = "Change",
-                                        fontFamily = PoppinsFontFamily,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = colorScheme.primary
@@ -300,7 +291,6 @@ fun RegisterScreen(
                 ) {
                     Text(
                         text = "Phone Number",
-                        fontFamily = PoppinsFontFamily,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = colorScheme.onSurface
@@ -331,7 +321,6 @@ fun RegisterScreen(
                     ) {
                         Text(
                             text = "Verification Code (OTP)",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = colorScheme.onSurface
@@ -365,13 +354,11 @@ fun RegisterScreen(
                         ) {
                             Text(
                                 text = "Didn't receive code? ",
-                                fontFamily = PoppinsFontFamily,
                                 fontSize = 12.sp,
                                 color = colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "Resend OTP",
-                                fontFamily = PoppinsFontFamily,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colorScheme.primary,
@@ -467,7 +454,6 @@ fun RegisterScreen(
                     } else {
                         Text(
                             text = if (!otpSent) "Send Verification Code" else "Verify & Complete Registration",
-                            fontFamily = PoppinsFontFamily,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -483,13 +469,11 @@ fun RegisterScreen(
                 ) {
                     Text(
                         text = "Already have an account? ",
-                        fontFamily = PoppinsFontFamily,
                         fontSize = 13.sp,
                         color = colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "Log In",
-                        fontFamily = PoppinsFontFamily,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = colorScheme.primary,
