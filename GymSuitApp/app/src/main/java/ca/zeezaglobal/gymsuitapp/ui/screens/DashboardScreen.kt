@@ -184,6 +184,22 @@ fun DashboardScreen(
     }
     val aiSummaryState by viewModel.summaryState.collectAsState()
 
+    var userSession by remember { mutableStateOf(appComponent.authManager.getSession()) }
+    var showNamePromptDialog by remember { mutableStateOf(false) }
+    var isSavingName by remember { mutableStateOf(false) }
+    var nameErrorMessage by remember { mutableStateOf<String?>(null) }
+
+    val rawFirstName = userSession?.firstName?.trim() ?: ""
+    val rawLastName = userSession?.lastName?.trim() ?: ""
+    val userEmail = userSession?.email?.trim() ?: ""
+    val hasValidName = rawFirstName.isNotEmpty() && !rawFirstName.equals(userEmail, ignoreCase = true)
+
+    LaunchedEffect(userSession) {
+        if (!hasValidName && appComponent.authManager.isLoggedIn()) {
+            showNamePromptDialog = true
+        }
+    }
+
     // Trigger AI summary whenever selected date changes (immediate loading, 3s hold debounce)
     val selectedLocalDate = days[selectedDayIndex].localDate
     LaunchedEffect(selectedLocalDate) {
@@ -336,8 +352,9 @@ fun DashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                val displayName = if (hasValidName) rawFirstName else "Athlete"
                                 Text(
-                                    text = "Hello, Zihad",
+                                    text = "Hello, $displayName",
                                     fontSize = 15.sp,
                                     color = Color(0xFF6B7280),
                                     fontWeight = FontWeight.Medium
@@ -536,7 +553,156 @@ fun DashboardScreen(
                 onTabSelected = { selectedTab = it }
             )
         }
+
+        if (showNamePromptDialog) {
+            NamePromptDialog(
+                isLoading = isSavingName,
+                errorMessage = nameErrorMessage,
+                onDismiss = {
+                    // Only allow dismiss if user already has a valid name
+                    if (hasValidName) {
+                        showNamePromptDialog = false
+                    }
+                },
+                onSave = { firstName, lastName ->
+                    isSavingName = true
+                    nameErrorMessage = null
+                    coroutineScope.launch {
+                        val email = userSession?.email ?: ""
+                        val result = appComponent.mobileAuthApi.updateProfile(
+                            email = email,
+                            firstName = firstName,
+                            lastName = lastName
+                        )
+                        result.onSuccess { updatedSession ->
+                            appComponent.authManager.saveSession(updatedSession)
+                            userSession = updatedSession
+                            isSavingName = false
+                            showNamePromptDialog = false
+                        }.onFailure { error ->
+                            isSavingName = false
+                            nameErrorMessage = error.message ?: "Failed to save profile. Please try again."
+                        }
+                    }
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun NamePromptDialog(
+    isLoading: Boolean,
+    errorMessage: String?,
+    onDismiss: () -> Unit,
+    onSave: (firstName: String, lastName: String) -> Unit
+) {
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var validationError by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Column {
+                Text(
+                    text = "Welcome to GymSuit!",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111827)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Please enter your name so we can personalize your experience.",
+                    fontSize = 13.sp,
+                    color = Color(0xFF6B7280),
+                    lineHeight = 18.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = firstName,
+                    onValueChange = {
+                        firstName = it
+                        validationError = null
+                    },
+                    label = { Text("First Name *") },
+                    placeholder = { Text("e.g. Alex") },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF111827),
+                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                    )
+                )
+
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Last Name (optional)") },
+                    placeholder = { Text("e.g. Morgan") },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF111827),
+                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                    )
+                )
+
+                val displayError = validationError ?: errorMessage
+                if (displayError != null) {
+                    Text(
+                        text = displayError,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (firstName.trim().isBlank()) {
+                        validationError = "First name is required"
+                    } else {
+                        onSave(firstName.trim(), lastName.trim())
+                    }
+                },
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF111827),
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Continue",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    )
 }
 
 @Composable
