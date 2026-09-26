@@ -25,6 +25,24 @@ public class MobileAuthController {
 
     private final MobileAuthService mobileAuthService;
 
+    @PostMapping("/send-otp")
+    public ResponseEntity<Map<String, String>> sendOtp(@Valid @RequestBody com.zeezaglobal.gymmanagement.dto.MobileSendOtpRequest request) {
+        mobileAuthService.sendOtp(request);
+        return ResponseEntity.ok(Map.of("message", "A 6-digit verification code has been sent to your email."));
+    }
+
+    @PostMapping("/verify-login")
+    public ResponseEntity<MobileAuthResponse> verifyOtpLogin(@Valid @RequestBody com.zeezaglobal.gymmanagement.dto.MobileVerifyOtpLoginRequest request) {
+        MobileAuthResponse response = mobileAuthService.verifyOtpLogin(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/register-otp")
+    public ResponseEntity<MobileAuthResponse> registerWithOtp(@Valid @RequestBody com.zeezaglobal.gymmanagement.dto.MobileRegisterWithOtpRequest request) {
+        MobileAuthResponse response = mobileAuthService.registerWithOtp(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     @PostMapping("/login")
     public ResponseEntity<MobileAuthResponse> login(@Valid @RequestBody MobileLoginRequest request) {
         MobileAuthResponse response = mobileAuthService.login(request);

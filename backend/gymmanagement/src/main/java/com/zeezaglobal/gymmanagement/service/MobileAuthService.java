@@ -40,6 +40,93 @@ public class MobileAuthService {
     private final OtpService otpService;
     private final EmailService emailService;
 
+    public void sendOtp(MobileSendOtpRequest request) {
+        String cleanEmail = request.email().trim().toLowerCase();
+        String mode = request.mode() != null ? request.mode().trim().toLowerCase() : "login";
+
+        if ("register".equals(mode)) {
+            if (userRepository.findByEmail(cleanEmail).isPresent()) {
+                throw new ConflictException("An account with email " + cleanEmail + " already exists");
+            }
+        } else {
+            // mode = "login"
+            User user = userRepository.findByEmail(cleanEmail)
+                    .orElseThrow(() -> new BadRequestException("No account found for " + cleanEmail + ". Please register first."));
+            if (!user.isEnabled()) {
+                throw new BadRequestException("This account is disabled. Please contact your gym administrator.");
+            }
+        }
+
+        otpService.generate(cleanEmail);
+    }
+
+    public MobileAuthResponse verifyOtpLogin(MobileVerifyOtpLoginRequest request) {
+        String cleanEmail = request.email().trim().toLowerCase();
+        otpService.verify(cleanEmail, request.otp().trim());
+
+        User user = userRepository.findByEmail(cleanEmail)
+                .orElseThrow(() -> new BadRequestException("No account found for " + cleanEmail));
+
+        if (!user.isEnabled()) {
+            throw new BadRequestException("This account is disabled. Please contact your gym administrator.");
+        }
+
+        UserPrincipal principal = new UserPrincipal(user);
+        return issueMobileSession(principal, user);
+    }
+
+    @Transactional
+    public MobileAuthResponse registerWithOtp(MobileRegisterWithOtpRequest request) {
+        String cleanEmail = request.email().trim().toLowerCase();
+
+        // 1. Verify OTP first
+        otpService.verify(cleanEmail, request.otp().trim());
+
+        if (userRepository.findByEmail(cleanEmail).isPresent()) {
+            throw new ConflictException("An account with email " + cleanEmail + " already exists");
+        }
+
+        // Determine Gym association
+        Gym gym = null;
+        if (request.gymId() != null) {
+            gym = gymRepository.findById(request.gymId()).orElse(null);
+        }
+        if (gym == null) {
+            gym = gymRepository.findAll().stream().findFirst().orElseGet(() -> {
+                Gym defaultGym = new Gym();
+                defaultGym.setName("GymSuit Global");
+                defaultGym.setEmail("support@gymsuit.app");
+                defaultGym.setPhone(request.phone());
+                return gymRepository.save(defaultGym);
+            });
+        }
+
+        // Create Member entity
+        Member member = new Member();
+        member.setGym(gym);
+        member.setFirstName(request.firstName().trim());
+        member.setLastName(request.lastName().trim());
+        member.setEmail(cleanEmail);
+        member.setPhone(request.phone().trim());
+        member.setJoinDate(java.time.LocalDate.now());
+        member.setWaiverAccepted(true);
+        member.setJoiningFeePaid(true);
+        member = memberRepository.save(member);
+
+        // Create User credentials (passwordless: random UUID encrypted token)
+        User user = new User();
+        user.setEmail(cleanEmail);
+        user.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+        user.setRole(Role.MEMBER);
+        user.setEnabled(true);
+        user.setGym(gym);
+        user.setMember(member);
+        user = userRepository.save(user);
+
+        UserPrincipal principal = new UserPrincipal(user);
+        return issueMobileSession(principal, user);
+    }
+
     public MobileAuthResponse login(MobileLoginRequest request) {
         String cleanEmail = request.email().trim().toLowerCase();
         var authentication = authenticationManager.authenticate(
@@ -86,6 +173,9 @@ public class MobileAuthService {
         member.setLastName(request.lastName().trim());
         member.setEmail(cleanEmail);
         member.setPhone(request.phone().trim());
+        member.setJoinDate(java.time.LocalDate.now());
+        member.setWaiverAccepted(true);
+        member.setJoiningFeePaid(true);
         member = memberRepository.save(member);
 
         // Create User credentials

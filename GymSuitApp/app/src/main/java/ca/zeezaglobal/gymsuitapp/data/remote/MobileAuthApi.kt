@@ -19,6 +19,57 @@ class MobileAuthApi {
         private const val TIMEOUT_MS = 15000
     }
 
+    suspend fun sendOtp(email: String, mode: String = "login"): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("email", email.trim().lowercase())
+                put("mode", mode)
+            }
+            val responseJson = postJson("$BASE_URL/send-otp", payload)
+            Result.success(responseJson.optString("message", "A 6-digit code has been sent to your email"))
+        } catch (e: Exception) {
+            Log.e(TAG, "sendOtp failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun verifyLoginOtp(email: String, otp: String): Result<UserSession> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("email", email.trim().lowercase())
+                put("otp", otp.trim())
+            }
+            val responseJson = postJson("$BASE_URL/verify-login", payload)
+            Result.success(parseSession(responseJson))
+        } catch (e: Exception) {
+            Log.e(TAG, "verifyLoginOtp failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun registerWithOtp(
+        firstName: String,
+        lastName: String,
+        email: String,
+        phone: String,
+        otp: String
+    ): Result<UserSession> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("firstName", firstName.trim())
+                put("lastName", lastName.trim())
+                put("email", email.trim().lowercase())
+                put("phone", phone.trim())
+                put("otp", otp.trim())
+            }
+            val responseJson = postJson("$BASE_URL/register-otp", payload)
+            Result.success(parseSession(responseJson))
+        } catch (e: Exception) {
+            Log.e(TAG, "registerWithOtp failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
     suspend fun login(email: String, password: String): Result<UserSession> = withContext(Dispatchers.IO) {
         try {
             val payload = JSONObject().apply {
