@@ -740,6 +740,57 @@ class HealthConnectManager(private val context: Context) {
             emptyList()
         }
 
+        // Previous day metrics (to detect sudden changes/surges/drops)
+        val prevDayStart = targetDate.minusDays(1).atStartOfDay(zoneId).toInstant()
+        val prevDayEnd = startOfDay
+
+        val prevSteps = try {
+            val prevStepsResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(prevDayStart, prevDayEnd)
+                )
+            )
+            prevStepsResponse.records.sumOf { it.count }
+        } catch (e: Exception) {
+            null
+        }
+
+        val prevSleepMinutes = try {
+            val prevSleepResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(
+                        targetDate.minusDays(2).atStartOfDay(zoneId).toInstant(),
+                        prevDayEnd.plus(12, ChronoUnit.HOURS)
+                    )
+                )
+            )
+            val filtered = prevSleepResponse.records.filter { record ->
+                val endLocalDate = record.endTime.atZone(zoneId).toLocalDate()
+                val startLocalDate = record.startTime.atZone(zoneId).toLocalDate()
+                endLocalDate == targetDate.minusDays(1) || startLocalDate == targetDate.minusDays(1)
+            }
+            if (filtered.isNotEmpty()) {
+                filtered.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+
+        val prevActiveCalories = try {
+            val prevCalResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ActiveCaloriesBurnedRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(prevDayStart, prevDayEnd)
+                )
+            )
+            val kcal = prevCalResponse.records.sumOf { it.energy.inKilocalories }
+            if (kcal > 0.0) kcal else null
+        } catch (e: Exception) {
+            null
+        }
+
         return ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest(
             timestamp = Instant.now().toString(),
             deviceSdkAvailable = true,
@@ -753,7 +804,10 @@ class HealthConnectManager(private val context: Context) {
                 latestHeartRateBpm = hr,
                 todayActiveCaloriesKcal = activeCalories,
                 todayDistanceMeters = distance,
-                exerciseSessions = exerciseSessions
+                exerciseSessions = exerciseSessions,
+                previousSteps = prevSteps,
+                previousSleepMinutes = prevSleepMinutes,
+                previousActiveCaloriesKcal = prevActiveCalories
             )
         )
     }
@@ -911,6 +965,57 @@ class HealthConnectManager(private val context: Context) {
             emptyList()
         }
 
+        // Previous day metrics (to detect sudden changes/surges/drops)
+        val startOfYesterday = LocalDate.now(zoneId).minusDays(1).atStartOfDay(zoneId).toInstant()
+        val yesterdayFilter = TimeRangeFilter.between(startOfYesterday, startOfToday)
+
+        val prevSteps: Long? = try {
+            val records = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = yesterdayFilter
+                )
+            ).records
+            if (records.isEmpty()) null else records.sumOf { it.count }
+        } catch (e: Exception) {
+            null
+        }
+
+        val prevSleepMinutes: Long? = try {
+            val sleepResponse = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(
+                        LocalDate.now(zoneId).minusDays(2).atStartOfDay(zoneId).toInstant(),
+                        startOfToday.plus(12, ChronoUnit.HOURS)
+                    )
+                )
+            )
+            val yesterday = LocalDate.now(zoneId).minusDays(1)
+            val filtered = sleepResponse.records.filter { record ->
+                val endLocalDate = record.endTime.atZone(zoneId).toLocalDate()
+                val startLocalDate = record.startTime.atZone(zoneId).toLocalDate()
+                endLocalDate == yesterday || startLocalDate == yesterday
+            }
+            if (filtered.isNotEmpty()) {
+                filtered.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+
+        val prevActiveCalories: Double? = try {
+            val records = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ActiveCaloriesBurnedRecord::class,
+                    timeRangeFilter = yesterdayFilter
+                )
+            ).records
+            if (records.isEmpty()) null else records.sumOf { it.energy.inKilocalories }
+        } catch (e: Exception) {
+            null
+        }
+
         return ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeRequest(
             timestamp = now.toString(),
             deviceSdkAvailable = true,
@@ -924,7 +1029,10 @@ class HealthConnectManager(private val context: Context) {
                 latestHeartRateBpm = latestHeartRateBpm,
                 todayActiveCaloriesKcal = todayActiveCaloriesKcal,
                 todayDistanceMeters = todayDistanceMeters,
-                exerciseSessions = exerciseSessions
+                exerciseSessions = exerciseSessions,
+                previousSteps = prevSteps,
+                previousSleepMinutes = prevSleepMinutes,
+                previousActiveCaloriesKcal = prevActiveCalories
             )
         )
     }

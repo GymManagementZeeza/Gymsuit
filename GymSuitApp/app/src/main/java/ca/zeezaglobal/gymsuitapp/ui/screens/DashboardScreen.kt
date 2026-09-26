@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
+import ca.zeezaglobal.gymsuitapp.ui.theme.PoppinsFontFamily
 
 enum class DashboardTab(
     val title: String,
@@ -97,7 +98,8 @@ data class DayItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
 
@@ -508,7 +510,8 @@ fun DashboardScreen(
                     DashboardTab.SETTINGS -> {
                         SettingsPageContent(
                             avatarResId = userAvatarResId,
-                            onBackClick = { selectedTab = DashboardTab.HOME }
+                            onBackClick = { selectedTab = DashboardTab.HOME },
+                            onLogoutClick = onLogout
                         )
                     }
                     else -> {
@@ -1450,8 +1453,8 @@ private fun LegendItem(color: Color, label: String) {
 }
 
 /**
- * Clean AI Summary card displayed below the dashboard grid cards.
- * Uses Material 3 Expressive Loading Indicator while loading from https://api.gymsuit.app/api/ai/summarize.
+ * AI Summary view without cardview container.
+ * Features larger Poppins font and smooth line-by-line animated appearance when loaded.
  */
 @Composable
 private fun AiSummaryCardWidget(
@@ -1464,171 +1467,207 @@ private fun AiSummaryCardWidget(
     val isToday = (selectedDate == today)
     val dateTag = if (isToday) "Today" else selectedDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
 
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        shadowElevation = 2.dp,
-        modifier = modifier.fillMaxWidth()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp)
+        // Subtle, minimalist section header (no card, no elevated surface)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header with Sparkles / AutoAwesome AI icon
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF818CF8), Color(0xFF6366F1))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.AutoAwesome,
-                            contentDescription = "AI Summary",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "AI Health Summary",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827)
-                        )
-                        Text(
-                            text = "Daily wellness insights",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF6B7280)
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFEEF2FF)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF818CF8), Color(0xFF6366F1))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AutoAwesome,
+                        contentDescription = "AI Summary",
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
                     Text(
-                        text = dateTag.uppercase(),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF4F46E5),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        text = "AI Health Summary",
+                        fontFamily = PoppinsFontFamily,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        letterSpacing = (-0.2).sp
+                    )
+                    Text(
+                        text = "Daily shifts & insights",
+                        fontFamily = PoppinsFontFamily,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFF1F5F9)
+            ) {
+                Text(
+                    text = dateTag.uppercase(),
+                    fontFamily = PoppinsFontFamily,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF475569),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
 
-            // Body content depending on MVVM UiState
-            AnimatedContent(
-                targetState = uiState,
-                transitionSpec = {
-                    fadeIn(tween(300)) togetherWith fadeOut(tween(200))
-                },
-                label = "AiSummaryStateAnimation"
-            ) { state ->
-                when (state) {
-                    is AiSummaryUiState.Loading, AiSummaryUiState.Idle -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 18.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            // Material 3 Expressive Loading Indicator
-                            M3ExpressiveLoadingIndicator(
-                                size = 48.dp,
-                                isContained = true,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                indicatorColor = Color(0xFF6366F1)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Analyzing your health & activity data...",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF6B7280)
-                            )
-                        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Body content
+        AnimatedContent(
+            targetState = uiState,
+            transitionSpec = {
+                fadeIn(tween(350)) togetherWith fadeOut(tween(200))
+            },
+            label = "AiSummaryStateAnimation"
+        ) { state ->
+            when (state) {
+                is AiSummaryUiState.Loading, AiSummaryUiState.Idle -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        M3ExpressiveLoadingIndicator(
+                            size = 44.dp,
+                            isContained = true,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            indicatorColor = Color(0xFF6366F1)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Analyzing your health & activity data...",
+                            fontFamily = PoppinsFontFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
                     }
+                }
 
-                    is AiSummaryUiState.Success -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = Color(0xFFF8FAFC),
-                                    shape = RoundedCornerShape(14.dp)
-                                )
-                                .padding(14.dp)
+                is AiSummaryUiState.Success -> {
+                    // Line by line smooth animated presentation
+                    AnimatedLineByLineSummary(
+                        summaryText = state.summary,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                is AiSummaryUiState.Error -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = state.message,
+                            fontFamily = PoppinsFontFamily,
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = onRetry,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF4F46E5)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Refresh,
+                                contentDescription = "Try Again",
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = state.summary,
+                                text = "Try Again",
+                                fontFamily = PoppinsFontFamily,
                                 fontSize = 13.sp,
-                                lineHeight = 19.sp,
-                                fontWeight = FontWeight.Normal,
-                                color = Color(0xFF334155)
+                                fontWeight = FontWeight.SemiBold
                             )
-                        }
-                    }
-
-                    is AiSummaryUiState.Error -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = Color(0xFFF8FAFC),
-                                    shape = RoundedCornerShape(14.dp)
-                                )
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = state.message,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp,
-                                color = Color(0xFF64748B),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            OutlinedButton(
-                                onClick = onRetry,
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF4F46E5)
-                                ),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Refresh,
-                                    contentDescription = "Try Again",
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Try Again",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Renders sentences/lines with a staggered smooth fade-in and slide-up animation.
+ * Features prominent, larger Poppins typography.
+ */
+@Composable
+private fun AnimatedLineByLineSummary(
+    summaryText: String,
+    modifier: Modifier = Modifier
+) {
+    // Split into sentences / thoughts cleanly while keeping punctuation
+    val lines = remember(summaryText) {
+        val regex = Regex("(?<=[.!?])\\s+")
+        val split = summaryText.split(regex).map { it.trim() }.filter { it.isNotBlank() }
+        if (split.isNotEmpty()) split else listOf(summaryText.trim())
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        lines.forEachIndexed { index, line ->
+            var isVisible by remember(summaryText, index) { mutableStateOf(false) }
+
+            LaunchedEffect(summaryText, index) {
+                // Staggered reveal: each line appears smoothly with delay
+                delay(index * 220L)
+                isVisible = true
+            }
+
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(
+                    animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
+                ) + slideInVertically(
+                    animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
+                    initialOffsetY = { 20 }
+                )
+            ) {
+                Text(
+                    text = line,
+                    fontFamily = PoppinsFontFamily,
+                    fontSize = 17.sp,
+                    lineHeight = 26.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1E293B),
+                    letterSpacing = (-0.1).sp
+                )
             }
         }
     }

@@ -19,16 +19,19 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.DashboardScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.HealthConnectPermissionScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.LoginScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.OnboardingScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.RegisterScreen
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
 
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import kotlinx.coroutines.launch
 
 enum class AppScreen {
     ONBOARDING,
     LOGIN,
+    REGISTER,
     HEALTH_CONNECT_PERMISSION,
     DASHBOARD
 }
@@ -40,9 +43,31 @@ class MainActivity : ComponentActivity() {
         setContent {
             GymSuitAppTheme {
                 val context = LocalContext.current
+                val appComponent = remember { AppComponent.from(context) }
                 val coroutineScope = rememberCoroutineScope()
                 val healthConnectManager = remember { HealthConnectManager(context) }
-                var currentScreen by remember { mutableStateOf(AppScreen.ONBOARDING) }
+
+                // Check if user is already logged in
+                val initialScreen = remember {
+                    if (appComponent.authManager.isLoggedIn()) {
+                        AppScreen.DASHBOARD
+                    } else {
+                        AppScreen.ONBOARDING
+                    }
+                }
+                var currentScreen by remember { mutableStateOf(initialScreen) }
+
+                fun navigateAfterLogin() {
+                    coroutineScope.launch {
+                        val alreadyAccepted = healthConnectManager.isAvailable() &&
+                                healthConnectManager.hasAnyPermissions()
+                        currentScreen = if (alreadyAccepted) {
+                            AppScreen.DASHBOARD
+                        } else {
+                            AppScreen.HEALTH_CONNECT_PERMISSION
+                        }
+                    }
+                }
 
                 AnimatedContent(
                     targetState = currentScreen,
@@ -73,16 +98,24 @@ class MainActivity : ComponentActivity() {
                                 onBackClick = {
                                     currentScreen = AppScreen.ONBOARDING
                                 },
-                                onLoginClick = { email ->
-                                    coroutineScope.launch {
-                                        val alreadyAccepted = healthConnectManager.isAvailable() &&
-                                                healthConnectManager.hasAnyPermissions()
-                                        currentScreen = if (alreadyAccepted) {
-                                            AppScreen.DASHBOARD
-                                        } else {
-                                            AppScreen.HEALTH_CONNECT_PERMISSION
-                                        }
-                                    }
+                                onNavigateToRegister = {
+                                    currentScreen = AppScreen.REGISTER
+                                },
+                                onLoginSuccess = {
+                                    navigateAfterLogin()
+                                }
+                            )
+                        }
+                        AppScreen.REGISTER -> {
+                            RegisterScreen(
+                                onBackClick = {
+                                    currentScreen = AppScreen.LOGIN
+                                },
+                                onNavigateToLogin = {
+                                    currentScreen = AppScreen.LOGIN
+                                },
+                                onRegisterSuccess = {
+                                    navigateAfterLogin()
                                 }
                             )
                         }
@@ -99,6 +132,10 @@ class MainActivity : ComponentActivity() {
                         AppScreen.DASHBOARD -> {
                             DashboardScreen(
                                 onNavigateBack = {
+                                    currentScreen = AppScreen.LOGIN
+                                },
+                                onLogout = {
+                                    appComponent.authManager.clear()
                                     currentScreen = AppScreen.LOGIN
                                 }
                             )

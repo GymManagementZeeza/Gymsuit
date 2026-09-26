@@ -51,13 +51,19 @@ data class HealthDataPayload(
     val latestHeartRateBpm: Int?,
     val todayActiveCaloriesKcal: Double?,
     val todayDistanceMeters: Double?,
-    val exerciseSessions: List<ExerciseSessionItem>
+    val exerciseSessions: List<ExerciseSessionItem>,
+    val previousSteps: Long? = null,
+    val previousSleepMinutes: Long? = null,
+    val previousActiveCaloriesKcal: Double? = null
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
         put("weight_records", JSONArray().apply {
             weightRecords.forEach { put(it.toJsonObject()) }
         })
         latestWeightKg?.let { put("latest_weight_kg", it) }
+        previousSteps?.let { put("previous_steps", it) }
+        previousSleepMinutes?.let { put("previous_sleep_minutes", it) }
+        previousActiveCaloriesKcal?.let { put("previous_active_calories_kcal", it) }
         put("sleep_sessions", JSONArray().apply {
             sleepSessions.forEach { put(it.toJsonObject()) }
         })

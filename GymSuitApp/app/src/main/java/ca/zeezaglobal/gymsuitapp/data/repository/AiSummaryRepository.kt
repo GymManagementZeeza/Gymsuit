@@ -3,8 +3,8 @@ package ca.zeezaglobal.gymsuitapp.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import ca.zeezaglobal.gymsuitapp.data.local.LocalAiEngine
 import ca.zeezaglobal.gymsuitapp.data.model.AiSummarizeResponse
-import ca.zeezaglobal.gymsuitapp.data.remote.AiSummarizeService
 import java.time.LocalDate
 
 interface AiSummaryRepository {
@@ -15,7 +15,7 @@ interface AiSummaryRepository {
 class AiSummaryRepositoryImpl(
     private val context: Context,
     private val healthConnectManager: HealthConnectManager,
-    private val aiSummarizeService: AiSummarizeService
+    private val localAiEngine: LocalAiEngine
 ) : AiSummaryRepository {
 
     private val prefs: SharedPreferences =
@@ -64,17 +64,15 @@ class AiSummaryRepositoryImpl(
                 healthConnectManager.buildAiSummarizeRequestForDate(date)
             }
 
-            val apiResult = aiSummarizeService.getSummary(payload)
-            apiResult.onSuccess { response ->
-                if (response.summary.isNotBlank()) {
-                    // Cache the successful summary
-                    prefs.edit()
-                        .putString("$KEY_SUMMARY_PREFIX$date", response.summary)
-                        .putLong("$KEY_TIMESTAMP_PREFIX$date", System.currentTimeMillis())
-                        .apply()
-                }
+            val summary = localAiEngine.generateSummary(payload)
+            if (summary.isNotBlank()) {
+                // Cache the successful local summary
+                prefs.edit()
+                    .putString("$KEY_SUMMARY_PREFIX$date", summary)
+                    .putLong("$KEY_TIMESTAMP_PREFIX$date", System.currentTimeMillis())
+                    .apply()
             }
-            apiResult
+            Result.success(AiSummarizeResponse(summary = summary))
         } catch (e: Exception) {
             Result.failure(e)
         }
