@@ -151,6 +151,7 @@ class MobileAuthApi {
     private fun postJson(urlString: String, payload: JSONObject): JSONObject {
         var connection: HttpURLConnection? = null
         try {
+            Log.d(TAG, "--> POST $urlString")
             val url = URL(urlString)
             connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -162,22 +163,27 @@ class MobileAuthApi {
                 doOutput = true
             }
 
+            val payloadStr = payload.toString()
+            Log.d(TAG, "--> Body: $payloadStr")
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(payload.toString())
+                writer.write(payloadStr)
                 writer.flush()
             }
 
             val responseCode = connection.responseCode
+            Log.d(TAG, "<-- Response Code: $responseCode from $urlString")
             if (responseCode in 200..299) {
                 val responseText = BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8)).use {
                     it.readText()
                 }
+                Log.d(TAG, "<-- Response Body: $responseText")
                 return JSONObject(responseText)
             } else {
                 val errorText = connection.errorStream?.let { stream ->
                     BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
                 } ?: "HTTP $responseCode"
 
+                Log.e(TAG, "<-- Error Response ($responseCode): $errorText")
                 val message = try {
                     JSONObject(errorText).optString("message", errorText)
                 } catch (e: Exception) {
@@ -185,6 +191,9 @@ class MobileAuthApi {
                 }
                 throw Exception(message)
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Network call failed for $urlString: ${e.message}", e)
+            throw e
         } finally {
             connection?.disconnect()
         }
