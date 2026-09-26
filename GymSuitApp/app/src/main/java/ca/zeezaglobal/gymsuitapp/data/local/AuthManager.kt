@@ -71,6 +71,13 @@ class AuthManager(context: Context) {
         )
     }
 
+    fun updateName(firstName: String, lastName: String) {
+        prefs.edit()
+            .putString(KEY_FIRST_NAME, firstName.trim())
+            .putString(KEY_LAST_NAME, lastName.trim())
+            .apply()
+    }
+
     fun clear() {
         prefs.edit().clear().apply()
     }

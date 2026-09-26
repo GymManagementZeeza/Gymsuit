@@ -148,6 +148,25 @@ class MobileAuthApi {
         }
     }
 
+    suspend fun updateProfile(
+        email: String,
+        firstName: String,
+        lastName: String
+    ): Result<UserSession> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("firstName", firstName.trim())
+                put("lastName", lastName.trim())
+            }
+            val encodedEmail = java.net.URLEncoder.encode(email.trim().lowercase(), "UTF-8")
+            val responseJson = postJson("$BASE_URL/update-profile?email=$encodedEmail", payload)
+            Result.success(parseSession(responseJson))
+        } catch (e: Exception) {
+            Log.e(TAG, "updateProfile failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
     private fun postJson(urlString: String, payload: JSONObject): JSONObject {
         var connection: HttpURLConnection? = null
         try {

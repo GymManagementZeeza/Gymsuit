@@ -7,6 +7,7 @@ import com.zeezaglobal.gymmanagement.dto.MobileRegisterRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileRegisterWithOtpRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileResetPasswordRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileSendOtpRequest;
+import com.zeezaglobal.gymmanagement.dto.MobileUpdateProfileRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileVerifyOtpLoginRequest;
 import com.zeezaglobal.gymmanagement.dto.RefreshRequest;
 import com.zeezaglobal.gymmanagement.service.MobileAuthService;
@@ -73,6 +74,15 @@ public class MobileAuthController {
     @PostMapping("/refresh")
     public ResponseEntity<MobileAuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
         MobileAuthResponse response = mobileAuthService.refreshToken(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/update-profile")
+    public ResponseEntity<MobileAuthResponse> updateProfile(
+            @org.springframework.web.bind.annotation.RequestParam("email") String email,
+            @Valid @RequestBody MobileUpdateProfileRequest request
+    ) {
+        MobileAuthResponse response = mobileAuthService.updateProfile(email, request);
         return ResponseEntity.ok(response);
     }
 }

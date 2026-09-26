@@ -7,6 +7,7 @@ import com.zeezaglobal.gymmanagement.dto.MobileRegisterRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileRegisterWithOtpRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileResetPasswordRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileSendOtpRequest;
+import com.zeezaglobal.gymmanagement.dto.MobileUpdateProfileRequest;
 import com.zeezaglobal.gymmanagement.dto.MobileVerifyOtpLoginRequest;
 import com.zeezaglobal.gymmanagement.dto.RefreshRequest;
 import com.zeezaglobal.gymmanagement.entity.Gym;
@@ -273,5 +274,37 @@ public class MobileAuthService {
                 gymId,
                 gymName
         );
+    }
+
+    @Transactional
+    public MobileAuthResponse updateProfile(String email, MobileUpdateProfileRequest request) {
+        String cleanEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmail(cleanEmail)
+                .orElseThrow(() -> new BadRequestException("User not found for " + cleanEmail));
+
+        Member member = user.getMember();
+        if (member == null) {
+            member = new Member();
+            member.setGym(user.getGym());
+            member.setEmail(cleanEmail);
+            member.setPhone("0000000000");
+            member.setJoinDate(java.time.LocalDate.now());
+            member.setWaiverAccepted(true);
+            member.setJoiningFeePaid(true);
+        }
+
+        member.setFirstName(request.firstName().trim());
+        if (request.lastName() != null) {
+            member.setLastName(request.lastName().trim());
+        } else if (member.getLastName() == null) {
+            member.setLastName("");
+        }
+
+        member = memberRepository.save(member);
+        user.setMember(member);
+        user = userRepository.save(user);
+
+        UserPrincipal principal = new UserPrincipal(user);
+        return issueMobileSession(principal, user);
     }
 }
