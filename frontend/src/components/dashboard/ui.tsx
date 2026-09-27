@@ -121,6 +121,185 @@ export function MetricCard({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* FLEX design language — light-mode card system shared by every       */
+/* dashboard page. Rounded cards, soft shadows, lime/amber/red tones.  */
+/* ------------------------------------------------------------------ */
+
+const flexCardShadow = "shadow-[0_2px_16px_rgba(20,20,16,0.06)]";
+
+export function FlexCard({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn(`rounded-[1.75rem] bg-white p-5 ${flexCardShadow}`, className)}>
+      {children}
+    </section>
+  );
+}
+
+export function FlexPageHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3 pt-1">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-black tracking-tight text-stone-900">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm font-medium text-stone-500">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export function FlexPill({
+  children,
+  tone = "lime",
+  className,
+}: {
+  children: ReactNode;
+  tone?: "lime" | "green" | "amber" | "red" | "stone";
+  className?: string;
+}) {
+  const tones = {
+    lime: "bg-[#c7f36a] text-stone-900",
+    green: "border border-green-500 text-green-600",
+    amber: "border border-amber-700/30 text-amber-800",
+    red: "bg-[#ffe3e3] text-[#7f1d1d]",
+    stone: "bg-stone-100 text-stone-600",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full px-3 py-1 text-[10px] font-black tracking-[0.08em]",
+        tones[tone],
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function FlexIconBadge({
+  children,
+  tone = "neutral",
+  className,
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "lime" | "amber" | "red" | "green";
+  className?: string;
+}) {
+  const tones = {
+    neutral: "bg-black/[0.07] text-stone-800",
+    lime: "bg-[#c7f36a] text-stone-900",
+    amber: "bg-[#f5a623] text-white",
+    red: "bg-[#ffe3e3] text-[#7f1d1d]",
+    green: "bg-green-100 text-green-700",
+  };
+  return (
+    <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", tones[tone], className)}>
+      {children}
+    </span>
+  );
+}
+
+export function FlexButton({
+  children,
+  onClick,
+  variant = "lime",
+  className,
+  type = "button",
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  variant?: "lime" | "dark" | "ghost";
+  className?: string;
+  type?: "button" | "submit";
+}) {
+  const variants = {
+    lime: "bg-[#c7f36a] text-stone-900 hover:bg-[#d8ff8a]",
+    dark: "bg-stone-900 text-white hover:bg-stone-700",
+    ghost: "bg-stone-100 text-stone-700 hover:bg-stone-200",
+  };
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition active:scale-[0.97]",
+        variants[variant],
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function FlexStatCard({
+  label,
+  value,
+  detail,
+  icon,
+  href,
+  variant = "white",
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  icon?: ReactNode;
+  href?: string;
+  variant?: "white" | "lime" | "red" | "amber";
+}) {
+  const styles = {
+    white: `bg-white text-stone-900 ${flexCardShadow}`,
+    lime: "bg-gradient-to-br from-[#d3f34f] to-[#a4d614] text-[#1c2b06] shadow-[0_2px_16px_rgba(120,160,20,0.25)]",
+    red: "bg-[#ffe3e3] text-[#7f1d1d] shadow-[0_2px_16px_rgba(160,30,30,0.10)]",
+    amber: "bg-[#fdf1dc] text-stone-900 shadow-[0_2px_16px_rgba(160,120,30,0.10)]",
+  };
+  const card = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-70">{label}</p>
+        {icon && <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-black/[0.07]">{icon}</span>}
+      </div>
+      <div>
+        <p className="mt-6 text-4xl font-black tracking-tight">{value}</p>
+        {detail && <p className="mt-1 text-xs font-semibold opacity-70">{detail}</p>}
+      </div>
+    </>
+  );
+  const cls = `flex min-h-[148px] flex-col justify-between rounded-[1.75rem] p-5 transition ${styles[variant]}`;
+  if (href) {
+    return (
+      <Link href={href} aria-label={`${label} — ${value}`} className={cn(cls, "hover:-translate-y-0.5")}>
+        {card}
+      </Link>
+    );
+  }
+  return <article className={cls}>{card}</article>;
+}
+
+export function FlexEmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="rounded-2xl bg-stone-100/70 px-4 py-8 text-center">
+      <p className="text-sm font-bold text-stone-600">{title}</p>
+      {hint && <p className="mt-1 text-xs text-stone-400">{hint}</p>}
+    </div>
+  );
+}
+
 const avatarHues: Record<string, string> = {
   peach: "bg-[#f4cfbd]",
   sky: "bg-[#d7e4fd]",

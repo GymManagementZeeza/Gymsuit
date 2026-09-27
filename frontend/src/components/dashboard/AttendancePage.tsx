@@ -1,11 +1,18 @@
 "use client";
 
-/* Training Ledger page: Attendance operations join real-time floor visibility with entry-control hardware. */
+/* Attendance page: live floor occupancy and entry-control hardware, in the FLEX light design language. */
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { PageHeading } from "@/components/dashboard/DashboardShell";
-import { ActionButton, StatusPill, TableAction } from "@/components/dashboard/ui";
+import {
+  FlexButton,
+  FlexCard,
+  FlexEmptyState,
+  FlexIconBadge,
+  FlexPageHeader,
+  FlexPill,
+  FlexStatCard,
+} from "@/components/dashboard/ui";
 import { useSession } from "@/hooks/useSession";
 import { listMembers, type Member } from "@/lib/members";
 import { listActiveCheckIns, forceCheckOut, type CheckIn } from "@/lib/checkins";
@@ -19,9 +26,10 @@ import {
   LogIn,
   ScanFace,
   ShieldCheck,
-  Users,
   Wifi,
 } from "lucide-react";
+
+const microLabel = "text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400";
 
 const recognitionEvents = [
   { name: "Maya Patel", time: "08:42:19", method: "Face recognized", result: "Access granted", tone: "lime" as const },
@@ -53,13 +61,19 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="page-enter space-y-7">
-      <PageHeading
-        eyebrow="Operations · Live floor"
-        title="Know who's in, now."
-        description="A front-desk view of members and staff currently on the floor."
-        actions={<ActionButton icon={<LogIn className="size-4" />}>Front desk check-in</ActionButton>}
-      />
+    <div className="page-enter space-y-5 pb-4">
+      <div>
+        <p className={microLabel}>Operations · Live floor</p>
+        <FlexPageHeader
+          title="Know who's in, now."
+          subtitle="A front-desk view of members and staff currently on the floor."
+          actions={
+            <FlexButton>
+              <LogIn className="size-4" /> Front desk check-in
+            </FlexButton>
+          }
+        />
+      </div>
       <LiveFloor />
     </div>
   );
@@ -110,46 +124,58 @@ function useCheckInFeed() {
   return { checkIns, members, loading, error, now, checkingOutId, handleCheckOut };
 }
 
+function CheckOutButton({ busy, onCheckOut }: { busy: boolean; onCheckOut: () => void }) {
+  return (
+    <FlexButton
+      variant="ghost"
+      onClick={busy ? undefined : onCheckOut}
+      className={`shrink-0 px-3 py-1.5 text-[11px] ${busy ? "pointer-events-none opacity-50" : ""}`}
+    >
+      {busy ? "Checking out…" : "Check out"}
+    </FlexButton>
+  );
+}
+
 function LiveFloor() {
   const { checkIns, members, loading, error, now, checkingOutId, handleCheckOut } = useCheckInFeed();
   const lastUpdateLabel = new Date(now).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <section className="grid gap-4 xl:grid-cols-12">
-      <div className="cut-corner relative min-h-[282px] overflow-hidden bg-[#24241f] p-6 text-white xl:col-span-5">
-        <Image src="/gymflow-floor.jpg" alt="North Loop training floor" fill className="object-cover opacity-45" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#171715] to-transparent" />
-        <div className="relative flex h-full flex-col justify-between">
-          <div>
-            <p className="ledger-label !text-[#dbdbd4] before:!bg-[#c7f36a]">North Loop · Live</p>
-            <p className="display-face mt-4 text-5xl">{loading ? "…" : checkIns.length}</p>
-            <p className="mt-1 text-sm text-white/70">
-              {loading ? "Loading…" : `member${checkIns.length === 1 ? "" : "s"} are training right now`}
-            </p>
-          </div>
-        </div>
+      <div className="xl:col-span-5">
+        <FlexStatCard
+          label="North Loop · Live"
+          value={loading ? "…" : String(checkIns.length)}
+          detail={loading ? "Loading…" : `member${checkIns.length === 1 ? "" : "s"} are training right now`}
+          icon={<Activity className="size-5" />}
+          variant="lime"
+        />
       </div>
-      <div className="border border-[#d8d8d1] bg-white xl:col-span-7">
-        <div className="flex items-center justify-between border-b border-[#e6e6e0] p-5">
+      <FlexCard className="overflow-hidden p-0 xl:col-span-7">
+        <div className="flex items-center justify-between gap-3 p-5">
           <div>
-            <p className="ledger-label">Currently in gym</p>
-            <h2 className="mt-2 text-xl font-bold">{loading ? "…" : `${checkIns.length} checked in`}</h2>
+            <p className={microLabel}>Currently in gym</p>
+            <h2 className="mt-1.5 text-lg font-black tracking-tight text-stone-900">
+              {loading ? "…" : `${checkIns.length} checked in`}
+            </h2>
           </div>
-          <StatusPill label={`Last update ${lastUpdateLabel}`} tone="blue" />
+          <FlexPill tone="lime">{`Last update ${lastUpdateLabel}`}</FlexPill>
         </div>
 
-        {error && <p className="p-4 text-sm text-red-600">{error}</p>}
+        {error && <p className="border-t border-stone-100 px-5 py-3 text-sm font-medium text-red-600">{error}</p>}
 
         {!loading && !error && checkIns.length === 0 && (
-          <p className="p-8 text-center text-sm text-[#76766f]">Nobody is checked in right now.</p>
+          <div className="px-5 pb-5">
+            <FlexEmptyState title="Nobody is checked in right now." />
+          </div>
         )}
 
-        <div className="divide-y divide-[#ecece6]">
+        <div className="divide-y divide-stone-100 border-t border-stone-100">
           {loading &&
             [0, 1, 2].map((i) => (
-              <div className="flex items-center gap-3 p-4" key={i}>
-                <div className="size-9 shrink-0 animate-pulse rounded-full bg-[#ededE7]" />
-                <div className="h-3 w-2/3 animate-pulse rounded bg-[#ededE7]" />
+              <div className="flex items-center gap-3 px-5 py-4" key={i}>
+                <div className="size-9 shrink-0 animate-pulse rounded-full bg-stone-200" />
+                <div className="h-3 w-2/3 animate-pulse rounded-full bg-stone-200" />
               </div>
             ))}
           {!loading &&
@@ -158,23 +184,21 @@ function LiveFloor() {
               const name = member ? `${member.firstName} ${member.lastName}` : `Member #${entry.memberId}`;
               const initials = member ? initialsFor(member) : "—";
               return (
-                <div className="flex items-center gap-3 p-4" key={entry.id}>
-                  <span className={`grid size-9 place-items-center rounded-full text-[10px] font-bold ${index % 2 ? "bg-[#d7e3fc]" : "bg-[#f4ceb9]"}`}>
+                <div className="flex items-center gap-3 px-5 py-4" key={entry.id}>
+                  <span className={`grid size-9 shrink-0 place-items-center rounded-full text-[10px] font-bold text-stone-800 ${index % 2 ? "bg-[#d7e3fc]" : "bg-[#f4ceb9]"}`}>
                     {initials}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold">{name}</p>
-                    <p className="mt-1 text-[11px] text-[#74746d]">Checked in {formatTime(entry.checkInTime)}</p>
+                    <p className="truncate text-sm font-bold text-stone-900">{name}</p>
+                    <p className="mt-1 text-[11px] text-stone-500">Checked in {formatTime(entry.checkInTime)}</p>
                   </div>
-                  <p className="mono hidden text-[10px] text-[#777770] sm:block">{formatDuration(entry.checkInTime)}</p>
-                  <TableAction onClick={() => handleCheckOut(entry.id)} disabled={checkingOutId === entry.id}>
-                    {checkingOutId === entry.id ? "Checking out…" : "Check out"}
-                  </TableAction>
+                  <p className="mono hidden text-[10px] text-stone-400 sm:block">{formatDuration(entry.checkInTime)}</p>
+                  <CheckOutButton busy={checkingOutId === entry.id} onCheckOut={() => handleCheckOut(entry.id)} />
                 </div>
               );
             })}
         </div>
-      </div>
+      </FlexCard>
     </section>
   );
 }
@@ -193,124 +217,125 @@ function EntryControl() {
 
   return (
     <div className="page-enter space-y-5 pb-4">
-      <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+      <div className="rounded-[1.75rem] bg-[#ffe3e3] p-5 text-sm font-semibold leading-relaxed text-[#7f1d1d]">
         Automatic unlock system is not installed in this gym. Contact CyberFix Solutions for installation — prices
         are given below.
       </div>
 
-      <PageHeading
-        eyebrow="Hardware · Attendance"
-        title="Gym attendance, controlled at the entry."
-        description="Monitor member access, live occupancy, and biometric hardware from one front-desk screen."
-        actions={
-          <div className="flex items-center gap-2">
-            <button className="hidden border border-[#d8d8d1] bg-white px-3 py-2 text-xs font-bold transition hover:bg-[#fafaf6] sm:inline-flex">
-              View daily report
-            </button>
-            <ActionButton icon={<DoorOpen className="size-4" />}>Manual check-in</ActionButton>
-          </div>
-        }
-      />
+      <div>
+        <p className={microLabel}>Hardware · Attendance</p>
+        <FlexPageHeader
+          title="Gym attendance, controlled at the entry."
+          subtitle="Monitor member access, live occupancy, and biometric hardware from one front-desk screen."
+          actions={
+            <>
+              <FlexButton variant="ghost" className="hidden sm:inline-flex">
+                View daily report
+              </FlexButton>
+              <FlexButton>
+                <DoorOpen className="size-4" /> Manual check-in
+              </FlexButton>
+            </>
+          }
+        />
+      </div>
 
       <section className="grid gap-4 xl:grid-cols-12">
-        <div className="relative overflow-hidden bg-[#24241f] p-5 text-white xl:col-span-5 xl:min-h-[246px]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgba(199,243,106,.24),transparent_29%),linear-gradient(135deg,#24241f_0%,#141412_100%)]" />
-          <div className="relative flex h-full flex-col justify-between gap-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="ledger-label !text-[#d9dbd1] before:!bg-[#c7f36a]">Live facility status</p>
-                <p className="display-face mt-4 text-5xl leading-none">{loading ? "…" : checkIns.length}</p>
-                <p className="mt-2 text-sm text-white/70">members currently training</p>
-              </div>
-              <StatusPill label="All systems online" tone="lime" />
+        <FlexCard className="xl:col-span-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className={microLabel}>Live facility status</p>
+              <p className="mt-3 text-5xl font-black tracking-tight text-stone-900">{loading ? "…" : checkIns.length}</p>
+              <p className="mt-1 text-sm font-medium text-stone-500">members currently training</p>
             </div>
+            <FlexPill tone="lime">All systems online</FlexPill>
+          </div>
 
-            <div className="grid grid-cols-3 divide-x divide-white/15 border-y border-white/15 py-3">
-              <div className="pr-3">
-                <p className="mono text-lg font-bold">{loading ? "…" : checkIns.length}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/55">On floor</p>
-              </div>
-              <div className="px-3">
-                <p className="mono text-lg font-bold">03</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/55">Guests</p>
-              </div>
-              <div className="pl-3">
-                <p className="mono text-lg font-bold">0</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/55">Alerts</p>
-              </div>
+          <div className="mt-5 grid grid-cols-3 divide-x divide-stone-200 rounded-2xl bg-stone-50 px-4 py-3">
+            <div className="pr-3">
+              <p className="text-lg font-black text-stone-900">{loading ? "…" : checkIns.length}</p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-400">On floor</p>
+            </div>
+            <div className="px-3">
+              <p className="text-lg font-black text-stone-900">03</p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-400">Guests</p>
+            </div>
+            <div className="pl-3">
+              <p className="text-lg font-black text-stone-900">0</p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-400">Alerts</p>
             </div>
           </div>
-        </div>
+        </FlexCard>
 
-        <div className="border border-[#d8d8d1] bg-white p-5 xl:col-span-7">
+        <FlexCard className="xl:col-span-7">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="ledger-label">Entry lane A</p>
-              <h2 className="mt-2 text-xl font-bold">Biometric check-in</h2>
-              <p className="mt-1 text-xs leading-relaxed text-[#6d6d66]">
+              <p className={microLabel}>Entry lane A</p>
+              <h2 className="mt-1.5 text-lg font-black tracking-tight text-stone-900">Biometric check-in</h2>
+              <p className="mt-1 text-xs font-medium leading-relaxed text-stone-500">
                 Member verification is ready at the main entry lane.
               </p>
             </div>
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#eff8d7] text-[#517117]">
+            <FlexIconBadge tone="lime">
               <CircleCheck className="size-5" />
-            </span>
+            </FlexIconBadge>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <div className="flex items-center gap-4 border border-[#e7e7e1] bg-[#fafaf6] p-3">
-              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#24241f] text-[#c7f36a]">
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-1 items-center gap-4 rounded-2xl bg-stone-50 p-4">
+              <FlexIconBadge tone="neutral">
                 <ScanFace className="size-5" />
-              </div>
+              </FlexIconBadge>
               <div className="min-w-0">
-                <p className="text-sm font-bold">Ready to scan</p>
-                <p className="mt-1 text-[11px] text-[#74746d]">Face recognition and fingerprint verification enabled</p>
+                <p className="text-sm font-bold text-stone-900">Ready to scan</p>
+                <p className="mt-1 text-[11px] text-stone-500">Face recognition and fingerprint verification enabled</p>
               </div>
             </div>
-            <button className="inline-flex items-center justify-center gap-2 bg-[#c7f36a] px-4 py-3 text-xs font-bold text-[#24241f] transition hover:bg-[#b8e55c]">
+            <FlexButton className="justify-center">
               <DoorOpen className="size-4" /> Open lane
-            </button>
+            </FlexButton>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#ecece6] pt-4 text-[11px] font-bold text-[#56564f]">
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-stone-100 pt-4 text-[11px] font-bold text-stone-500">
             <span className="inline-flex items-center gap-2">
-              <Wifi className="size-3.5 text-[#67951c]" /> Network connected
+              <Wifi className="size-3.5 text-green-600" /> Network connected
             </span>
             <span className="inline-flex items-center gap-2">
-              <ShieldCheck className="size-3.5 text-[#67951c]" /> Access policy synced
+              <ShieldCheck className="size-3.5 text-green-600" /> Access policy synced
             </span>
             <span className="inline-flex items-center gap-2">
-              <Clock3 className="size-3.5 text-[#67951c]" /> Updated {lastUpdate}
+              <Clock3 className="size-3.5 text-green-600" /> Updated {lastUpdate}
             </span>
           </div>
-        </div>
+        </FlexCard>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-12">
-        <div className="border border-[#d8d8d1] bg-white xl:col-span-8">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6e6e0] p-5">
+        <FlexCard className="overflow-hidden p-0 xl:col-span-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-5">
             <div>
-              <p className="ledger-label">Live attendance</p>
-              <h2 className="mt-2 text-xl font-bold">Currently in the gym</h2>
+              <p className={microLabel}>Live attendance</p>
+              <h2 className="mt-1.5 text-lg font-black tracking-tight text-stone-900">Currently in the gym</h2>
             </div>
-            <StatusPill label={`Updated ${lastUpdate}`} tone="blue" />
+            <FlexPill tone="lime">{`Updated ${lastUpdate}`}</FlexPill>
           </div>
 
-          {error && <p className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</p>}
+          {error && (
+            <p className="border-t border-stone-100 bg-[#ffe3e3] px-5 py-3 text-sm font-medium text-[#7f1d1d]">{error}</p>
+          )}
 
           {!loading && !error && checkIns.length === 0 && (
-            <div className="flex min-h-48 flex-col items-center justify-center px-5 text-center">
-              <Users className="size-7 text-[#a6a69f]" />
-              <p className="mt-3 text-sm font-bold">The gym floor is clear.</p>
-              <p className="mt-1 text-xs text-[#74746d]">New check-ins will appear here in real time.</p>
+            <div className="px-5 pb-5">
+              <FlexEmptyState title="The gym floor is clear." hint="New check-ins will appear here in real time." />
             </div>
           )}
 
-          <div className="divide-y divide-[#ecece6]">
+          <div className="divide-y divide-stone-100 border-t border-stone-100">
             {loading &&
               [0, 1, 2, 3].map((index) => (
                 <div className="flex items-center gap-3 px-5 py-4" key={index}>
-                  <div className="size-9 animate-pulse rounded-full bg-[#ededE7]" />
-                  <div className="h-3 w-1/2 animate-pulse rounded bg-[#ededE7]" />
+                  <div className="size-9 shrink-0 animate-pulse rounded-full bg-stone-200" />
+                  <div className="h-3 w-1/2 animate-pulse rounded-full bg-stone-200" />
                 </div>
               ))}
 
@@ -321,54 +346,52 @@ function EntryControl() {
                 const initials = member ? initialsFor(member) : "—";
                 return (
                   <div className="flex items-center gap-3 px-5 py-4" key={entry.id}>
-                    <span className={`grid size-9 shrink-0 place-items-center rounded-full text-[10px] font-bold ${index % 2 ? "bg-[#d7e3fc]" : "bg-[#f4ceb9]"}`}>
+                    <span className={`grid size-9 shrink-0 place-items-center rounded-full text-[10px] font-bold text-stone-800 ${index % 2 ? "bg-[#d7e3fc]" : "bg-[#f4ceb9]"}`}>
                       {initials}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold">{name}</p>
-                      <p className="mt-1 text-[11px] text-[#74746d]">Entered at {formatTime(entry.checkInTime)} · Main entry</p>
+                      <p className="truncate text-sm font-bold text-stone-900">{name}</p>
+                      <p className="mt-1 text-[11px] text-stone-500">Entered at {formatTime(entry.checkInTime)} · Main entry</p>
                     </div>
                     <div className="hidden text-right sm:block">
-                      <p className="mono text-[11px] font-bold">{formatDuration(entry.checkInTime)}</p>
-                      <p className="mt-1 text-[10px] uppercase tracking-[.1em] text-[#83837c]">on floor</p>
+                      <p className="mono text-[11px] font-bold text-stone-700">{formatDuration(entry.checkInTime)}</p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-400">on floor</p>
                     </div>
-                    <TableAction onClick={() => handleCheckOut(entry.id)} disabled={checkingOutId === entry.id}>
-                      {checkingOutId === entry.id ? "Checking out…" : "Check out"}
-                    </TableAction>
+                    <CheckOutButton busy={checkingOutId === entry.id} onCheckOut={() => handleCheckOut(entry.id)} />
                   </div>
                 );
               })}
           </div>
-        </div>
+        </FlexCard>
 
-        <aside className="border border-[#d8d8d1] bg-[#fafaf6] xl:col-span-4">
-          <div className="border-b border-[#e2e2db] p-5">
-            <p className="ledger-label">Recognition feed</p>
-            <h2 className="mt-2 text-xl font-bold">Latest entry activity</h2>
+        <FlexCard className="overflow-hidden p-0 xl:col-span-4">
+          <div className="p-5">
+            <p className={microLabel}>Recognition feed</p>
+            <h2 className="mt-1.5 text-lg font-black tracking-tight text-stone-900">Latest entry activity</h2>
           </div>
-          <div className="divide-y divide-[#e7e7e0]">
+          <div className="divide-y divide-stone-100 border-t border-stone-100">
             {recognitionEvents.map((event) => (
-              <div className="flex gap-3 p-4" key={`${event.name}-${event.time}`}>
-                <span
-                  className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${event.tone === "lime" ? "bg-[#ecf7ce] text-[#5d811a]" : "bg-[#e7efff] text-[#4569ae]"}`}
-                >
+              <div className="flex gap-3 px-5 py-4" key={`${event.name}-${event.time}`}>
+                <FlexIconBadge tone={event.tone === "lime" ? "lime" : "neutral"} className="size-8 rounded-full">
                   {event.method.startsWith("Face") ? <ScanFace className="size-4" /> : <Fingerprint className="size-4" />}
-                </span>
+                </FlexIconBadge>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-sm font-bold">{event.name}</p>
-                    <p className="mono shrink-0 text-[10px] text-[#777770]">{event.time}</p>
+                    <p className="truncate text-sm font-bold text-stone-900">{event.name}</p>
+                    <p className="mono shrink-0 text-[10px] text-stone-400">{event.time}</p>
                   </div>
-                  <p className="mt-1 text-[11px] text-[#74746d]">{event.method}</p>
-                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#58801b]">{event.result}</p>
+                  <p className="mt-1 text-[11px] text-stone-500">{event.method}</p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-green-700">{event.result}</p>
                 </div>
               </div>
             ))}
           </div>
-          <button className="flex w-full items-center justify-between border-t border-[#e2e2db] px-5 py-3 text-xs font-bold transition hover:bg-white">
-            Open complete event log <ChevronRight className="size-3.5" />
-          </button>
-        </aside>
+          <div className="border-t border-stone-100 p-4">
+            <FlexButton variant="ghost" className="w-full justify-between">
+              Open complete event log <ChevronRight className="size-4" />
+            </FlexButton>
+          </div>
+        </FlexCard>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -394,7 +417,7 @@ function EntryControl() {
         />
       </section>
 
-      <p className="mono text-[10px] uppercase tracking-[.14em] text-[#8a8a83]">{today} · Main entry control room</p>
+      <p className="mono text-[10px] uppercase tracking-[0.14em] text-stone-400">{today} · Main entry control room</p>
     </div>
   );
 }
@@ -412,37 +435,35 @@ type HardwareCardProps = {
 
 function HardwareCard({ eyebrow, title, description, imageSrc, imageAlt, icon, price, details }: HardwareCardProps) {
   return (
-    <article className="relative flex min-h-[220px] overflow-hidden border border-[#d8d8d1] bg-white">
-      <div className="relative flex w-[42%] shrink-0 items-center justify-center overflow-hidden border-r border-[#e8e8e2] bg-[#f5f5f0] p-5">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(199,243,106,.22),transparent_58%)]" />
-        <Image
-          src={imageSrc}
-          alt={imageAlt}
-          width={420}
-          height={420}
-          className="relative h-auto max-h-[175px] w-full object-contain mix-blend-multiply"
-        />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-between p-5">
-        <div>
-          <div className="flex items-start justify-between gap-3">
-            <p className="ledger-label">{eyebrow}</p>
-            <span className="shrink-0 bg-[#eff8d7] px-2 py-1 text-xs font-bold text-[#517117]">{price}</span>
+    <FlexCard className="overflow-hidden">
+      <div className="flex flex-col gap-5 sm:flex-row">
+        <div className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-stone-50 p-5 sm:w-[42%]">
+          <Image
+            src={imageSrc}
+            alt={imageAlt}
+            width={420}
+            height={420}
+            className="h-auto max-h-[175px] w-full object-contain mix-blend-multiply"
+          />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <p className={microLabel}>{eyebrow}</p>
+              <FlexPill tone="lime">{price}</FlexPill>
+            </div>
+            <h2 className="mt-1.5 text-lg font-black leading-tight tracking-tight text-stone-900">{title}</h2>
+            <p className="mt-2 text-xs font-medium leading-relaxed text-stone-500">{description}</p>
           </div>
-          <h2 className="mt-2 text-lg font-bold leading-tight">{title}</h2>
-          <p className="mt-3 text-xs leading-relaxed text-[#6d6d66]">{description}</p>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {details.map((detail) => (
-            <span
-              className="inline-flex items-center gap-1.5 border border-[#e4e4de] bg-[#fafaf6] px-2 py-1.5 text-[10px] font-bold text-[#595952]"
-              key={detail}
-            >
-              {icon} {detail}
-            </span>
-          ))}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {details.map((detail) => (
+              <FlexPill key={detail} tone="stone" className="gap-1.5">
+                {icon} {detail}
+              </FlexPill>
+            ))}
+          </div>
         </div>
       </div>
-    </article>
+    </FlexCard>
   );
 }

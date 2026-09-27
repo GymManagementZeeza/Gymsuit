@@ -1,10 +1,16 @@
 "use client";
 
-/* Training Ledger page: People operations organized as a precise, human-centered membership ledger. */
+/* People pages: members, trainers, and team access in the FLEX light-mode card language. */
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { PageHeading } from "@/components/dashboard/DashboardShell";
-import { ActionButton, StatusPill, TableAction } from "@/components/dashboard/ui";
+import {
+  FlexButton,
+  FlexCard,
+  FlexEmptyState,
+  FlexIconBadge,
+  FlexPageHeader,
+  FlexPill,
+} from "@/components/dashboard/ui";
 import MemberFormModal from "@/components/dashboard/MemberFormModal";
 import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import ChangePlanModal from "@/components/dashboard/ChangePlanModal";
@@ -37,12 +43,43 @@ function scopeSummary(scopes: TeamManager["scopes"]) {
   return `Staff & members + ${scopes.map((s) => labels[s]).join(", ")}`;
 }
 
+/* Small rounded action chip used in rows and tables. */
+function RowAction({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 rounded-full bg-stone-100 px-3.5 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-200 active:scale-[0.97]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function DangerRowAction({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 rounded-full border border-red-200 px-3.5 py-2 text-xs font-bold text-red-700 transition hover:bg-[#ffe3e3] active:scale-[0.97]"
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function PeoplePage() {
   const pathname = usePathname();
   const session = useSession();
   const trainerMode = pathname === "/dashboard/trainers";
   const accessMode = pathname === "/dashboard/team-access";
   const title = accessMode ? "Assign access with intent." : trainerMode ? "Your coaching team." : "People who move here.";
+  const eyebrow = accessMode ? "Accounts & access" : trainerMode ? "People · Trainers" : "People · Members";
+  const description = accessMode
+    ? "Manage gym roles without blurring responsibilities across locations."
+    : trainerMode
+      ? "See coaching credentials, schedules, and payment readiness at a glance."
+      : "Profiles, health notes, emergency contacts, and their membership history.";
 
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -57,23 +94,17 @@ export default function PeoplePage() {
     currentUser?.role === "OWNER" || (currentUser?.role === "MANAGER" && currentUser.managerScopes.includes("FINANCE"));
 
   return (
-    <div className="page-enter space-y-7">
-      <PageHeading
-        eyebrow={accessMode ? "Accounts & access" : trainerMode ? "People · Trainers" : "People · Members"}
+    <div className="page-enter mx-auto w-full max-w-5xl space-y-4 pb-4">
+      <p className="pt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">{eyebrow}</p>
+      <FlexPageHeader
         title={title}
-        description={
-          accessMode
-            ? "Manage gym roles without blurring responsibilities across locations."
-            : trainerMode
-              ? "See coaching credentials, schedules, and payment readiness at a glance."
-              : "Profiles, health notes, emergency contacts, and their membership history."
-        }
+        subtitle={description}
         actions={
           trainerMode ? (
             canSetPay && (
-              <ActionButton icon={<WalletCards className="size-4" />} onClick={() => setPayModalOpen(true)}>
-                Pay trainer
-              </ActionButton>
+              <FlexButton variant="lime" onClick={() => setPayModalOpen(true)}>
+                <WalletCards className="size-4" /> Pay trainer
+              </FlexButton>
             )
           ) : undefined
         }
@@ -115,140 +146,147 @@ function MemberMobileCard({
   onNotify: () => void;
 }) {
   return (
-    <ExpandableRow
-      className={hasNoActivePlan ? "bg-red-50/30" : undefined}
-      summary={
-        <div className="flex items-center gap-3">
-          <div className="relative shrink-0">
-            <span
-              className={`grid size-10 place-items-center rounded-full text-[11px] font-bold ${index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"}`}
-            >
-              {initials(member.firstName, member.lastName)}
-            </span>
-            {hasNoActivePlan && (
-              <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-red-600 text-white shadow">
-                <AlertTriangle className="size-2.5" />
+    <div
+      className={`overflow-hidden rounded-2xl bg-white shadow-[0_2px_16px_rgba(20,20,16,0.06)] ${
+        hasNoActivePlan ? "ring-1 ring-red-200" : ""
+      }`}
+    >
+      <ExpandableRow
+        summary={
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <span
+                className={`grid size-10 place-items-center rounded-full text-[11px] font-bold ${index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"}`}
+              >
+                {initials(member.firstName, member.lastName)}
               </span>
+              {hasNoActivePlan && (
+                <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-red-600 text-white shadow">
+                  <AlertTriangle className="size-2.5" />
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-stone-900">
+                {member.firstName} {member.lastName}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-stone-500">
+                {subscription
+                  ? `${subscription.planName} · ${subscription.planCurrency} ${subscription.planPrice}`
+                  : pending
+                    ? `${pending.planName} · awaiting payment`
+                    : "No active plan"}
+              </p>
+            </div>
+            {pending ? (
+              <FlexPill tone="amber">Awaiting</FlexPill>
+            ) : hasNoActivePlan ? (
+              <FlexPill tone="amber">No plan</FlexPill>
+            ) : null}
+          </div>
+        }
+      >
+        <div className="space-y-1">
+          <DetailRow label="Contact">
+            <p>{member.phone}</p>
+            {member.email && <p className="text-stone-500">{member.email}</p>}
+          </DetailRow>
+          <DetailRow label="Plan">
+            {subscription ? (
+              <>
+                <p className="font-semibold">{subscription.planName}</p>
+                <p className="text-stone-500">
+                  {subscription.planCurrency} {subscription.planPrice}
+                </p>
+              </>
+            ) : pending ? (
+              <>
+                <p className="font-semibold">{pending.planName}</p>
+                <FlexPill tone="amber">Awaiting payment</FlexPill>
+              </>
+            ) : (
+              <FlexPill tone="amber">No active plan</FlexPill>
+            )}
+          </DetailRow>
+          <DetailRow label="Trainer">
+            <select
+              value={member.trainerId ?? ""}
+              disabled={assigningTrainerFor === member.id}
+              onChange={(e) => onAssignTrainer(e.target.value ? Number(e.target.value) : null)}
+              className="h-9 max-w-[150px] rounded-full border border-stone-200 bg-white px-3 text-xs outline-none transition focus:border-stone-900 disabled:opacity-50"
+            >
+              <option value="">No trainer</option>
+              {trainers.map((trainer) => (
+                <option key={trainer.id} value={trainer.id}>
+                  {trainer.firstName} {trainer.lastName}
+                </option>
+              ))}
+            </select>
+          </DetailRow>
+          <DetailRow label="Next payment">
+            {subscription && subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-stone-500">{subscription.currentPeriodEnd}</span>
+                <PaymentCountdownBar
+                  periodStart={subscription.currentPeriodStart}
+                  periodEnd={subscription.currentPeriodEnd}
+                />
+              </div>
+            ) : (
+              <span className="text-stone-500">—</span>
+            )}
+          </DetailRow>
+          <DetailRow label="Joined">{member.joinDate}</DetailRow>
+          <DetailRow label="Waiver">
+            <FlexPill tone={member.waiverAccepted ? "lime" : "amber"}>
+              {member.waiverAccepted ? "Accepted" : "Missing"}
+            </FlexPill>
+          </DetailRow>
+          <div className="flex flex-wrap items-center gap-2 pt-3">
+            {pending && <RowAction onClick={onTakePayment}>Take payment</RowAction>}
+            <RowAction onClick={onPlan}>Plan</RowAction>
+            <RowAction onClick={onEdit}>Edit</RowAction>
+            <button
+              type="button"
+              className="grid size-9 shrink-0 place-items-center rounded-2xl bg-black/[0.07] text-stone-800 transition hover:bg-black/[0.12]"
+              aria-label={`Notify ${member.firstName} ${member.lastName}`}
+              onClick={onNotify}
+            >
+              <BellRing className="size-4" />
+            </button>
+            {member.phone && (
+              <a
+                href={`tel:${member.phone}`}
+                className="grid size-9 shrink-0 place-items-center rounded-2xl border border-red-200 bg-red-50 text-red-700"
+                aria-label={`Call ${member.firstName}`}
+              >
+                <Phone className="size-3.5" />
+              </a>
+            )}
+            {member.phone && (
+              <a
+                href={`https://wa.me/${member.phone.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="grid size-9 shrink-0 place-items-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700"
+                aria-label={`WhatsApp ${member.firstName}`}
+              >
+                <MessageCircle className="size-3.5" />
+              </a>
+            )}
+            {member.email && (
+              <a
+                href={`mailto:${member.email}`}
+                className="grid size-9 shrink-0 place-items-center rounded-2xl border border-red-200 bg-red-50 text-red-700"
+                aria-label={`Email ${member.firstName}`}
+              >
+                <Mail className="size-3.5" />
+              </a>
             )}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">
-              {member.firstName} {member.lastName}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-[#74746d]">
-              {subscription
-                ? `${subscription.planName} · ${subscription.planCurrency} ${subscription.planPrice}`
-                : pending
-                  ? `${pending.planName} · awaiting payment`
-                  : "No active plan"}
-            </p>
-          </div>
-          {pending ? (
-            <StatusPill label="Awaiting" tone="orange" />
-          ) : hasNoActivePlan ? (
-            <StatusPill label="No plan" tone="orange" />
-          ) : null}
         </div>
-      }
-    >
-      <div className="space-y-1">
-        <DetailRow label="Contact">
-          <p>{member.phone}</p>
-          {member.email && <p className="text-[#696962]">{member.email}</p>}
-        </DetailRow>
-        <DetailRow label="Plan">
-          {subscription ? (
-            <>
-              <p className="font-semibold">{subscription.planName}</p>
-              <p className="text-[#74746d]">
-                {subscription.planCurrency} {subscription.planPrice}
-              </p>
-            </>
-          ) : pending ? (
-            <>
-              <p className="font-semibold">{pending.planName}</p>
-              <StatusPill label="Awaiting payment" tone="orange" />
-            </>
-          ) : (
-            <StatusPill label="No active plan" tone="orange" />
-          )}
-        </DetailRow>
-        <DetailRow label="Trainer">
-          <select
-            value={member.trainerId ?? ""}
-            disabled={assigningTrainerFor === member.id}
-            onChange={(e) => onAssignTrainer(e.target.value ? Number(e.target.value) : null)}
-            className="h-8 max-w-[150px] border border-[#d8d8d1] bg-white px-2 text-xs outline-none focus:border-[#24241f] disabled:opacity-50"
-          >
-            <option value="">No trainer</option>
-            {trainers.map((trainer) => (
-              <option key={trainer.id} value={trainer.id}>
-                {trainer.firstName} {trainer.lastName}
-              </option>
-            ))}
-          </select>
-        </DetailRow>
-        <DetailRow label="Next payment">
-          {subscription && subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-[#696962]">{subscription.currentPeriodEnd}</span>
-              <PaymentCountdownBar
-                periodStart={subscription.currentPeriodStart}
-                periodEnd={subscription.currentPeriodEnd}
-              />
-            </div>
-          ) : (
-            <span className="text-[#696962]">—</span>
-          )}
-        </DetailRow>
-        <DetailRow label="Joined">{member.joinDate}</DetailRow>
-        <DetailRow label="Waiver">
-          <StatusPill label={member.waiverAccepted ? "Accepted" : "Missing"} tone={member.waiverAccepted ? "lime" : "orange"} />
-        </DetailRow>
-        <div className="flex flex-wrap items-center gap-2 pt-3">
-          {pending && <TableAction onClick={onTakePayment}>Take payment</TableAction>}
-          <TableAction onClick={onPlan}>Plan</TableAction>
-          <TableAction onClick={onEdit}>Edit</TableAction>
-          <button
-            type="button"
-            className="grid size-8 place-items-center text-[#3154a2] transition hover:bg-[#dce6ff]"
-            aria-label={`Notify ${member.firstName} ${member.lastName}`}
-            onClick={onNotify}
-          >
-            <BellRing className="size-4" />
-          </button>
-          {member.phone && (
-            <a
-              href={`tel:${member.phone}`}
-              className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700"
-              aria-label={`Call ${member.firstName}`}
-            >
-              <Phone className="size-3.5" />
-            </a>
-          )}
-          {member.phone && (
-            <a
-              href={`https://wa.me/${member.phone.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="grid size-8 place-items-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
-              aria-label={`WhatsApp ${member.firstName}`}
-            >
-              <MessageCircle className="size-3.5" />
-            </a>
-          )}
-          {member.email && (
-            <a
-              href={`mailto:${member.email}`}
-              className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700"
-              aria-label={`Email ${member.firstName}`}
-            >
-              <Mail className="size-3.5" />
-            </a>
-          )}
-        </div>
-      </div>
-    </ExpandableRow>
+      </ExpandableRow>
+    </div>
   );
 }
 
@@ -383,23 +421,21 @@ function MembersPanel() {
 
   if (!gymId) {
     return (
-      <section className="border border-[#d8d8d1] bg-white p-8 text-center text-sm text-[#76766f]">
-        This account isn&apos;t linked to a gym, so there&apos;s no member directory to show.
-      </section>
+      <FlexEmptyState title="This account isn't linked to a gym, so there's no member directory to show." />
     );
   }
 
   return (
-    <section className="border border-[#d8d8d1] bg-white">
-      <div className="flex flex-col gap-4 border-b border-[#e5e5de] p-5 sm:flex-row sm:items-center sm:justify-between">
+    <section className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_2px_16px_rgba(20,20,16,0.06)]">
+      <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="ledger-label">Member directory</p>
-          <h2 className="mt-2 text-xl font-bold tracking-[-0.03em]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Member directory</p>
+          <h2 className="mt-1 text-lg font-black tracking-tight text-stone-900">
             {loading ? "Loading members…" : `${filtered.length} member${filtered.length === 1 ? "" : "s"}`}
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex h-9 items-center gap-2 border border-[#d8d8d1] px-3 text-[#777770]">
+          <label className="flex h-10 items-center gap-2 rounded-full bg-stone-100 px-4 text-stone-500">
             <Search className="size-4" />
             <input
               value={query}
@@ -407,7 +443,7 @@ function MembersPanel() {
                 setQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-32 bg-transparent text-sm outline-none placeholder:text-[#9b9b94]"
+              className="w-32 bg-transparent text-sm text-stone-900 outline-none placeholder:text-stone-400"
               placeholder="Find a member"
             />
           </label>
@@ -417,7 +453,7 @@ function MembersPanel() {
               setSelectedPlanFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="h-9 border border-[#d8d8d1] bg-white px-2.5 text-xs font-semibold text-[#24241f] outline-none transition hover:border-[#24241f] focus:border-[#24241f]"
+            className="h-10 rounded-full border border-stone-200 bg-white px-4 text-xs font-bold text-stone-800 outline-none transition focus:border-stone-900"
           >
             <option value="ALL">All plans</option>
             <option value="NO_PLAN">No active plan</option>
@@ -427,9 +463,9 @@ function MembersPanel() {
               </option>
             ))}
           </select>
-          <ActionButton icon={<Plus className="size-4" />} onClick={() => setModalState("create")}>
-            Add member
-          </ActionButton>
+          <FlexButton variant="lime" onClick={() => setModalState("create")}>
+            <Plus className="size-4" /> Add member
+          </FlexButton>
         </div>
       </div>
 
@@ -440,16 +476,18 @@ function MembersPanel() {
       )}
 
       {!loading && !error && filtered.length === 0 && (
-        <p className="px-5 py-10 text-center text-sm text-[#76766f]">
-          {members.length === 0 ? "No members yet — add your first one." : "No members match your search."}
-        </p>
+        <div className="p-5">
+          <FlexEmptyState
+            title={members.length === 0 ? "No members yet — add your first one." : "No members match your search."}
+          />
+        </div>
       )}
 
       {filtered.length > 0 && (
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1120px] text-left">
-            <thead className="border-b border-[#e5e5de] bg-[#fafaf6]">
-              <tr className="text-[10px] uppercase tracking-[0.12em] text-[#76766f]">
+            <thead className="border-b border-stone-100 bg-stone-50/60">
+              <tr className="text-[10px] uppercase tracking-[0.12em] text-stone-500">
                 <th className="px-5 py-3 font-bold">Member</th>
                 <th className="px-4 py-3 font-bold">Contact</th>
                 <th className="px-4 py-3 font-bold">Plan</th>
@@ -460,16 +498,16 @@ function MembersPanel() {
                 <th className="px-5 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#efefe9]">
+            <tbody className="divide-y divide-stone-100">
               {paginatedMembers.map((member, index) => {
                 const subscription = subscriptionsByMember[member.id];
                 const pending = pendingByMember[member.id];
                 const hasNoActivePlan = !subscription;
                 return (
-                <tr className={`transition ${hasNoActivePlan ? "bg-red-50/30 hover:bg-red-50/60" : "hover:bg-[#fafaf6]"}`} key={member.id}>
+                <tr className={`transition ${hasNoActivePlan ? "bg-[#ffe3e3]/40 hover:bg-[#ffe3e3]/70" : "hover:bg-stone-50"}`} key={member.id}>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="relative">
+                      <div className="relative shrink-0">
                         <span
                           className={`grid size-9 place-items-center rounded-full text-[10px] font-bold ${index % 2 ? "bg-[#d7e4fd]" : "bg-[#f4cfbd]"}`}
                         >
@@ -482,43 +520,42 @@ function MembersPanel() {
                           </span>
                         )}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-bold">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="text-sm font-bold text-stone-900">
                             {member.firstName} {member.lastName}
                           </p>
                           {hasNoActivePlan && (
-                            <span className="flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
-                              <AlertTriangle className="size-2.5 text-red-600" />
-                              No active plan
-                            </span>
+                            <FlexPill tone="red">
+                              <AlertTriangle className="size-2.5" /> No active plan
+                            </FlexPill>
                           )}
                         </div>
-                        {member.gender && <p className="mt-0.5 text-[11px] text-[#74746d]">{member.gender}</p>}
+                        {member.gender && <p className="mt-0.5 text-[11px] text-stone-500">{member.gender}</p>}
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-xs text-[#696962]">
+                  <td className="px-4 py-4 text-xs text-stone-500">
                     <p>{member.phone}</p>
                     {member.email && <p className="mt-0.5">{member.email}</p>}
                   </td>
                   <td className="px-4 py-4">
                     {subscription ? (
                       <>
-                        <p className="text-sm font-semibold">{subscription.planName}</p>
-                        <p className="mt-0.5 text-[11px] text-[#74746d]">
+                        <p className="text-sm font-semibold text-stone-900">{subscription.planName}</p>
+                        <p className="mt-0.5 text-[11px] text-stone-500">
                           {subscription.planCurrency} {subscription.planPrice}
                         </p>
                       </>
                     ) : pending ? (
                       <>
-                        <p className="text-sm font-semibold">{pending.planName}</p>
-                        <StatusPill label="Awaiting payment" tone="orange" />
+                        <p className="text-sm font-semibold text-stone-900">{pending.planName}</p>
+                        <FlexPill tone="amber">Awaiting payment</FlexPill>
                       </>
                     ) : (
                       <div className="flex items-center gap-1.5">
-                        <AlertTriangle className="size-4 text-red-600 shrink-0" />
-                        <StatusPill label="No active plan" tone="orange" />
+                        <AlertTriangle className="size-4 shrink-0 text-red-600" />
+                        <FlexPill tone="amber">No active plan</FlexPill>
                       </div>
                     )}
                   </td>
@@ -527,7 +564,7 @@ function MembersPanel() {
                       value={member.trainerId ?? ""}
                       disabled={assigningTrainerFor === member.id}
                       onChange={(e) => handleAssignTrainer(member.id, e.target.value ? Number(e.target.value) : null)}
-                      className="h-8 max-w-[140px] border border-[#d8d8d1] bg-white px-2 text-xs outline-none transition-colors focus:border-[#24241f] disabled:opacity-50"
+                      className="h-9 max-w-[140px] rounded-full border border-stone-200 bg-white px-3 text-xs text-stone-800 outline-none transition focus:border-stone-900 disabled:opacity-50"
                     >
                       <option value="">No trainer</option>
                       {trainers.map((trainer) => (
@@ -540,26 +577,28 @@ function MembersPanel() {
                   <td className="px-4 py-4">
                     {subscription && subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
                       <div className="flex flex-col gap-1">
-                        <span className="text-xs text-[#696962]">{subscription.currentPeriodEnd}</span>
+                        <span className="text-xs text-stone-500">{subscription.currentPeriodEnd}</span>
                         <PaymentCountdownBar
                           periodStart={subscription.currentPeriodStart}
                           periodEnd={subscription.currentPeriodEnd}
                         />
                       </div>
                     ) : (
-                      <span className="text-xs text-[#696962]">—</span>
+                      <span className="text-xs text-stone-500">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-4 text-xs text-[#696962]">{member.joinDate}</td>
+                  <td className="px-4 py-4 text-xs text-stone-500">{member.joinDate}</td>
                   <td className="px-4 py-4">
-                    <StatusPill label={member.waiverAccepted ? "Accepted" : "Missing"} tone={member.waiverAccepted ? "lime" : "orange"} />
+                    <FlexPill tone={member.waiverAccepted ? "lime" : "amber"}>
+                      {member.waiverAccepted ? "Accepted" : "Missing"}
+                    </FlexPill>
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-end gap-2">
                       {member.phone && (
                         <a
                           href={`tel:${member.phone}`}
-                          className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
+                          className="grid size-9 shrink-0 place-items-center rounded-2xl border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
                           title={`Call ${member.firstName} (${member.phone})`}
                         >
                           <Phone className="size-3.5" />
@@ -570,7 +609,7 @@ function MembersPanel() {
                           href={`https://wa.me/${member.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${member.firstName}, we missed seeing you at the gym! Let us know if you need help renewing your membership.`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="grid size-8 place-items-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                          className="grid size-9 shrink-0 place-items-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
                           title={`WhatsApp ${member.firstName} (${member.phone})`}
                         >
                           <MessageCircle className="size-3.5" />
@@ -579,20 +618,20 @@ function MembersPanel() {
                       {member.email && (
                         <a
                           href={`mailto:${member.email}?subject=We%20miss%20you%20at%20the%20gym!`}
-                          className="grid size-8 place-items-center rounded border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
+                          className="grid size-9 shrink-0 place-items-center rounded-2xl border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
                           title={`Email ${member.firstName} (${member.email})`}
                         >
                           <Mail className="size-3.5" />
                         </a>
                       )}
                       {pending && (
-                        <TableAction onClick={() => setTakePaymentMember(member)}>Take payment</TableAction>
+                        <RowAction onClick={() => setTakePaymentMember(member)}>Take payment</RowAction>
                       )}
-                      <TableAction onClick={() => setPlanModalMember(member)}>Plan</TableAction>
-                      <TableAction onClick={() => setModalState(member)}>Edit</TableAction>
+                      <RowAction onClick={() => setPlanModalMember(member)}>Plan</RowAction>
+                      <RowAction onClick={() => setModalState(member)}>Edit</RowAction>
                       <button
                         type="button"
-                        className="grid size-8 place-items-center text-[#3154a2] transition hover:bg-[#dce6ff]"
+                        className="grid size-9 shrink-0 place-items-center rounded-2xl bg-black/[0.07] text-stone-800 transition hover:bg-black/[0.12]"
                         aria-label={`Notify ${member.firstName} ${member.lastName}`}
                         onClick={() => setNotifyMemberTarget(member)}
                       >
@@ -609,7 +648,7 @@ function MembersPanel() {
       )}
 
       {filtered.length > 0 && (
-        <div className="divide-y divide-[#efefe9] md:hidden">
+        <div className="space-y-3 p-4 md:hidden">
           {paginatedMembers.map((member, index) => {
             const subscription = subscriptionsByMember[member.id];
             const pending = pendingByMember[member.id];
@@ -636,11 +675,11 @@ function MembersPanel() {
       )}
 
       {filtered.length > 0 && (
-        <div className="flex flex-col gap-3 border-t border-[#e5e5de] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-[#76766f]">
-            Showing <span className="font-bold text-[#24241f]">{startIndex + 1}</span> to{" "}
-            <span className="font-bold text-[#24241f]">{Math.min(startIndex + PAGE_SIZE, filtered.length)}</span> of{" "}
-            <span className="font-bold text-[#24241f]">{filtered.length}</span> members
+        <div className="flex flex-col gap-3 border-t border-stone-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-stone-500">
+            Showing <span className="font-bold text-stone-900">{startIndex + 1}</span> to{" "}
+            <span className="font-bold text-stone-900">{Math.min(startIndex + PAGE_SIZE, filtered.length)}</span> of{" "}
+            <span className="font-bold text-stone-900">{filtered.length}</span> members
           </p>
 
           <div className="flex items-center gap-2">
@@ -648,18 +687,18 @@ function MembersPanel() {
               type="button"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="flex h-8 items-center gap-1 border border-[#d8d8d1] bg-white px-3 text-xs font-bold text-[#24241f] transition hover:border-[#24241f] disabled:opacity-40 disabled:hover:border-[#d8d8d1]"
+              className="flex h-9 items-center gap-1 rounded-full bg-stone-100 px-4 text-xs font-bold text-stone-700 transition hover:bg-stone-200 disabled:opacity-40"
             >
               <ChevronLeft className="size-4" /> Previous
             </button>
-            <span className="mono text-xs font-semibold text-[#696962]">
+            <span className="mono text-xs font-semibold text-stone-500">
               Page {currentPage} of {totalPages}
             </span>
             <button
               type="button"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="flex h-8 items-center gap-1 border border-[#d8d8d1] bg-white px-3 text-xs font-bold text-[#24241f] transition hover:border-[#24241f] disabled:opacity-40 disabled:hover:border-[#d8d8d1]"
+              className="flex h-9 items-center gap-1 rounded-full bg-stone-100 px-4 text-xs font-bold text-stone-700 transition hover:bg-stone-200 disabled:opacity-40"
             >
               Next <ChevronRight className="size-4" />
             </button>
@@ -768,18 +807,18 @@ function TrainerPanel() {
 
   return (
     <section className="grid gap-4 lg:grid-cols-12">
-      <div className="border border-[#d8d8d1] bg-white lg:col-span-8">
-        <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
+      <div className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_2px_16px_rgba(20,20,16,0.06)] lg:col-span-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 p-5">
           <div>
-            <p className="ledger-label">Trainer roster</p>
-            <h2 className="mt-2 text-xl font-bold tracking-[-0.03em]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Trainer roster</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-stone-900">
               {loading ? "Loading trainers…" : `${trainers.length} coach${trainers.length === 1 ? "" : "es"}`}
             </h2>
           </div>
           {canManage && (
-            <ActionButton icon={<Plus className="size-4" />} onClick={() => setModalState("create")}>
-              Add trainer
-            </ActionButton>
+            <FlexButton variant="lime" onClick={() => setModalState("create")}>
+              <Plus className="size-4" /> Add trainer
+            </FlexButton>
           )}
         </div>
 
@@ -790,68 +829,67 @@ function TrainerPanel() {
         )}
 
         {!loading && trainers.length === 0 && (
-          <p className="p-8 text-center text-sm text-[#76766f]">
-            No trainers yet.{canManage && " Add your first coach to build out the roster."}
-          </p>
+          <div className="p-5">
+            <FlexEmptyState
+              title="No trainers yet."
+              hint={canManage ? "Add your first coach to build out the roster." : undefined}
+            />
+          </div>
         )}
 
-        <div className="divide-y divide-[#e8e8e2]">
+        <div className="divide-y divide-stone-100">
           {loading &&
             [0, 1].map((i) => (
               <div className="flex items-center gap-4 p-5" key={i}>
-                <div className="size-14 shrink-0 animate-pulse bg-[#ededE7]" />
-                <div className="h-3 w-1/3 animate-pulse rounded bg-[#ededE7]" />
+                <div className="size-14 shrink-0 animate-pulse rounded-2xl bg-stone-100" />
+                <div className="h-3 w-1/3 animate-pulse rounded-full bg-stone-100" />
               </div>
             ))}
           {trainers.map((trainer, index) => (
-            <div className="flex items-center gap-4 p-5" key={trainer.id}>
+            <div className="flex flex-wrap items-center gap-4 p-5" key={trainer.id}>
               {trainer.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- gym-provided URL, not a static asset
-                <img src={trainer.imageUrl} alt={`${trainer.firstName} ${trainer.lastName}`} className="size-14 object-cover" />
+                <img src={trainer.imageUrl} alt={`${trainer.firstName} ${trainer.lastName}`} className="size-14 shrink-0 rounded-2xl object-cover" />
               ) : (
-                <div className={`grid size-14 place-items-center text-sm font-bold ${index % 2 ? "bg-[#d6e1fe]" : "bg-[#f5dd9f]"}`}>
+                <div className={`grid size-14 shrink-0 place-items-center rounded-2xl text-sm font-bold text-stone-900 ${index % 2 ? "bg-[#d6e1fe]" : "bg-[#f5dd9f]"}`}>
                   {trainer.firstName[0]}
                   {trainer.lastName[0]}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="font-bold">
+              <div className="min-w-0 flex-1 basis-40">
+                <p className="font-bold text-stone-900">
                   {trainer.firstName} {trainer.lastName}
                 </p>
-                <p className="mt-1 text-xs text-[#71716a]">{trainer.specialization || "General coaching"}</p>
-                <div className="mt-2 flex items-center gap-2 text-[11px] text-[#777770]">
+                <p className="mt-1 text-xs text-stone-500">{trainer.specialization || "General coaching"}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 text-[11px] text-stone-500">
                   <span>{trainer.phone}</span>
                   {trainer.email && <span>· {trainer.email}</span>}
                 </div>
               </div>
               {canManage && (
-                <div className="flex items-center gap-2">
-                  <TableAction onClick={() => setModalState(trainer)}>Edit</TableAction>
-                  <button
-                    type="button"
-                    onClick={() => setRemovingTrainer(trainer)}
-                    className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold text-[#8a4636] transition hover:border-red-600 hover:text-red-600"
-                  >
-                    Remove
-                  </button>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <RowAction onClick={() => setModalState(trainer)}>Edit</RowAction>
+                  <DangerRowAction onClick={() => setRemovingTrainer(trainer)}>Remove</DangerRowAction>
                 </div>
               )}
             </div>
           ))}
         </div>
       </div>
-      <aside className="cut-corner bg-[#e6eaf6] p-5 lg:col-span-4">
-        <Award className="size-6 text-[#395cbd]" />
-        <p className="display-face mt-5 text-3xl leading-[1.05]">
+      <FlexCard className="lg:col-span-4">
+        <FlexIconBadge tone="lime">
+          <Award className="size-5" />
+        </FlexIconBadge>
+        <p className="mt-4 text-lg font-black leading-snug tracking-tight text-stone-900">
           Every member
           <br />
           picks their coach.
         </p>
-        <p className="mt-4 text-xs leading-relaxed text-[#596276]">
+        <p className="mt-3 text-sm leading-relaxed text-stone-500">
           Members choose a trainer from their own dashboard, or you can assign one directly from the member
           directory. {canManage ? "You can add, edit, or remove trainers here." : "Ask an owner or a manager with trainer access to change the roster."}
         </p>
-      </aside>
+      </FlexCard>
 
       {modalState !== "closed" && gymId && (
         <TrainerFormModal
@@ -927,20 +965,16 @@ function AccessPanel() {
 
   return (
     <section className="grid gap-4 xl:grid-cols-12">
-      <div className="border border-[#d8d8d1] bg-white xl:col-span-8">
-        <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
+      <div className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_2px_16px_rgba(20,20,16,0.06)] xl:col-span-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 p-5">
           <div>
-            <p className="ledger-label">Role directory</p>
-            <h2 className="mt-2 text-xl font-bold tracking-[-0.03em]">Access follows the gym</h2>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Role directory</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-stone-900">Access follows the gym</h2>
           </div>
           {isOwner && (
-            <button
-              type="button"
-              onClick={() => setModalState("create")}
-              className="flex items-center gap-2 bg-[#c7f36a] px-3.5 py-2.5 text-sm font-bold text-[#25251f] transition hover:bg-[#d8ff8a]"
-            >
+            <FlexButton variant="lime" onClick={() => setModalState("create")}>
               <UserRoundPlus className="size-4" /> Add manager
-            </button>
+            </FlexButton>
           )}
         </div>
 
@@ -950,82 +984,75 @@ function AccessPanel() {
           </div>
         )}
 
-        <div className="divide-y divide-[#e9e9e3]">
+        <div className="divide-y divide-stone-100">
           {currentUser && (
-            <div className="flex items-center gap-3 p-4">
-              <div className="grid size-10 place-items-center rounded-full bg-[#c7f36a] text-[10px] font-bold">
+            <div className="flex flex-wrap items-center gap-3 p-4">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#c7f36a] text-[10px] font-bold text-stone-900">
                 {initials(currentUser.displayName.split(" ")[0] ?? "", currentUser.displayName.split(" ").slice(1).join(" ") || "")}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold">
-                  {currentUser.displayName} <span className="font-normal text-[#8a8a82]">(you)</span>
+              <div className="min-w-0 flex-1 basis-40">
+                <p className="text-sm font-bold text-stone-900">
+                  {currentUser.displayName} <span className="font-normal text-stone-400">(you)</span>
                 </p>
-                <p className="mt-1 text-xs text-[#72726b]">{currentUser.role === "OWNER" ? "Owner" : currentUser.role}</p>
+                <p className="mt-1 text-xs text-stone-500">{currentUser.role === "OWNER" ? "Owner" : currentUser.role}</p>
               </div>
-              <StatusPill label="Full access" tone="ink" />
+              <FlexPill tone="lime">Full access</FlexPill>
             </div>
           )}
 
           {loading &&
             [0, 1].map((i) => (
               <div className="flex items-center gap-3 p-4" key={i}>
-                <div className="size-10 shrink-0 animate-pulse rounded-full bg-[#ededE7]" />
-                <div className="h-3 w-1/3 animate-pulse rounded bg-[#ededE7]" />
+                <div className="size-10 shrink-0 animate-pulse rounded-full bg-stone-100" />
+                <div className="h-3 w-1/3 animate-pulse rounded-full bg-stone-100" />
               </div>
             ))}
 
           {!loading && managers.length === 0 && (
-            <p className="p-8 text-center text-sm text-[#76766f]">
-              No managers yet.{isOwner && " Add one by email to share ownership of daily operations."}
-            </p>
+            <div className="p-5">
+              <FlexEmptyState
+                title="No managers yet."
+                hint={isOwner ? "Add one by email to share ownership of daily operations." : undefined}
+              />
+            </div>
           )}
 
           {managers.map((manager) => (
-            <div className="flex items-center gap-3 p-4" key={manager.id}>
-              <div className="grid size-10 place-items-center rounded-full bg-[#e1e1dd] text-[10px] font-bold">
+            <div className="flex flex-wrap items-center gap-3 p-4" key={manager.id}>
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-stone-100 text-[10px] font-bold text-stone-700">
                 {initials(manager.firstName, manager.lastName)}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold">
+              <div className="min-w-0 flex-1 basis-40">
+                <p className="text-sm font-bold text-stone-900">
                   {manager.firstName} {manager.lastName}
                 </p>
-                <p className="mt-1 text-xs text-[#72726b]">{manager.email}</p>
+                <p className="mt-1 truncate text-xs text-stone-500">{manager.email}</p>
               </div>
-              <StatusPill label={scopeSummary(manager.scopes)} tone="blue" />
+              <FlexPill tone="stone">{scopeSummary(manager.scopes)}</FlexPill>
               {isOwner && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setModalState(manager)}
-                    className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold transition hover:border-[#24241f]"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRemovingManager(manager)}
-                    className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold text-[#8a4636] transition hover:border-red-600 hover:text-red-600"
-                  >
-                    Remove
-                  </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <RowAction onClick={() => setModalState(manager)}>Edit</RowAction>
+                  <DangerRowAction onClick={() => setRemovingManager(manager)}>Remove</DangerRowAction>
                 </div>
               )}
             </div>
           ))}
         </div>
       </div>
-      <aside className="cut-corner bg-[#24241f] p-5 text-white xl:col-span-4">
-        <ShieldCheck className="size-6 text-[#c7f36a]" />
-        <p className="display-face mt-5 text-3xl leading-[1.02]">
+      <FlexCard className="xl:col-span-4">
+        <FlexIconBadge tone="lime">
+          <ShieldCheck className="size-5" />
+        </FlexIconBadge>
+        <p className="mt-4 text-lg font-black leading-snug tracking-tight text-stone-900">
           One person,
           <br />
           more than one role.
         </p>
-        <p className="mt-4 text-xs leading-relaxed text-[#babaae]">
+        <p className="mt-3 text-sm leading-relaxed text-stone-500">
           Managers use the same dashboard as you, scoped to your gym. Every manager can handle members, trainers,
           and attendance — grant finance or settings access only where you want it.
         </p>
-      </aside>
+      </FlexCard>
 
       {modalState !== "closed" && gymId && (
         <TeamManagerModal
