@@ -111,8 +111,8 @@ function NavContent({
   return (
     <>
       <div className="p-4 pb-3">
-        <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-3 px-1 py-1">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
+        <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-3 rounded-2xl px-2 py-2 transition hover:bg-stone-100">
+          <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-stone-100">
             <Image
               src="/GymSuit_logo_package/01-icon-brand.png"
               alt=""
@@ -122,25 +122,25 @@ function NavContent({
             />
           </span>
           <div>
-            <p className="text-[15px] font-bold tracking-[-0.04em] text-white">GymSuite</p>
-            <p className="mono mt-0.5 text-[9px] tracking-[0.14em] text-[#a7a79e]">{t.nav.operationsTag.toUpperCase()}</p>
+            <p className="text-[15px] font-black tracking-tight text-stone-900">GymSuite</p>
+            <p className="mono mt-0.5 text-[9px] tracking-[0.14em] text-stone-400">{t.nav.operationsTag.toUpperCase()}</p>
           </div>
         </Link>
-        <div className="mt-5 flex w-full items-center justify-between border border-white/15 bg-white/[0.05] px-3 py-2.5 text-left">
+        <div className="mt-4 flex w-full items-center justify-between rounded-2xl bg-stone-100 px-4 py-3 text-left">
           <span>
-            <span className="block truncate text-xs font-bold text-white">{gymName}</span>
-            <span className="mt-0.5 block text-[10px] text-[#adada4]">{t.nav.gymCount}</span>
+            <span className="block truncate text-xs font-bold text-stone-900">{gymName}</span>
+            <span className="mt-0.5 block text-[10px] font-medium text-stone-500">{t.nav.gymCount}</span>
           </span>
         </div>
       </div>
-      <div className="mx-4 h-px bg-white/10" />
-      <div className="flex-1 overflow-y-auto px-2 py-3">
+      <div className="mx-4 h-px bg-stone-100" />
+      <div className="flex-1 overflow-y-auto px-3 py-3">
         {navGroups.map((group) => (
-          <div key={group.label} className="p-0 pb-3">
-            <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[#898980]">
+          <div key={group.label} className="pb-4">
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400">
               {group.label}
             </p>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {group.items.map((item) => {
                 const active = pathname === item.href;
                 const Icon = item.icon;
@@ -152,14 +152,16 @@ function NavContent({
                     key={item.label}
                     href={item.href}
                     onClick={onNavigate}
-                    className={`relative flex h-9 items-center gap-2 px-3 text-xs font-semibold transition ${
-                      active ? "bg-[#c7f36a] text-[#25251f]" : "text-[#d0d0c8] hover:bg-white/10 hover:text-white"
+                    className={`flex h-10 items-center gap-3 rounded-2xl px-3 text-[13px] font-bold transition ${
+                      active
+                        ? "bg-[#c7f36a] text-stone-900 shadow-[0_2px_12px_rgba(120,160,20,0.25)]"
+                        : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
                     }`}
                   >
-                    <Icon className="size-4" />
-                    <span>{item.label}</span>
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
                     {badge > 0 && (
-                      <span className="ml-auto bg-[#c7f36a] px-1.5 py-0.5 text-[9px] font-bold text-[#24241f]">
+                      <span className="ml-auto rounded-full bg-stone-900 px-2 py-0.5 text-[10px] font-black text-white">
                         {badge}
                       </span>
                     )}
@@ -174,20 +176,22 @@ function NavContent({
         <Link
           href="/dashboard/settings"
           onClick={onNavigate}
-          className={`flex items-center gap-3 px-3 py-2.5 text-xs font-semibold transition ${
-            pathname === "/dashboard/settings" ? "bg-[#c7f36a] text-[#24241f]" : "text-[#d0d0c8] hover:bg-white/10 hover:text-white"
+          className={`flex h-10 items-center gap-3 rounded-2xl px-3 text-[13px] font-bold transition ${
+            pathname === "/dashboard/settings"
+              ? "bg-[#c7f36a] text-stone-900 shadow-[0_2px_12px_rgba(120,160,20,0.25)]"
+              : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
           }`}
         >
-          <Settings2 className="size-4" /> {t.nav.settings}
+          <Settings2 className="size-4 shrink-0" /> <span className="truncate">{t.nav.settings}</span>
         </Link>
-        <div className="mx-0 my-3 h-px bg-white/10" />
-        <div className="flex items-center gap-2.5 px-2 pt-1">
-          <div className="grid size-8 shrink-0 place-items-center rounded-none border border-[#c7f36a]/40 bg-[#4b4b42] text-[10px] font-bold text-[#c7f36a]">
+        <div className="mx-1 my-3 h-px bg-stone-100" />
+        <div className="flex items-center gap-3 rounded-2xl bg-stone-100 px-3 py-2.5">
+          <div className="grid size-9 shrink-0 place-items-center rounded-2xl bg-[#c7f36a] text-[10px] font-black text-stone-900">
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-xs font-bold text-white">{displayName}</p>
-            <p className="mt-0.5 truncate text-[10px] text-[#a7a79e]">
+            <p className="truncate text-xs font-bold text-stone-900">{displayName}</p>
+            <p className="mt-0.5 truncate text-[10px] font-medium text-stone-500">
               {roleLabel} · {gymName}
             </p>
           </div>
@@ -268,7 +272,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-[#f6f6f0] text-[#24241f]">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-[#24241f] transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-stone-200/70 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
           navOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
