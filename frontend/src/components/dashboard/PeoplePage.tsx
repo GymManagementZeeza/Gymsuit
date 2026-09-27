@@ -15,6 +15,7 @@ import MemberFormModal from "@/components/dashboard/MemberFormModal";
 import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import ChangePlanModal from "@/components/dashboard/ChangePlanModal";
 import TakePaymentModal from "@/components/dashboard/TakePaymentModal";
+import InvoiceModal from "@/components/dashboard/InvoiceModal";
 import NotifyModal from "@/components/dashboard/NotifyModal";
 import PaymentCountdownBar from "@/components/dashboard/PaymentCountdownBar";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
@@ -118,6 +119,25 @@ export default function PeoplePage() {
   );
 }
 
+/** A member owes money when they have a plan awaiting payment, or their current plan already ended. */
+function isExpiredSubscription(subscription?: MemberSubscription): boolean {
+  if (!subscription?.currentPeriodEnd) return false;
+  const end = new Date(`${subscription.currentPeriodEnd}T00:00:00`).getTime();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return end < today.getTime();
+}
+
+/** The subscription an invoice should bill: the pending plan first, else the expired one. */
+function invoiceableSubscription(
+  subscription?: MemberSubscription,
+  pending?: MemberSubscription
+): MemberSubscription | undefined {
+  if (pending) return pending;
+  if (isExpiredSubscription(subscription)) return subscription;
+  return undefined;
+}
+
 function MemberMobileCard({
   member,
   index,
@@ -128,6 +148,7 @@ function MemberMobileCard({
   assigningTrainerFor,
   onAssignTrainer,
   onTakePayment,
+  onInvoice,
   onPlan,
   onEdit,
   onNotify,
@@ -141,10 +162,12 @@ function MemberMobileCard({
   assigningTrainerFor: number | null;
   onAssignTrainer: (trainerId: number | null) => void;
   onTakePayment: () => void;
+  onInvoice: (subscription: MemberSubscription) => void;
   onPlan: () => void;
   onEdit: () => void;
   onNotify: () => void;
 }) {
+  const invoiceSub = invoiceableSubscription(subscription, pending);
   return (
     <div
       className={`overflow-hidden rounded-2xl bg-white shadow-[0_2px_16px_rgba(20,20,16,0.06)] ${
@@ -244,6 +267,7 @@ function MemberMobileCard({
           </DetailRow>
           <div className="flex flex-wrap items-center gap-2 pt-3">
             {pending && <RowAction onClick={onTakePayment}>Take payment</RowAction>}
+            {invoiceSub && <RowAction onClick={() => onInvoice(invoiceSub)}>Invoice</RowAction>}
             <RowAction onClick={onPlan}>Plan</RowAction>
             <RowAction onClick={onEdit}>Edit</RowAction>
             <button
@@ -309,6 +333,7 @@ function MembersPanel() {
   const [modalState, setModalState] = useState<"closed" | "create" | Member>("closed");
   const [planModalMember, setPlanModalMember] = useState<Member | null>(null);
   const [takePaymentMember, setTakePaymentMember] = useState<Member | null>(null);
+  const [invoiceTarget, setInvoiceTarget] = useState<{ member: Member; subscription: MemberSubscription } | null>(null);
   const [notifyMemberTarget, setNotifyMemberTarget] = useState<Member | null>(null);
   const [assigningTrainerFor, setAssigningTrainerFor] = useState<number | null>(null);
 
@@ -503,6 +528,7 @@ function MembersPanel() {
                 const subscription = subscriptionsByMember[member.id];
                 const pending = pendingByMember[member.id];
                 const hasNoActivePlan = !subscription;
+                const invoiceSub = invoiceableSubscription(subscription, pending);
                 return (
                 <tr className={`transition ${hasNoActivePlan ? "bg-[#ffe3e3]/40 hover:bg-[#ffe3e3]/70" : "hover:bg-stone-50"}`} key={member.id}>
                   <td className="px-5 py-4">
@@ -627,6 +653,11 @@ function MembersPanel() {
                       {pending && (
                         <RowAction onClick={() => setTakePaymentMember(member)}>Take payment</RowAction>
                       )}
+                      {invoiceSub && (
+                        <RowAction onClick={() => setInvoiceTarget({ member, subscription: invoiceSub })}>
+                          Invoice
+                        </RowAction>
+                      )}
                       <RowAction onClick={() => setPlanModalMember(member)}>Plan</RowAction>
                       <RowAction onClick={() => setModalState(member)}>Edit</RowAction>
                       <button
@@ -665,6 +696,7 @@ function MembersPanel() {
                 assigningTrainerFor={assigningTrainerFor}
                 onAssignTrainer={(trainerId) => handleAssignTrainer(member.id, trainerId)}
                 onTakePayment={() => setTakePaymentMember(member)}
+                onInvoice={(sub) => setInvoiceTarget({ member, subscription: sub })}
                 onPlan={() => setPlanModalMember(member)}
                 onEdit={() => setModalState(member)}
                 onNotify={() => setNotifyMemberTarget(member)}
@@ -738,6 +770,16 @@ function MembersPanel() {
             setTakePaymentMember(null);
             refreshSubscriptions();
           }}
+        />
+      )}
+
+      {invoiceTarget && gymId && gym && (
+        <InvoiceModal
+          gymId={gymId}
+          member={invoiceTarget.member}
+          subscription={invoiceTarget.subscription}
+          gym={gym}
+          onClose={() => setInvoiceTarget(null)}
         />
       )}
 
