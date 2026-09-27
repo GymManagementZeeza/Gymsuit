@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { intlLocale, type Locale } from "@/lib/i18n/dictionaries";
 import { useSession } from "@/hooks/useSession";
-import { getCurrentUser } from "@/lib/users";
 import { getGym } from "@/lib/gyms";
 import { listMembers, type Member } from "@/lib/members";
 import { listCheckInsSince } from "@/lib/checkins";
@@ -96,23 +95,12 @@ export default function DashboardOverview() {
   const { t, locale, setLocale } = useLanguage();
   const [gymName, setGymName] = useState<string | null>(null);
   const [gymCity, setGymCity] = useState<string | null>(null);
-  const [initials, setInitials] = useState("…");
   const [members, setMembers] = useState<Member[]>([]);
   const [subscriptionsByMember, setSubscriptionsByMember] = useState<Record<number, MemberSubscription>>({});
   const [dataLoading, setDataLoading] = useState(true);
   const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; total: number }[] | null>(null);
   const [monthlyCollection, setMonthlyCollection] = useState<number | null>(null);
   const [checkinHours, setCheckinHours] = useState<number[] | null>(null);
-
-  useEffect(() => {
-    if (!session) return;
-    getCurrentUser()
-      .then((user) => {
-        const parts = user.displayName.split(/\s+/).filter(Boolean).slice(0, 2);
-        setInitials(parts.map((p) => p[0]?.toUpperCase()).join("") || "…");
-      })
-      .catch(() => {});
-  }, [session]);
 
   useEffect(() => {
     if (!session?.gymId) return;
@@ -234,9 +222,6 @@ export default function DashboardOverview() {
           >
             {locale === "en" ? "മലയാളം" : "English"}
           </button>
-          <span className="grid size-10 place-items-center rounded-full bg-[#4ade80] text-xs font-black text-stone-900">
-            {initials}
-          </span>
         </div>
       </div>
 
