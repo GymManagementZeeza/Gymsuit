@@ -2,11 +2,16 @@
 
 /* Training Ledger page: the gym's real membership plans — add, price, and retire them. */
 import { useEffect, useState } from "react";
-import { PageHeading } from "@/components/dashboard/DashboardShell";
-import { ActionButton, MetricCard, TableAction } from "@/components/dashboard/ui";
+import {
+  FlexButton,
+  FlexCard,
+  FlexEmptyState,
+  FlexPageHeader,
+  FlexPill,
+  FlexStatCard,
+} from "@/components/dashboard/ui";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import PlanFormModal from "@/components/dashboard/PlanFormModal";
-import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import PlanReassignModal from "@/components/dashboard/PlanReassignModal";
 import { useSession } from "@/hooks/useSession";
 import { deleteMembershipPlan, listMembershipPlans, type BillingCycle, type MembershipPlan } from "@/lib/membershipPlans";
@@ -70,129 +75,94 @@ export default function MembershipPage() {
 
   return (
     <div className="page-enter space-y-7">
-      <PageHeading
-        eyebrow="Finance · Membership plans"
+      <FlexPageHeader
         title="The business of belonging."
-        description="Every plan members can join, and what it costs them."
+        subtitle="Finance · Membership plans — every plan members can join, and what it costs them."
         actions={
-          <ActionButton icon={<Plus className="size-4" />} onClick={() => setFormState("create")}>
+          <FlexButton onClick={() => setFormState("create")}>
+            <Plus className="size-4" />
             Add plan
-          </ActionButton>
+          </FlexButton>
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <MetricCard
+      <section className="grid gap-4 sm:grid-cols-2">
+        <FlexStatCard
           label="Active plans"
           value={String(activeCount)}
           detail={`${plans.length} total`}
-          tone="lime"
           icon={<Layers className="size-5" />}
+          variant="lime"
         />
-        <MetricCard
+        <FlexStatCard
           label="Inactive plans"
           value={String(plans.length - activeCount)}
           detail="not offered to new members"
-          tone="paper"
           icon={<Tag className="size-5" />}
+          variant="white"
         />
       </section>
 
       {error && <ErrorBanner message={error} />}
 
-      <section className="border border-[#d8d8d1] bg-white">
-        <div className="flex items-center justify-between border-b border-[#e7e7e1] p-5">
+      <FlexCard>
+        <div className="flex items-center justify-between">
           <div>
-            <p className="ledger-label">Plan directory</p>
-            <h2 className="mt-2 text-xl font-bold">{loading ? "Loading plans…" : `${plans.length} plan${plans.length === 1 ? "" : "s"}`}</h2>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Plan directory</p>
+            <h2 className="mt-2 text-lg font-black tracking-tight text-stone-900">
+              {loading ? "Loading plans…" : `${plans.length} plan${plans.length === 1 ? "" : "s"}`}
+            </h2>
           </div>
         </div>
 
         {!loading && plans.length === 0 && (
-          <p className="p-8 text-center text-sm text-[#76766f]">No plans yet — add your first one.</p>
+          <div className="mt-4">
+            <FlexEmptyState title="No plans yet — add your first one." />
+          </div>
         )}
 
         {plans.length > 0 && (
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[640px] text-left">
-              <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
-                <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
-                  <th className="px-5 py-3">Plan</th>
-                  <th className="px-4 py-3">Price</th>
-                  <th className="px-4 py-3">Billing</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#ededE7]">
-                {plans.map((plan) => (
-                  <tr key={plan.id}>
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-bold">{plan.name}</p>
-                      {plan.description && <p className="mt-1 text-[11px] text-[#7a7a73]">{plan.description}</p>}
-                    </td>
-                    <td className="mono px-4 py-4 text-sm font-bold">
-                      {plan.currency} {plan.price}
-                    </td>
-                    <td className="px-4 py-4 text-xs text-[#696962]">{cycleLabel(plan.billingCycle)}</td>
-                    <td className="px-4 py-4 text-xs font-semibold">{plan.active ? "Active" : "Inactive"}</td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <TableAction onClick={() => setFormState(plan)}>Edit</TableAction>
-                        <TableAction onClick={() => handleRemove(plan)} disabled={plans.length <= 1}>
-                          {plans.length <= 1 ? "Only plan" : "Remove"}
-                        </TableAction>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {plans.length > 0 && (
-          <div className="divide-y divide-[#ededE7] md:hidden">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
             {plans.map((plan) => (
-              <ExpandableRow
-                key={plan.id}
-                summary={
-                  <div className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold">{plan.name}</p>
-                      <p className="mt-0.5 text-xs text-[#8a8a82]">{cycleLabel(plan.billingCycle)}</p>
-                    </div>
-                    <span className="mono shrink-0 text-sm font-bold">
-                      {plan.currency} {plan.price}
-                    </span>
-                    <span
-                      className={`shrink-0 text-[10px] font-bold uppercase tracking-[0.08em] ${
-                        plan.active ? "text-[#3f7a1f]" : "text-[#8a8a82]"
-                      }`}
-                    >
-                      {plan.active ? "Active" : "Inactive"}
-                    </span>
+              <FlexCard key={plan.id} className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-base font-black tracking-tight text-stone-900">{plan.name}</p>
+                    {plan.description && (
+                      <p className="mt-1 text-xs font-medium text-stone-500">{plan.description}</p>
+                    )}
                   </div>
-                }
-              >
-                <div className="space-y-1">
-                  <DetailRow label="Price">
-                    {plan.currency} {plan.price}
-                  </DetailRow>
-                  <DetailRow label="Billing">{cycleLabel(plan.billingCycle)}</DetailRow>
-                  <DetailRow label="Status">{plan.active ? "Active" : "Inactive"}</DetailRow>
-                  {plan.description && <DetailRow label="About">{plan.description}</DetailRow>}
-                  <div className="flex items-center gap-2 pt-3">
-                    <TableAction onClick={() => setFormState(plan)}>Edit</TableAction>
-                    <TableAction onClick={() => handleRemove(plan)} disabled={plans.length <= 1}>
+                  <FlexPill tone={plan.active ? "lime" : "stone"}>
+                    {plan.active ? "Active" : "Inactive"}
+                  </FlexPill>
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400">Price</p>
+                    <p className="mt-1 font-mono text-2xl font-black tracking-tight text-stone-900">
+                      {plan.currency} {plan.price}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-stone-500">{cycleLabel(plan.billingCycle)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FlexButton variant="ghost" onClick={() => setFormState(plan)}>
+                      Edit
+                    </FlexButton>
+                    <FlexButton
+                      variant="ghost"
+                      onClick={plans.length <= 1 ? undefined : () => handleRemove(plan)}
+                      className={plans.length <= 1 ? "pointer-events-none opacity-40" : ""}
+                    >
                       {plans.length <= 1 ? "Only plan" : "Remove"}
-                    </TableAction>
+                    </FlexButton>
                   </div>
                 </div>
-              </ExpandableRow>
+              </FlexCard>
             ))}
           </div>
         )}
-      </section>
+      </FlexCard>
 
       {formState !== "closed" && gymId && (
         <PlanFormModal

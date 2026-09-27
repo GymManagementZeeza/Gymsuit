@@ -1,10 +1,16 @@
 "use client";
 
-/* Training Ledger page: Training schedule workflow emphasizes request decisions and studio timing. */
+/* Sessions page: session request decisions, studio schedule, and class timetable in the FLEX design language. */
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { PageHeading } from "@/components/dashboard/DashboardShell";
-import { ActionButton, StatusPill, TableAction } from "@/components/dashboard/ui";
+import {
+  FlexButton,
+  FlexCard,
+  FlexEmptyState,
+  FlexIconBadge,
+  FlexPageHeader,
+  FlexPill,
+} from "@/components/dashboard/ui";
 import { useSession } from "@/hooks/useSession";
 import { listMembers, type Member } from "@/lib/members";
 import { listTrainers, type Trainer } from "@/lib/trainers";
@@ -46,25 +52,34 @@ export default function SessionsPage() {
   const pathname = usePathname();
   const scheduleMode = pathname === "/dashboard/schedule";
   const classesMode = pathname === "/dashboard/classes";
+  const eyebrow = scheduleMode
+    ? "Training · Schedule"
+    : classesMode
+      ? "Training · Classes"
+      : "Training · Session requests";
   const title = scheduleMode
     ? "Make every minute count."
     : classesMode
       ? "Classes that fill the room."
       : "Requests deserve a quick answer.";
+  const description = scheduleMode
+    ? "Every trainer's booked sessions — reschedule or cancel any of them, any time."
+    : classesMode
+      ? "Shape your group timetable, capacity, and the coaches who carry it."
+      : "Approve a request and GymFlow turns it into a scheduled session with the member enrolled.";
 
   return (
     <div className="page-enter space-y-7">
-      <PageHeading
-        eyebrow={scheduleMode ? "Training · Schedule" : classesMode ? "Training · Classes" : "Training · Session requests"}
+      <FlexPageHeader
         title={title}
-        description={
-          scheduleMode
-            ? "Every trainer's booked sessions — reschedule or cancel any of them, any time."
-            : classesMode
-              ? "Shape your group timetable, capacity, and the coaches who carry it."
-              : "Approve a request and GymFlow turns it into a scheduled session with the member enrolled."
+        subtitle={`${eyebrow} · ${description}`}
+        actions={
+          classesMode ? (
+            <FlexButton>
+              <Plus className="size-4" /> New class
+            </FlexButton>
+          ) : undefined
         }
-        actions={classesMode ? <ActionButton icon={<Plus className="size-4" />}>New class</ActionButton> : undefined}
       />
       {scheduleMode ? <SchedulePanel /> : classesMode ? <ClassesPanel /> : <RequestsPanel />}
     </div>
@@ -126,71 +141,85 @@ function RequestsPanel() {
 
   return (
     <section className="grid gap-4 xl:grid-cols-12">
-      <div className="border border-[#d8d8d1] bg-white xl:col-span-8">
-        <div className="flex items-center justify-between border-b border-[#e6e6e0] p-5">
+      <FlexCard className="xl:col-span-8">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="ledger-label">Awaiting decision</p>
-            <h2 className="mt-2 text-xl font-bold">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Awaiting decision</p>
+            <h2 className="mt-2 text-xl font-black tracking-tight text-stone-900">
               {loading ? "Loading…" : `${pending.length} request${pending.length === 1 ? "" : "s"} need a response`}
             </h2>
           </div>
-          <StatusPill label={`${requests.length} total`} tone="blue" />
+          <FlexPill tone="stone" className="uppercase">{`${requests.length} total`}</FlexPill>
         </div>
 
-        {error && <div className="p-4"><div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div></div>}
-
-        {!loading && pending.length === 0 && (
-          <p className="p-8 text-center text-sm text-[#76766f]">No pending requests right now.</p>
+        {error && (
+          <div className="mt-4 rounded-2xl bg-[#ffe3e3] px-4 py-3 text-sm font-medium text-[#7f1d1d]">{error}</div>
         )}
 
-        <div className="divide-y divide-[#e9e9e3]">
-          {pending.map((request) => (
-            <article className="p-5" key={request.id}>
-              <div className="flex flex-col justify-between gap-4 sm:flex-row">
-                <div className="flex gap-3">
-                  <div className="grid size-10 place-items-center rounded-full bg-[#f3cdbb] text-[10px] font-bold">
-                    {initialsOf(memberName(members, request.memberId))}
+        {!loading && pending.length === 0 && (
+          <div className="mt-4">
+            <FlexEmptyState title="No pending requests right now." />
+          </div>
+        )}
+
+        <div className="mt-2 divide-y divide-stone-100">
+          {pending.map((request) => {
+            const acting = actingId === request.id;
+            return (
+              <article className="py-4" key={request.id}>
+                <div className="flex flex-col justify-between gap-4 sm:flex-row">
+                  <div className="flex gap-3">
+                    <FlexIconBadge className="size-10 rounded-full text-[10px] font-bold">
+                      {initialsOf(memberName(members, request.memberId))}
+                    </FlexIconBadge>
+                    <div>
+                      <p className="text-sm font-bold text-stone-900">
+                        {memberName(members, request.memberId)}{" "}
+                        <span className="font-normal text-stone-500">requested a session</span>
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        with <span className="font-semibold">{trainerName(trainers, request.trainerId)}</span> ·{" "}
+                        {new Date(request.requestedStartTime).toLocaleString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {request.notes && ` · ${request.notes}`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold">
-                      {memberName(members, request.memberId)} <span className="font-normal text-[#777770]">requested a session</span>
-                    </p>
-                    <p className="mt-1 text-xs text-[#6e6e67]">
-                      with <span className="font-semibold">{trainerName(trainers, request.trainerId)}</span> ·{" "}
-                      {new Date(request.requestedStartTime).toLocaleString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {request.notes && ` · ${request.notes}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TableAction onClick={() => handleReject(request.id)} disabled={actingId === request.id}>
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <FlexButton
+                      variant="ghost"
+                      onClick={acting ? undefined : () => handleReject(request.id)}
+                      className={`px-3.5 py-2 text-xs ${acting ? "pointer-events-none opacity-40" : ""}`}
+                    >
                       <X className="size-3.5" /> Reject
-                    </span>
-                  </TableAction>
-                  <button
-                    onClick={() => handleApprove(request.id)}
-                    disabled={actingId === request.id}
-                    className="flex items-center gap-1 bg-[#c7f36a] px-3 py-1.5 text-[11px] font-bold transition hover:bg-[#d8ff8a] disabled:opacity-50"
-                  >
-                    <Check className="size-3.5" /> {actingId === request.id ? "Approving…" : "Approve"}
-                  </button>
+                    </FlexButton>
+                    <FlexButton
+                      variant="lime"
+                      onClick={acting ? undefined : () => handleApprove(request.id)}
+                      className={`px-3.5 py-2 text-xs ${acting ? "pointer-events-none opacity-50" : ""}`}
+                    >
+                      <Check className="size-3.5" /> {acting ? "Approving…" : "Approve"}
+                    </FlexButton>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
-      </div>
-      <aside className="cut-corner bg-[#ffded2] p-5 xl:col-span-4">
-        <p className="ledger-label !text-[#8b4936] before:!bg-[#f07848]">Autopilot off</p>
-        <p className="display-face mt-5 text-3xl leading-[1.05]">Every request keeps a human decision.</p>
-        <p className="mt-4 text-xs leading-relaxed text-[#875442]">
+      </FlexCard>
+      <aside className="rounded-[1.75rem] bg-[#fdf1dc] p-5 shadow-[0_2px_16px_rgba(160,120,30,0.10)] xl:col-span-4">
+        <FlexPill tone="amber" className="uppercase">
+          Autopilot off
+        </FlexPill>
+        <p className="mt-4 text-lg font-black tracking-tight text-stone-900">
+          Every request keeps a human decision.
+        </p>
+        <p className="mt-3 text-xs font-medium leading-relaxed text-stone-600">
           When approved, GymFlow checks the trainer is actually free before reserving the time and enrolling the
           member. Nothing books around a trainer without their sign-off.
         </p>
@@ -282,29 +311,36 @@ function SchedulePanel() {
   };
 
   return (
-    <section className="border border-[#d8d8d1] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e7e7e1] p-5">
+    <FlexCard>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="ledger-label">Upcoming</p>
-          <p className="text-sm font-bold">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Upcoming</p>
+          <p className="mt-1 text-sm font-bold text-stone-900">
             {loading ? "Loading…" : `${upcoming.length} session${upcoming.length === 1 ? "" : "s"} scheduled`}
           </p>
         </div>
-        <StatusPill label="Owner & manager view" tone="ink" />
+        <FlexPill tone="stone" className="uppercase">
+          Owner & manager view
+        </FlexPill>
       </div>
 
-      {error && <div className="p-4"><div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div></div>}
-
-      {!loading && upcoming.length === 0 && (
-        <p className="p-8 text-center text-sm text-[#76766f]">No sessions scheduled yet.</p>
+      {error && (
+        <div className="mt-4 rounded-2xl bg-[#ffe3e3] px-4 py-3 text-sm font-medium text-[#7f1d1d]">{error}</div>
       )}
 
-      <div className="divide-y divide-[#ededE7]">
+      {!loading && upcoming.length === 0 && (
+        <div className="mt-4">
+          <FlexEmptyState title="No sessions scheduled yet." />
+        </div>
+      )}
+
+      <div className="mt-2 divide-y divide-stone-100">
         {upcoming.map((s) => {
           const isEditing = editingId === s.id;
+          const acting = actingId === s.id;
           const memberId = memberForSession.get(s.id);
           return (
-            <div className="flex flex-wrap items-center gap-4 p-4" key={s.id}>
+            <div className="flex flex-wrap items-center gap-4 py-4" key={s.id}>
               <div className="w-[140px] shrink-0">
                 {isEditing ? (
                   <div className="flex flex-col gap-1.5">
@@ -312,17 +348,17 @@ function SchedulePanel() {
                       type="date"
                       value={editDate}
                       onChange={(e) => setEditDate(e.target.value)}
-                      className="h-8 border border-[#d8d8d1] bg-white px-2 text-xs outline-none focus:border-[#24241f]"
+                      className="h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs outline-none focus:border-stone-900"
                     />
                     <input
                       type="time"
                       value={editTime}
                       onChange={(e) => setEditTime(e.target.value)}
-                      className="h-8 border border-[#d8d8d1] bg-white px-2 text-xs outline-none focus:border-[#24241f]"
+                      className="h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs outline-none focus:border-stone-900"
                     />
                   </div>
                 ) : (
-                  <p className="mono text-xs text-[#71716a]">
+                  <p className="font-mono text-xs text-stone-500">
                     {new Date(s.startTime).toLocaleString(undefined, {
                       weekday: "short",
                       month: "short",
@@ -333,14 +369,14 @@ function SchedulePanel() {
                   </p>
                 )}
               </div>
-              <div className="min-w-0 flex-1 border-l-4 border-[#c7f36a] bg-[#f4f4ef] px-3 py-2">
-                <p className="text-sm font-bold">{s.title}</p>
-                <p className="mt-1 text-[11px] text-[#71716a]">
+              <div className="min-w-0 flex-1 rounded-r-2xl border-l-4 border-[#c7f36a] bg-stone-100/70 px-3 py-2">
+                <p className="text-sm font-bold text-stone-900">{s.title}</p>
+                <p className="mt-1 text-[11px] text-stone-500">
                   {isEditing ? (
                     <select
                       value={editTrainerId ?? ""}
                       onChange={(e) => setEditTrainerId(Number(e.target.value))}
-                      className="h-7 border border-[#d8d8d1] bg-white px-1.5 text-[11px] outline-none focus:border-[#24241f]"
+                      className="h-8 rounded-xl border border-stone-200 bg-white px-1.5 text-[11px] outline-none focus:border-stone-900"
                     >
                       {Array.from(trainers.values()).map((t) => (
                         <option key={t.id} value={t.id}>
@@ -356,42 +392,40 @@ function SchedulePanel() {
               </div>
               {isEditing ? (
                 <div className="flex items-center gap-2">
-                  <button
+                  <FlexButton
+                    variant="ghost"
                     onClick={() => setEditingId(null)}
-                    className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold transition hover:border-[#24241f]"
+                    className="px-3.5 py-2 text-xs"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </FlexButton>
+                  <FlexButton
+                    variant="lime"
                     onClick={() => saveEdit(s)}
-                    disabled={actingId === s.id}
-                    className="bg-[#c7f36a] px-3 py-1.5 text-xs font-bold transition hover:bg-[#d8ff8a] disabled:opacity-50"
+                    className={`px-3.5 py-2 text-xs ${acting ? "pointer-events-none opacity-50" : ""}`}
                   >
-                    {actingId === s.id ? "Saving…" : "Save"}
-                  </button>
+                    {acting ? "Saving…" : "Save"}
+                  </FlexButton>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => startEdit(s)}
-                    className="flex items-center gap-1 border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold transition hover:border-[#24241f]"
-                  >
+                  <FlexButton variant="ghost" onClick={() => startEdit(s)} className="px-3.5 py-2 text-xs">
                     <Pencil className="size-3.5" /> Rearrange
-                  </button>
-                  <button
-                    onClick={() => handleDelete(s)}
-                    disabled={actingId === s.id}
-                    className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold text-[#8a4636] transition hover:border-red-600 hover:text-red-600 disabled:opacity-50"
+                  </FlexButton>
+                  <FlexButton
+                    variant="ghost"
+                    onClick={acting ? undefined : () => handleDelete(s)}
+                    className={`px-3.5 py-2 text-xs text-[#7f1d1d] ${acting ? "pointer-events-none opacity-50" : ""}`}
                   >
                     Cancel
-                  </button>
+                  </FlexButton>
                 </div>
               )}
             </div>
           );
         })}
       </div>
-    </section>
+    </FlexCard>
   );
 }
 
@@ -403,39 +437,43 @@ function ClassesPanel() {
   ];
   return (
     <section className="grid gap-4 xl:grid-cols-12">
-      <div className="border border-[#d8d8d1] bg-white xl:col-span-8">
-        <div className="border-b border-[#e7e7e1] p-5">
-          <p className="ledger-label">Timetable</p>
-          <h2 className="mt-2 text-xl font-bold">6 repeating classes</h2>
-        </div>
-        <div className="divide-y divide-[#e9e9e3]">
+      <FlexCard className="xl:col-span-8">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">Timetable</p>
+        <h2 className="mt-2 text-xl font-black tracking-tight text-stone-900">6 repeating classes</h2>
+        <div className="mt-2 divide-y divide-stone-100">
           {classes.map((item) => (
-            <div className="flex items-center gap-4 p-5" key={item.name}>
-              <div className="grid size-11 place-items-center bg-[#24241f] text-[#c7f36a]">
+            <div className="flex items-center gap-4 py-4" key={item.name}>
+              <FlexIconBadge tone="lime" className="size-11">
                 <CalendarDays className="size-5" />
-              </div>
+              </FlexIconBadge>
               <div className="min-w-0 flex-1">
-                <p className="font-bold">{item.name}</p>
-                <p className="mt-1 text-xs text-[#71716a]">
+                <p className="font-bold text-stone-900">{item.name}</p>
+                <p className="mt-1 text-xs text-stone-500">
                   {item.schedule} · {item.coach}
                 </p>
               </div>
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-bold">{item.capacity}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-[#777770]">enrolled</p>
+                <p className="text-sm font-bold text-stone-900">{item.capacity}</p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-400">enrolled</p>
               </div>
-              <StatusPill label={item.status} tone={item.status === "Waitlist" ? "orange" : "lime"} />
+              <FlexPill tone={item.status === "Waitlist" ? "amber" : "lime"} className="uppercase">
+                {item.status}
+              </FlexPill>
             </div>
           ))}
         </div>
-      </div>
-      <aside className="bg-[#dce6ff] p-5 xl:col-span-4">
-        <Clock3 className="size-5 text-[#3457a7]" />
-        <p className="display-face mt-5 text-3xl leading-[1.05]">Capacity has a rhythm.</p>
-        <p className="mt-4 text-xs leading-relaxed text-[#566792]">
+      </FlexCard>
+      <aside className="rounded-[1.75rem] bg-[#eef2ff] p-5 shadow-[0_2px_16px_rgba(20,20,16,0.06)] xl:col-span-4">
+        <FlexIconBadge>
+          <Clock3 className="size-5" />
+        </FlexIconBadge>
+        <p className="mt-4 text-lg font-black tracking-tight text-stone-900">Capacity has a rhythm.</p>
+        <p className="mt-3 text-xs font-medium leading-relaxed text-stone-600">
           Two classes will hit capacity this week. Move a trainer or open an extra block before waitlists build.
         </p>
-        <button className="mt-6 text-xs font-bold underline decoration-[#3457a7] decoration-2 underline-offset-4">See capacity forecast</button>
+        <button className="mt-5 text-xs font-bold text-stone-900 underline decoration-[#c7f36a] decoration-2 underline-offset-4">
+          See capacity forecast
+        </button>
       </aside>
     </section>
   );
