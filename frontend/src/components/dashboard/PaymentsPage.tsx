@@ -1,9 +1,8 @@
 "use client";
 
-/* Training Ledger page: membership payment history. */
+/* Payments page: membership payment history — FLEX light design language. */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PageHeading } from "@/components/dashboard/DashboardShell";
-import { ActionButton, MetricCard, StatusPill } from "@/components/dashboard/ui";
+import { FlexButton, FlexCard, FlexEmptyState, FlexPageHeader, FlexPill, FlexStatCard } from "@/components/dashboard/ui";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import RecordTransactionModal from "@/components/dashboard/RecordTransactionModal";
 import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
@@ -50,10 +49,10 @@ function smoothPath(points: { x: number; y: number }[]) {
   return d;
 }
 
-function statusTone(status: MemberPayment["status"]): "lime" | "orange" | "blue" {
+function statusTone(status: MemberPayment["status"]): "lime" | "amber" | "red" {
   if (status === "SUCCEEDED") return "lime";
-  if (status === "PENDING") return "orange";
-  return "blue";
+  if (status === "PENDING") return "amber";
+  return "red";
 }
 
 function statusLabel(status: MemberPayment["status"]) {
@@ -224,55 +223,55 @@ export default function PaymentsPage() {
 
   return (
     <div className="page-enter space-y-7">
-      <PageHeading
-        eyebrow="Finance · Payments"
-        title="Every payment, accounted for."
-        description="Collected membership payments and what's still outstanding."
+      <FlexPageHeader
+        title={
+          <span className="flex flex-col items-start gap-2">
+            <FlexPill tone="stone">Finance · Payments</FlexPill>
+            <span>Every payment, accounted for.</span>
+          </span>
+        }
+        subtitle="Collected membership payments and what's still outstanding."
         actions={
           <>
-            <button
-              type="button"
-              onClick={() => setReportOpen(true)}
-              className="flex items-center gap-2 border border-[#d8d8d1] bg-white px-3.5 py-2.5 text-sm font-bold text-[#24241f] transition hover:border-[#24241f]"
-            >
+            <FlexButton variant="ghost" onClick={() => setReportOpen(true)}>
               <Printer className="size-4" /> Print report
-            </button>
-            <ActionButton icon={<Plus className="size-4" />} onClick={() => setRecording(true)}>
-              Record payment
-            </ActionButton>
+            </FlexButton>
+            <FlexButton variant="lime" onClick={() => setRecording(true)}>
+              <Plus className="size-4" /> Record payment
+            </FlexButton>
           </>
         }
       />
 
       <section className="grid gap-4 md:grid-cols-3">
-        <MetricCard
+        <FlexStatCard
           label="Collected this month"
           value={`${metrics.collectedThisMonth.currency} ${metrics.collectedThisMonth.total.toFixed(2)}`}
           detail={`${metrics.collectedThisMonth.count} payment${metrics.collectedThisMonth.count === 1 ? "" : "s"}`}
-          tone="lime"
+          variant="lime"
           icon={<ArrowUpRight className="size-5" />}
         />
-        <MetricCard
+        <FlexStatCard
           label="Cash this month"
           value={`${metrics.cashThisMonth.currency} ${metrics.cashThisMonth.total.toFixed(2)}`}
           detail={`${metrics.cashThisMonth.count} payment${metrics.cashThisMonth.count === 1 ? "" : "s"}`}
-          tone="paper"
+          variant="white"
           icon={<Banknote className="size-5" />}
         />
-        <MetricCard
+        <FlexStatCard
           label="Pending"
           value={`${metrics.pending.currency} ${metrics.pending.total.toFixed(2)}`}
           detail={`${metrics.pending.count} payment${metrics.pending.count === 1 ? "" : "s"}`}
-          tone="orange"
+          variant="amber"
           icon={<Clock3 className="size-5" />}
         />
       </section>
 
-      <section className="border border-[#d8d8d1] bg-white p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#e7e7e1] pb-4 mb-5">
+      <FlexCard>
+        <div className="mb-5 flex flex-col gap-3 border-b border-stone-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="ledger-label">Income &amp; Expense Trends</p>
-            <h2 className="mt-1 text-lg font-bold tracking-[-0.02em]">Financial Overview (Last 6 Months)</h2>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400">Income &amp; Expense Trends</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-stone-900">Financial Overview (Last 6 Months)</h2>
           </div>
           <div className="flex items-center gap-6 text-xs font-bold">
             <div className="flex items-center gap-2">
@@ -287,7 +286,7 @@ export default function PaymentsPage() {
         </div>
 
         {loading ? (
-          <div className="flex h-[200px] items-center justify-center text-sm text-[#8a8a82]">Loading financial trends…</div>
+          <div className="flex h-[200px] items-center justify-center text-sm text-stone-400">Loading financial trends…</div>
         ) : (
           <div className="relative">
             <svg
@@ -320,7 +319,7 @@ export default function PaymentsPage() {
                       y={y + 3}
                       textAnchor="end"
                       fontSize={8}
-                      className="mono fill-[#8a8a82] font-normal"
+                      className="mono fill-stone-400 font-normal"
                     >
                       {currency} {formattedVal}
                     </text>
@@ -377,7 +376,7 @@ export default function PaymentsPage() {
                     y={CHART_HEIGHT - 6}
                     textAnchor="middle"
                     fontSize={8.5}
-                    className={`mono ${hoveredIndex === index ? "fill-[#24241f] font-bold" : "fill-[#8a8a82] font-normal"}`}
+                    className={`mono ${hoveredIndex === index ? "fill-stone-900 font-bold" : "fill-stone-400 font-normal"}`}
                   >
                     {monthAbbrev(d.month)}
                   </text>
@@ -387,9 +386,9 @@ export default function PaymentsPage() {
 
             {hoveredIndex !== null && chartData[hoveredIndex] && (
               <div
-                className="absolute top-2 right-4 border border-[#d8d8d1] bg-[#fafaf6] p-3 shadow-md text-xs space-y-1"
+                className="absolute top-2 right-4 rounded-2xl bg-white p-3 text-xs space-y-1 shadow-[0_2px_16px_rgba(20,20,16,0.06)]"
               >
-                <p className="font-bold text-[#24241f] border-b border-[#e5e5de] pb-1">
+                <p className="font-bold text-stone-900 border-b border-stone-100 pb-1">
                   {monthFull(chartData[hoveredIndex].month)}
                 </p>
                 <div className="flex justify-between gap-4 text-[#16a34a] font-semibold">
@@ -400,7 +399,7 @@ export default function PaymentsPage() {
                   <span>Expense:</span>
                   <span>{currency} {chartData[hoveredIndex].expense.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between gap-4 text-[#24241f] font-bold pt-1 border-t border-[#e5e5de]">
+                <div className="flex justify-between gap-4 text-stone-900 font-bold pt-1 border-t border-stone-100">
                   <span>Net:</span>
                   <span>{currency} {(chartData[hoveredIndex].income - chartData[hoveredIndex].expense).toFixed(2)}</span>
                 </div>
@@ -408,35 +407,35 @@ export default function PaymentsPage() {
             )}
           </div>
         )}
-      </section>
+      </FlexCard>
 
-      <section className="border border-[#d8d8d1] bg-white">
-        <div className="flex items-center justify-between border-b border-[#e7e7e1] p-5">
+      <FlexCard className="!p-0">
+        <div className="flex items-center justify-between p-5 pb-4">
           <div>
-            <p className="ledger-label">Payment history</p>
-            <h2 className="mt-2 text-xl font-bold">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400">Payment history</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-stone-900">
               {loading ? "Loading payments…" : `${payments.length} payment${payments.length === 1 ? "" : "s"}`}
             </h2>
           </div>
         </div>
 
         {error && (
-          <div className="p-5">
+          <div className="px-5 pb-5">
             <ErrorBanner message={error} />
           </div>
         )}
 
         {!loading && !error && payments.length === 0 && (
-          <p className="p-8 text-center text-sm text-[#76766f]">
-            No payments recorded yet — they&apos;ll show up here once collected.
-          </p>
+          <div className="px-5 pb-5">
+            <FlexEmptyState title="No payments recorded yet — they'll show up here once collected." />
+          </div>
         )}
 
         {sortedPayments.length > 0 && (
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto rounded-b-[1.75rem] md:block">
             <table className="w-full min-w-[670px] text-left">
-              <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
-                <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
+              <thead className="border-b border-stone-100 bg-stone-50">
+                <tr className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400">
                   <th className="px-5 py-3">Member</th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Method</th>
@@ -444,21 +443,21 @@ export default function PaymentsPage() {
                   <th className="px-4 py-3">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#ededE7]">
+              <tbody className="divide-y divide-stone-100">
                 {sortedPayments.map((payment) => (
                   <tr key={payment.id}>
                     <td className="px-5 py-4">
-                      <p className="text-sm font-bold">{memberNames[payment.memberId] ?? `Member #${payment.memberId}`}</p>
-                      {payment.notes && <p className="mt-1 text-[10px] text-[#7a7a73]">{payment.notes}</p>}
+                      <p className="text-sm font-bold text-stone-900">{memberNames[payment.memberId] ?? `Member #${payment.memberId}`}</p>
+                      {payment.notes && <p className="mt-1 text-[10px] text-stone-400">{payment.notes}</p>}
                     </td>
-                    <td className="mono px-4 py-4 text-sm font-bold">
+                    <td className="mono px-4 py-4 text-sm font-bold text-stone-900">
                       {payment.currency} {Number(payment.amount).toFixed(2)}
                     </td>
-                    <td className="px-4 py-4 text-xs text-[#696962]">{paymentMethodLabel(payment.paymentMethod)}</td>
+                    <td className="px-4 py-4 text-xs text-stone-500">{paymentMethodLabel(payment.paymentMethod)}</td>
                     <td className="px-4 py-4">
-                      <StatusPill label={statusLabel(payment.status)} tone={statusTone(payment.status)} />
+                      <FlexPill tone={statusTone(payment.status)}>{statusLabel(payment.status)}</FlexPill>
                     </td>
-                    <td className="px-4 py-4 text-xs text-[#696962]">
+                    <td className="px-4 py-4 text-xs text-stone-500">
                       {new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -472,7 +471,7 @@ export default function PaymentsPage() {
           </div>
         )}
         {sortedPayments.length > 0 && (
-          <div className="divide-y divide-[#ededE7] md:hidden">
+          <div className="divide-y divide-stone-100 px-1 pb-2 md:hidden">
             {sortedPayments.map((payment) => (
               <ExpandableRow
                 key={payment.id}
@@ -482,7 +481,7 @@ export default function PaymentsPage() {
                       <p className="truncate text-sm font-bold">
                         {memberNames[payment.memberId] ?? `Member #${payment.memberId}`}
                       </p>
-                      <p className="mt-0.5 text-xs text-[#8a8a82]">
+                      <p className="mt-0.5 text-xs text-stone-400">
                         {new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
@@ -493,7 +492,7 @@ export default function PaymentsPage() {
                     <span className="mono shrink-0 text-sm font-bold">
                       {payment.currency} {Number(payment.amount).toFixed(2)}
                     </span>
-                    <StatusPill label={statusLabel(payment.status)} tone={statusTone(payment.status)} />
+                    <FlexPill tone={statusTone(payment.status)}>{statusLabel(payment.status)}</FlexPill>
                   </div>
                 }
               >
@@ -512,30 +511,30 @@ export default function PaymentsPage() {
             ))}
           </div>
         )}
-      </section>
+      </FlexCard>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <MetricCard
+        <FlexStatCard
           label="Other income this month"
           value={`${transactionMetrics.income.currency} ${transactionMetrics.income.total.toFixed(2)}`}
           detail={`${transactionMetrics.income.count} entr${transactionMetrics.income.count === 1 ? "y" : "ies"}`}
-          tone="lime"
+          variant="lime"
           icon={<ArrowUpRight className="size-5" />}
         />
-        <MetricCard
+        <FlexStatCard
           label="Expenses this month"
           value={`${transactionMetrics.expense.currency} ${transactionMetrics.expense.total.toFixed(2)}`}
           detail={`${transactionMetrics.expense.count} entr${transactionMetrics.expense.count === 1 ? "y" : "ies"}`}
-          tone="orange"
+          variant="amber"
           icon={<TrendingDown className="size-5" />}
         />
       </section>
 
-      <section className="border border-[#d8d8d1] bg-white">
-        <div className="flex items-center justify-between border-b border-[#e7e7e1] p-5">
+      <FlexCard className="!p-0">
+        <div className="flex items-center justify-between p-5 pb-4">
           <div>
-            <p className="ledger-label">Other income &amp; expenses</p>
-            <h2 className="mt-2 text-xl font-bold">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400">Other income &amp; expenses</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-stone-900">
               {loading
                 ? "Loading…"
                 : `${transactions.length} entr${transactions.length === 1 ? "y" : "ies"}`}
@@ -544,17 +543,16 @@ export default function PaymentsPage() {
         </div>
 
         {!loading && !error && transactions.length === 0 && (
-          <p className="p-8 text-center text-sm text-[#76766f]">
-            No miscellaneous income or expenses recorded yet — rent, repairs, parking, anything outside membership
-            plans.
-          </p>
+          <div className="px-5 pb-5">
+            <FlexEmptyState title="No miscellaneous income or expenses recorded yet — rent, repairs, parking, anything outside membership plans." />
+          </div>
         )}
 
         {sortedTransactions.length > 0 && (
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto rounded-b-[1.75rem] md:block">
             <table className="w-full min-w-[670px] text-left">
-              <thead className="border-b border-[#e7e7e1] bg-[#fafaf6]">
-                <tr className="text-[10px] uppercase tracking-[0.12em] text-[#75756e]">
+              <thead className="border-b border-stone-100 bg-stone-50">
+                <tr className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400">
                   <th className="px-5 py-3">Description</th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Method</th>
@@ -562,13 +560,13 @@ export default function PaymentsPage() {
                   <th className="px-4 py-3">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#ededE7]">
+              <tbody className="divide-y divide-stone-100">
                 {sortedTransactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td className="px-5 py-4">
-                      <p className="text-sm font-bold">{transaction.description}</p>
+                      <p className="text-sm font-bold text-stone-900">{transaction.description}</p>
                       {(transaction.memberId || transaction.notes) && (
-                        <p className="mt-1 text-[10px] text-[#7a7a73]">
+                        <p className="mt-1 text-[10px] text-stone-400">
                           {transaction.memberId ? memberNames[transaction.memberId] ?? `Member #${transaction.memberId}` : ""}
                           {transaction.memberId && transaction.notes ? " · " : ""}
                           {transaction.notes ?? ""}
@@ -577,20 +575,19 @@ export default function PaymentsPage() {
                     </td>
                     <td
                       className={`mono px-4 py-4 text-sm font-bold ${
-                        transaction.direction === "EXPENSE" ? "text-red-700" : "text-[#3f7a1f]"
+                        transaction.direction === "EXPENSE" ? "text-[#7f1d1d]" : "text-[#3f7a1f]"
                       }`}
                     >
                       {transaction.direction === "EXPENSE" ? "−" : "+"}
                       {transaction.currency} {Number(transaction.amount).toFixed(2)}
                     </td>
-                    <td className="px-4 py-4 text-xs text-[#696962]">{paymentMethodLabel(transaction.paymentMethod)}</td>
+                    <td className="px-4 py-4 text-xs text-stone-500">{paymentMethodLabel(transaction.paymentMethod)}</td>
                     <td className="px-4 py-4">
-                      <StatusPill
-                        label={transaction.direction === "INCOME" ? "Income" : "Expense"}
-                        tone={transaction.direction === "INCOME" ? "lime" : "orange"}
-                      />
+                      <FlexPill tone={transaction.direction === "INCOME" ? "lime" : "amber"}>
+                        {transaction.direction === "INCOME" ? "Income" : "Expense"}
+                      </FlexPill>
                     </td>
-                    <td className="px-4 py-4 text-xs text-[#696962]">
+                    <td className="px-4 py-4 text-xs text-stone-500">
                       {new Date(transaction.occurredOn).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -604,7 +601,7 @@ export default function PaymentsPage() {
           </div>
         )}
         {sortedTransactions.length > 0 && (
-          <div className="divide-y divide-[#ededE7] md:hidden">
+          <div className="divide-y divide-stone-100 px-1 pb-2 md:hidden">
             {sortedTransactions.map((transaction) => (
               <ExpandableRow
                 key={transaction.id}
@@ -612,7 +609,7 @@ export default function PaymentsPage() {
                   <div className="flex items-center gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold">{transaction.description}</p>
-                      <p className="mt-0.5 text-xs text-[#8a8a82]">
+                      <p className="mt-0.5 text-xs text-stone-400">
                         {new Date(transaction.occurredOn).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
@@ -622,16 +619,15 @@ export default function PaymentsPage() {
                     </div>
                     <span
                       className={`mono shrink-0 text-sm font-bold ${
-                        transaction.direction === "EXPENSE" ? "text-red-700" : "text-[#3f7a1f]"
+                        transaction.direction === "EXPENSE" ? "text-[#7f1d1d]" : "text-[#3f7a1f]"
                       }`}
                     >
                       {transaction.direction === "EXPENSE" ? "−" : "+"}
                       {transaction.currency} {Number(transaction.amount).toFixed(2)}
                     </span>
-                    <StatusPill
-                      label={transaction.direction === "INCOME" ? "Income" : "Expense"}
-                      tone={transaction.direction === "INCOME" ? "lime" : "orange"}
-                    />
+                    <FlexPill tone={transaction.direction === "INCOME" ? "lime" : "amber"}>
+                      {transaction.direction === "INCOME" ? "Income" : "Expense"}
+                    </FlexPill>
                   </div>
                 }
               >
@@ -656,7 +652,7 @@ export default function PaymentsPage() {
             ))}
           </div>
         )}
-      </section>
+      </FlexCard>
 
       {recording && gymId && (
         <RecordTransactionModal
