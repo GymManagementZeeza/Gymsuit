@@ -20,6 +20,9 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.HealthConnectPermissionScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.LoginScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.OnboardingScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.RegisterScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.SleepDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.HeartRateDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.CaloriesDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
 
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,13 +30,17 @@ import androidx.compose.ui.platform.LocalContext
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 enum class AppScreen {
     ONBOARDING,
     LOGIN,
     REGISTER,
     HEALTH_CONNECT_PERMISSION,
-    DASHBOARD
+    DASHBOARD,
+    SLEEP_DETAIL,
+    HEART_RATE_DETAIL,
+    CALORIES_DETAIL
 }
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +53,9 @@ class MainActivity : ComponentActivity() {
                 val appComponent = remember { AppComponent.from(context) }
                 val coroutineScope = rememberCoroutineScope()
                 val healthConnectManager = remember { HealthConnectManager(context) }
+                var selectedSleepDate by remember { mutableStateOf(LocalDate.now()) }
+                var selectedHeartRateDate by remember { mutableStateOf(LocalDate.now()) }
+                var selectedCaloriesDate by remember { mutableStateOf(LocalDate.now()) }
 
                 // Check if user is already logged in
                 val initialScreen = remember {
@@ -137,6 +147,42 @@ class MainActivity : ComponentActivity() {
                                 onLogout = {
                                     appComponent.authManager.clear()
                                     currentScreen = AppScreen.LOGIN
+                                },
+                                onNavigateToSleepDetail = { date ->
+                                    selectedSleepDate = date
+                                    currentScreen = AppScreen.SLEEP_DETAIL
+                                },
+                                onNavigateToHeartRateDetail = { date ->
+                                    selectedHeartRateDate = date
+                                    currentScreen = AppScreen.HEART_RATE_DETAIL
+                                },
+                                onNavigateToCaloriesDetail = { date ->
+                                    selectedCaloriesDate = date
+                                    currentScreen = AppScreen.CALORIES_DETAIL
+                                }
+                            )
+                        }
+                        AppScreen.SLEEP_DETAIL -> {
+                            SleepDetailScreen(
+                                date = selectedSleepDate,
+                                onBackClick = {
+                                    currentScreen = AppScreen.DASHBOARD
+                                }
+                            )
+                        }
+                        AppScreen.HEART_RATE_DETAIL -> {
+                            HeartRateDetailScreen(
+                                date = selectedHeartRateDate,
+                                onBackClick = {
+                                    currentScreen = AppScreen.DASHBOARD
+                                }
+                            )
+                        }
+                        AppScreen.CALORIES_DETAIL -> {
+                            CaloriesDetailScreen(
+                                date = selectedCaloriesDate,
+                                onBackClick = {
+                                    currentScreen = AppScreen.DASHBOARD
                                 }
                             )
                         }

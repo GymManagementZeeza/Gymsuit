@@ -100,7 +100,10 @@ data class DayItem(
 @Composable
 fun DashboardScreen(
     onNavigateBack: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onNavigateToSleepDetail: (LocalDate) -> Unit = {},
+    onNavigateToHeartRateDetail: (LocalDate) -> Unit = {},
+    onNavigateToCaloriesDetail: (LocalDate) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
 
@@ -494,7 +497,10 @@ fun DashboardScreen(
                                     )
                                     SleepWidget(
                                         selectedDate = days[selectedDayIndex].localDate,
-                                        syncTrigger = syncKey
+                                        syncTrigger = syncKey,
+                                        onClick = {
+                                            onNavigateToSleepDetail(days[selectedDayIndex].localDate)
+                                        }
                                     )
                                 }
 
@@ -506,7 +512,10 @@ fun DashboardScreen(
                                     HealthOverviewWidget(syncTrigger = syncKey)
                                     CaloriesBurnedWidget(
                                         selectedDate = days[selectedDayIndex].localDate,
-                                        syncTrigger = syncKey
+                                        syncTrigger = syncKey,
+                                        onClick = {
+                                            onNavigateToCaloriesDetail(days[selectedDayIndex].localDate)
+                                        }
                                     )
                                 }
                             }
@@ -516,7 +525,10 @@ fun DashboardScreen(
                             // Heart Rate Section (Full Width below 2-column grid)
                             HeartRateWidget(
                                 selectedDate = days[selectedDayIndex].localDate,
-                                syncTrigger = syncKey
+                                syncTrigger = syncKey,
+                                onClick = {
+                                    onNavigateToHeartRateDetail(days[selectedDayIndex].localDate)
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(18.dp))
@@ -1023,7 +1035,7 @@ private fun HealthOverviewWidget(
                     } else {
                         String.format(java.util.Locale.US, "%.1f", it)
                     }
-                } ?: "75"
+                } ?: "--"
             }
 
             Row(
@@ -1070,20 +1082,22 @@ private fun HealthOverviewWidget(
                     }
                 }
 
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFFF3F4F6),
-                    modifier = Modifier
-                        .offset(y = (-10).dp)
-                        .border(1.dp, Color(0xFF6EE7B7), CircleShape)
-                ) {
-                    Text(
-                        text = "${displayWeightText}kg",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                if (latestWeightKg != null) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFF3F4F6),
+                        modifier = Modifier
+                            .offset(y = (-10).dp)
+                            .border(1.dp, Color(0xFF6EE7B7), CircleShape)
+                    ) {
+                        Text(
+                            text = "${displayWeightText}kg",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1093,7 +1107,8 @@ private fun HealthOverviewWidget(
 @Composable
 private fun SleepWidget(
     selectedDate: LocalDate = LocalDate.now(),
-    syncTrigger: Int = 0
+    syncTrigger: Int = 0,
+    onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
@@ -1201,7 +1216,10 @@ private fun SleepWidget(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -1399,12 +1417,22 @@ private fun SleepWidget(
 @Composable
 private fun HeartRateWidget(
     selectedDate: LocalDate = LocalDate.now(),
-    syncTrigger: Int = 0
+    syncTrigger: Int = 0,
+    onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
     var hrData by remember {
-        mutableStateOf(healthConnectManager.defaultHeartRateSample())
+        mutableStateOf(
+            HeartRateSummaryData(
+                latestBpm = 0,
+                minBpm = 0,
+                maxBpm = 0,
+                timeRangeFormatted = "",
+                points = emptyList(),
+                hasData = false
+            )
+        )
     }
     val isAvailable = remember { healthConnectManager.isAvailable() }
 
@@ -1425,7 +1453,10 @@ private fun HeartRateWidget(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -1467,10 +1498,10 @@ private fun HeartRateWidget(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = "${hrData.latestBpm}",
+                        text = if (hrData.hasData) "${hrData.latestBpm}" else "--",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF111827)
+                        color = if (hrData.hasData) Color(0xFF111827) else Color(0xFF94A3B8)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -1490,186 +1521,198 @@ private fun HeartRateWidget(
             val minBpm = hrData.minBpm
             val maxBpm = hrData.maxBpm
 
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(95.dp)
-            ) {
-                val boxWidth = maxWidth
-
-                val minIdx = points.indexOfFirst { it.bpm == minBpm }.takeIf { it >= 0 } ?: 0
-                val maxIdx = points.indexOfFirst { it.bpm == maxBpm }.takeIf { it >= 0 } ?: (points.size - 1)
-                val minFraction = if (points.isNotEmpty()) (minIdx.toFloat() / (points.size - 1).coerceAtLeast(1)) else 0.15f
-                val maxFraction = if (points.isNotEmpty()) (maxIdx.toFloat() / (points.size - 1).coerceAtLeast(1)) else 0.75f
-
-                // Min BPM text label positioned horizontally above min point
-                Text(
-                    text = "$minBpm",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4B5563),
+            if (hrData.hasData && points.isNotEmpty()) {
+                BoxWithConstraints(
                     modifier = Modifier
-                        .offset(x = (boxWidth * minFraction) - 8.dp, y = 0.dp)
-                )
-
-                // Max BPM text label positioned horizontally above max point
-                Text(
-                    text = "$maxBpm",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE11D48),
-                    modifier = Modifier
-                        .offset(x = (boxWidth * maxFraction) - 10.dp, y = 0.dp)
-                )
-
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 18.dp, bottom = 4.dp)
+                        .fillMaxWidth()
+                        .height(95.dp)
                 ) {
-                    val width = size.width
-                    val height = size.height
+                    val boxWidth = maxWidth
 
-                    if (points.isEmpty()) return@Canvas
+                    val minIdx = points.indexOfFirst { it.bpm == minBpm }.takeIf { it >= 0 } ?: 0
+                    val maxIdx = points.indexOfFirst { it.bpm == maxBpm }.takeIf { it >= 0 } ?: (points.size - 1)
+                    val minFraction = if (points.isNotEmpty()) (minIdx.toFloat() / (points.size - 1).coerceAtLeast(1)) else 0.15f
+                    val maxFraction = if (points.isNotEmpty()) (maxIdx.toFloat() / (points.size - 1).coerceAtLeast(1)) else 0.75f
 
-                    val effectiveMin = (minBpm - 5).coerceAtLeast(30)
-                    val effectiveMax = (maxBpm + 5).coerceAtLeast(effectiveMin + 20)
-                    val bpmRange = (effectiveMax - effectiveMin).toFloat()
-
-                    // Compute pixel coordinates
-                    val coords = points.mapIndexed { idx, point ->
-                        val x = (idx.toFloat() / (points.size - 1).coerceAtLeast(1)) * width
-                        val normalizedY = (point.bpm - effectiveMin) / bpmRange
-                        // Invert Y so higher bpm is higher up
-                        val y = height - (normalizedY * (height - 16f)) - 8f
-                        androidx.compose.ui.geometry.Offset(x, y)
-                    }
-
-                    // Build smooth path
-                    val strokePath = Path().apply {
-                        if (coords.isNotEmpty()) {
-                            moveTo(coords.first().x, coords.first().y)
-                            for (i in 1 until coords.size) {
-                                val prev = coords[i - 1]
-                                val curr = coords[i]
-                                val midX = (prev.x + curr.x) / 2f
-                                val midY = (prev.y + curr.y) / 2f
-                                quadraticTo(prev.x, prev.y, midX, midY)
-                            }
-                            lineTo(coords.last().x, coords.last().y)
-                        }
-                    }
-
-                    // Find min coordinate and max coordinate by sample index
-                    val minCoord = coords.getOrElse(minIdx) { coords.first() }
-                    val maxCoord = coords.getOrElse(maxIdx) { coords.last() }
-
-                    // Draw vertical dotted line to min point
-                    val dotSpacing = 8f
-                    var curY = 0f
-                    while (curY < minCoord.y) {
-                        drawLine(
-                            color = Color(0xFFD1D5DB),
-                            start = androidx.compose.ui.geometry.Offset(minCoord.x, curY),
-                            end = androidx.compose.ui.geometry.Offset(minCoord.x, curY + 4f),
-                            strokeWidth = 1.5f
-                        )
-                        curY += dotSpacing
-                    }
-
-                    // Draw vertical dotted line to max point
-                    curY = 0f
-                    while (curY < maxCoord.y) {
-                        drawLine(
-                            color = Color(0xFFFECDD3),
-                            start = androidx.compose.ui.geometry.Offset(maxCoord.x, curY),
-                            end = androidx.compose.ui.geometry.Offset(maxCoord.x, curY + 4f),
-                            strokeWidth = 1.5f
-                        )
-                        curY += dotSpacing
-                    }
-
-                    // Draw ECG line with smooth soft red gradient
-                    drawPath(
-                        path = strokePath,
-                        brush = Brush.horizontalGradient(
-                            listOf(
-                                Color(0xFFFB7185).copy(alpha = 0.5f),
-                                Color(0xFFF43F5E),
-                                Color(0xFFE11D48),
-                                Color(0xFFF43F5E),
-                                Color(0xFFFB7185).copy(alpha = 0.6f)
-                            )
-                        ),
-                        style = Stroke(
-                            width = 4f,
-                            cap = StrokeCap.Round
-                        )
-                    )
-
-                    // Draw min circle (grey/white bordered circle)
-                    drawCircle(
-                        color = Color(0xFF6B7280),
-                        radius = 4.5f,
-                        center = minCoord
-                    )
-                    drawCircle(
-                        color = Color.White,
-                        radius = 2.5f,
-                        center = minCoord
-                    )
-
-                    // Draw max circle (solid soft red circle)
-                    drawCircle(
-                        color = Color(0xFFE11D48),
-                        radius = 5f,
-                        center = maxCoord
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // X-axis Time Labels (4 evenly spaced times across the graph timeline)
-            val timeAxisLabels = remember(points) {
-                val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
-                val zoneId = ZoneId.systemDefault()
-                if (points.size >= 4) {
-                    val n = points.size
-                    val i0 = 0
-                    val i1 = n / 3
-                    val i2 = (2 * n) / 3
-                    val i3 = n - 1
-                    listOf(
-                        points[i0].time.atZone(zoneId).format(timeFormatter),
-                        points[i1].time.atZone(zoneId).format(timeFormatter),
-                        points[i2].time.atZone(zoneId).format(timeFormatter),
-                        points[i3].time.atZone(zoneId).format(timeFormatter)
-                    )
-                } else if (points.isNotEmpty()) {
-                    listOf(
-                        points.first().time.atZone(zoneId).format(timeFormatter),
-                        "",
-                        "",
-                        points.last().time.atZone(zoneId).format(timeFormatter)
-                    )
-                } else {
-                    listOf("2:23 PM", "3:03 PM", "3:43 PM", "4:23 PM")
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                timeAxisLabels.forEach { label ->
+                    // Min BPM text label positioned horizontally above min point
                     Text(
-                        text = label,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = "$minBpm",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4B5563),
+                        modifier = Modifier
+                            .offset(x = (boxWidth * minFraction) - 8.dp, y = 0.dp)
+                    )
+
+                    // Max BPM text label positioned horizontally above max point
+                    Text(
+                        text = "$maxBpm",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE11D48),
+                        modifier = Modifier
+                            .offset(x = (boxWidth * maxFraction) - 10.dp, y = 0.dp)
+                    )
+
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 18.dp, bottom = 4.dp)
+                    ) {
+                        val width = size.width
+                        val height = size.height
+
+                        val effectiveMin = (minBpm - 5).coerceAtLeast(30)
+                        val effectiveMax = (maxBpm + 5).coerceAtLeast(effectiveMin + 20)
+                        val bpmRange = (effectiveMax - effectiveMin).toFloat()
+
+                        // Compute pixel coordinates
+                        val coords = points.mapIndexed { idx, point ->
+                            val x = (idx.toFloat() / (points.size - 1).coerceAtLeast(1)) * width
+                            val normalizedY = (point.bpm - effectiveMin) / bpmRange
+                            // Invert Y so higher bpm is higher up
+                            val y = height - (normalizedY * (height - 16f)) - 8f
+                            androidx.compose.ui.geometry.Offset(x, y)
+                        }
+
+                        // Build smooth path
+                        val strokePath = Path().apply {
+                            if (coords.isNotEmpty()) {
+                                moveTo(coords.first().x, coords.first().y)
+                                for (i in 1 until coords.size) {
+                                    val prev = coords[i - 1]
+                                    val curr = coords[i]
+                                    val midX = (prev.x + curr.x) / 2f
+                                    val midY = (prev.y + curr.y) / 2f
+                                    quadraticTo(prev.x, prev.y, midX, midY)
+                                }
+                                lineTo(coords.last().x, coords.last().y)
+                            }
+                        }
+
+                        // Find min coordinate and max coordinate by sample index
+                        val minCoord = coords.getOrElse(minIdx) { coords.first() }
+                        val maxCoord = coords.getOrElse(maxIdx) { coords.last() }
+
+                        // Draw vertical dotted line to min point
+                        val dotSpacing = 8f
+                        var curY = 0f
+                        while (curY < minCoord.y) {
+                            drawLine(
+                                color = Color(0xFFD1D5DB),
+                                start = androidx.compose.ui.geometry.Offset(minCoord.x, curY),
+                                end = androidx.compose.ui.geometry.Offset(minCoord.x, curY + 4f),
+                                strokeWidth = 1.5f
+                            )
+                            curY += dotSpacing
+                        }
+
+                        // Draw vertical dotted line to max point
+                        curY = 0f
+                        while (curY < maxCoord.y) {
+                            drawLine(
+                                color = Color(0xFFFECDD3),
+                                start = androidx.compose.ui.geometry.Offset(maxCoord.x, curY),
+                                end = androidx.compose.ui.geometry.Offset(maxCoord.x, curY + 4f),
+                                strokeWidth = 1.5f
+                            )
+                            curY += dotSpacing
+                        }
+
+                        // Draw ECG line with smooth soft red gradient
+                        drawPath(
+                            path = strokePath,
+                            brush = Brush.horizontalGradient(
+                                listOf(
+                                    Color(0xFFFB7185).copy(alpha = 0.5f),
+                                    Color(0xFFF43F5E),
+                                    Color(0xFFE11D48),
+                                    Color(0xFFF43F5E),
+                                    Color(0xFFFB7185).copy(alpha = 0.6f)
+                                )
+                            ),
+                            style = Stroke(
+                                width = 4f,
+                                cap = StrokeCap.Round
+                            )
+                        )
+
+                        // Draw min circle (grey/white bordered circle)
+                        drawCircle(
+                            color = Color(0xFF6B7280),
+                            radius = 4.5f,
+                            center = minCoord
+                        )
+                        drawCircle(
+                            color = Color.White,
+                            radius = 2.5f,
+                            center = minCoord
+                        )
+
+                        // Draw max circle (solid soft red circle)
+                        drawCircle(
+                            color = Color(0xFFE11D48),
+                            radius = 5f,
+                            center = maxCoord
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // X-axis Time Labels (4 evenly spaced times across the graph timeline)
+                val timeAxisLabels = remember(points) {
+                    val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+                    val zoneId = ZoneId.systemDefault()
+                    if (points.size >= 4) {
+                        val n = points.size
+                        val i0 = 0
+                        val i1 = n / 3
+                        val i2 = (2 * n) / 3
+                        val i3 = n - 1
+                        listOf(
+                            points[i0].time.atZone(zoneId).format(timeFormatter),
+                            points[i1].time.atZone(zoneId).format(timeFormatter),
+                            points[i2].time.atZone(zoneId).format(timeFormatter),
+                            points[i3].time.atZone(zoneId).format(timeFormatter)
+                        )
+                    } else {
+                        listOf(
+                            points.first().time.atZone(zoneId).format(timeFormatter),
+                            "",
+                            "",
+                            points.last().time.atZone(zoneId).format(timeFormatter)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    timeAxisLabels.forEach { label ->
+                        Text(
+                            text = label,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+                }
+            } else {
+                // Empty state when no heart rate records exist
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No heart rate data recorded for this day",
+                        fontSize = 12.sp,
                         color = Color(0xFF94A3B8)
                     )
                 }
@@ -1681,7 +1724,8 @@ private fun HeartRateWidget(
 @Composable
 private fun CaloriesBurnedWidget(
     selectedDate: LocalDate = LocalDate.now(),
-    syncTrigger: Int = 0
+    syncTrigger: Int = 0,
+    onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
@@ -1706,7 +1750,10 @@ private fun CaloriesBurnedWidget(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1742,16 +1789,26 @@ private fun CaloriesBurnedWidget(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Single Calorie Ring with 4000 kcal Goal
-            val targetKcal = 4000.0
-            val currentKcal = if (hasData) totalKcal else 520.0
-            val progressFraction = (currentKcal / targetKcal).coerceIn(0.0, 1.0).toFloat()
-            val strokeWidthDp = 13.dp
+            // Single Calorie Ring with user configured Goal
+            val prefs = remember { context.getSharedPreferences("user_fitness_prefs", android.content.Context.MODE_PRIVATE) }
+            val targetKcal = remember(syncTrigger) {
+                prefs.getFloat("calorie_goal", 4000.0f).toDouble()
+            }
+            // Active calories only (combination of workout + steps + active movement)
+            val activeKcal = caloriesBreakdown.stepsKcal + caloriesBreakdown.workoutKcal + caloriesBreakdown.moveKcal
+            val displayKcal = if (hasData) {
+                if (activeKcal > 0) activeKcal else caloriesBreakdown.totalKcal
+            } else 0.0
+
+            val progressFraction = if (targetKcal > 0) {
+                (displayKcal / targetKcal).coerceIn(0.0, 1.0).toFloat()
+            } else 0f
+            val strokeWidthDp = 18.dp
 
             Box(
                 modifier = Modifier
-                    .size(136.dp)
-                    .padding(4.dp),
+                    .size(140.dp)
+                    .padding(6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1760,51 +1817,54 @@ private fun CaloriesBurnedWidget(
                     val radius = (size.minDimension / 2f) - (strokePx / 2f)
                     val ringRect = androidx.compose.ui.geometry.Rect(center = centerOffset, radius = radius)
 
-                    // Background Track (Soft translucent red)
+                    // Material 3 Circular Progress Indicator Spec (with stop gap and rounded caps):
+                    // Active indicator starts at -45° (approx 1 o'clock)
+                    // A clean stop gap separates the active indicator head and tail from the background track
+                    val startAngle = -45f
+                    val sweepDegrees = (progressFraction * 360f).coerceIn(16f, 335f)
+                    
+                    // Arc gap in degrees calculated according to M3 indicator stroke diameter
+                    val strokeCapGapDegrees = (Math.toDegrees((strokePx / radius).toDouble())).toFloat() + 4f
+
+                    // 1. Background Track (Detached arc with stop gap adhering to M3 progress indicator specs)
+                    val trackStartAngle = startAngle + sweepDegrees + strokeCapGapDegrees
+                    val trackSweepAngle = (360f - sweepDegrees - (strokeCapGapDegrees * 2f)).coerceAtLeast(10f)
+
                     drawArc(
-                        color = Color(0xFFFFE4E6),
-                        startAngle = -90f,
-                        sweepAngle = 360f,
+                        color = if (hasData) Color(0xFFFFE4E6) else Color(0xFFF1F5F9), // Soft rose/pink track
+                        startAngle = trackStartAngle,
+                        sweepAngle = trackSweepAngle,
                         useCenter = false,
                         topLeft = ringRect.topLeft,
                         size = ringRect.size,
                         style = Stroke(width = strokePx, cap = StrokeCap.Round)
                     )
 
-                    // Active Progress Arc (Vibrant soft red gradient)
-                    if (progressFraction > 0.005f) {
-                        drawArc(
-                            brush = Brush.sweepGradient(
-                                listOf(
-                                    Color(0xFFFB7185),
-                                    Color(0xFFF43F5E),
-                                    Color(0xFFE11D48),
-                                    Color(0xFFFB7185)
-                                )
-                            ),
-                            startAngle = -90f,
-                            sweepAngle = progressFraction * 360f,
-                            useCenter = false,
-                            topLeft = ringRect.topLeft,
-                            size = ringRect.size,
-                            style = Stroke(width = strokePx, cap = StrokeCap.Round)
-                        )
-                    }
+                    // 2. Active Indicator (Bold soft red arc with rounded caps)
+                    drawArc(
+                        color = if (hasData) Color(0xFFE11D48) else Color(0xFFCBD5E1), // Soft vibrant red indicator
+                        startAngle = startAngle,
+                        sweepAngle = sweepDegrees,
+                        useCenter = false,
+                        topLeft = ringRect.topLeft,
+                        size = ringRect.size,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                    )
                 }
 
-                // Center Total Calorie Readout
+                // Center Total Calorie Readout (Active calories)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "${currentKcal.toInt()}",
+                        text = if (hasData) "${displayKcal.toInt()}" else "0",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF111827)
+                        color = if (hasData) Color(0xFF111827) else Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "kcal",
-                        fontSize = 11.sp,
+                        text = "active kcal",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF6B7280)
                     )
@@ -1826,7 +1886,7 @@ private fun CaloriesBurnedWidget(
                     color = Color(0xFF64748B)
                 )
                 Text(
-                    text = "4,000 kcal",
+                    text = "${"%,d".format(targetKcal.toInt())} kcal",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFE11D48)
