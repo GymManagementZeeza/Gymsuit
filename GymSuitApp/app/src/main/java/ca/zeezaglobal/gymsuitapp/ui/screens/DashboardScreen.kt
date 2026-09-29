@@ -552,6 +552,9 @@ fun DashboardScreen(
                             onLogoutClick = onLogout
                         )
                     }
+                    DashboardTab.WORKOUTS -> {
+                        WorkoutsScreen()
+                    }
                     else -> {
                         // Blank Page Content for other non-Home tabs
                         BlankPageContent(tab = tab)
