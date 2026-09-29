@@ -63,6 +63,15 @@ public class GymService {
         return response;
     }
 
+    /** Sets the gym's logo URL (used by the MinIO-backed logo upload endpoint). */
+    public GymResponse updateLogoUrl(Long gymId, String logoUrl) {
+        Gym gym = getGymOrThrow(gymId);
+        gym.setLogoUrl(logoUrl);
+        GymResponse response = GymResponse.fromEntity(gymRepository.save(gym));
+        gymCache.evict(gymId);
+        return response;
+    }
+
     public void delete(Long id) {
         Gym gym = getGymOrThrow(id);
         gymRepository.delete(gym);
