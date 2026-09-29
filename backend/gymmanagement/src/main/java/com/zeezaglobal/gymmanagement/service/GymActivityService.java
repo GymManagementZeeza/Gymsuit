@@ -1,11 +1,13 @@
 package com.zeezaglobal.gymmanagement.service;
 
+import com.zeezaglobal.gymmanagement.config.RedisConfig;
 import com.zeezaglobal.gymmanagement.dto.GymActivityResponse;
 import com.zeezaglobal.gymmanagement.entity.ActivityType;
 import com.zeezaglobal.gymmanagement.entity.Gym;
 import com.zeezaglobal.gymmanagement.entity.GymActivity;
 import com.zeezaglobal.gymmanagement.repository.GymActivityRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +29,11 @@ public class GymActivityService {
         activityRepository.save(activity);
     }
 
+    /**
+     * Cached briefly: the dashboard hits this on every load, and entries only arrive
+     * through the activity queue, which evicts this key when it records.
+     */
+    @Cacheable(value = RedisConfig.ACTIVITIES, key = "#gymId")
     public List<GymActivityResponse> recentForGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
         return activityRepository.findTop30ByGymIdOrderByCreatedAtDesc(gymId).stream()
