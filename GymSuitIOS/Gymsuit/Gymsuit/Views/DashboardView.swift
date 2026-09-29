@@ -115,6 +115,8 @@ struct DashboardView: View {
                 // Main Content by Selected Tab
                 if selectedTab == .home {
                     homeContent
+                } else if selectedTab == .workouts {
+                    WorkoutsView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
                 } else {
@@ -141,7 +143,7 @@ struct DashboardView: View {
                     Button(action: { onNavigateToCaloriesDetail(viewModel.selectedDate) }) {
                         MetricDashboardCard(
                             title: "Calories",
-                            value: "\(Int(viewModel.caloriesBreakdown.totalKcal))",
+                            value: viewModel.isLoadingMetrics ? "…" : "\(Int(viewModel.caloriesBreakdown.totalKcal))",
                             unit: "kcal",
                             subtitle: "\(Int(viewModel.caloriesBreakdown.stepsKcal)) walk • \(Int(viewModel.caloriesBreakdown.workoutKcal)) workout",
                             icon: "flame.fill",
@@ -152,7 +154,7 @@ struct DashboardView: View {
                     // Steps Card
                     MetricDashboardCard(
                         title: "Steps",
-                        value: "\(viewModel.stepsCount.formatted())",
+                        value: viewModel.isLoadingMetrics ? "…" : "\(viewModel.stepsCount.formatted())",
                         unit: "steps",
                         subtitle: "Goal: 10,000 steps",
                         icon: "figure.walk",
@@ -163,9 +165,15 @@ struct DashboardView: View {
                     Button(action: { onNavigateToSleepDetail(viewModel.selectedDate) }) {
                         MetricDashboardCard(
                             title: "Sleep",
-                            value: viewModel.sleepSession?.durationFormatted ?? "8h 05m",
+                            value: viewModel.sleepSession?.durationFormatted ?? (viewModel.isLoadingMetrics ? "…" : "—"),
                             unit: "",
-                            subtitle: "\(viewModel.sleepSession?.startTimeFormatted ?? "11:15 PM") - \(viewModel.sleepSession?.endTimeFormatted ?? "7:20 AM")",
+                            subtitle: {
+                                if let s = viewModel.sleepSession {
+                                    return "\(s.startTimeFormatted) - \(s.endTimeFormatted)"
+                                } else {
+                                    return "No data yet"
+                                }
+                            }(),
                             icon: "bed.double.fill",
                             tint: AppColors.sleep
                         )
@@ -175,9 +183,15 @@ struct DashboardView: View {
                     Button(action: { onNavigateToHeartRateDetail(viewModel.selectedDate) }) {
                         MetricDashboardCard(
                             title: "Heart Rate",
-                            value: "\(viewModel.heartRateSummary?.latestBpm ?? 72)",
+                            value: viewModel.heartRateSummary.map { "\($0.latestBpm)" } ?? (viewModel.isLoadingMetrics ? "…" : "—"),
                             unit: "bpm",
-                            subtitle: "\(viewModel.heartRateSummary?.minBpm ?? 58) min • \(viewModel.heartRateSummary?.maxBpm ?? 135) max",
+                            subtitle: {
+                                if let h = viewModel.heartRateSummary {
+                                    return "\(h.minBpm) min • \(h.maxBpm) max"
+                                } else {
+                                    return "No data yet"
+                                }
+                            }(),
                             icon: "heart.fill",
                             tint: AppColors.heartRate
                         )
