@@ -389,6 +389,14 @@ fun DashboardScreen(
                                         textAlign = TextAlign.Center
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Box(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    PointsPill()
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(18.dp))
@@ -551,6 +559,9 @@ fun DashboardScreen(
                             onBackClick = { selectedTab = DashboardTab.HOME },
                             onLogoutClick = onLogout
                         )
+                    }
+                    DashboardTab.WORKOUTS -> {
+                        WorkoutsScreen()
                     }
                     else -> {
                         // Blank Page Content for other non-Home tabs
