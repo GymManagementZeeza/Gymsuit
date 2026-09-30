@@ -146,8 +146,13 @@ struct SleepDetailView: View {
                             .background(Color.white)
                             .clipShape(RoundedRectangle(cornerRadius: 24))
                             .shadow(color: Color.black.opacity(0.03), radius: 6, y: 3)
-                        } else {
+                        } else if isLoading {
                             ProgressView()
+                                .padding(.top, 60)
+                        } else {
+                            Text("No sleep data for this day yet.")
+                                .font(.system(size: 14))
+                                .foregroundColor(AppColors.textSecondary)
                                 .padding(.top, 60)
                         }
                     }

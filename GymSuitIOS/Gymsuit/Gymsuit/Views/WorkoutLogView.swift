@@ -224,6 +224,9 @@ struct WorkoutLogView: View {
                     saveMessage = "Saved and synced to Apple Health. +\(earned) pts earned!"
                 } else {
                     saveMessage = "Saved in GymSuit (+\(earned) pts). Apple Health sync needs workout write permission - grant it in the Health app."
+                    saveMessage = "Saved and synced to Apple Health."
+                } else {
+                    saveMessage = "Saved in GymSuit. Apple Health sync needs workout write permission - grant it in the Health app."
                 }
                 isSaving = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
