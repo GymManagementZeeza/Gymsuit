@@ -45,7 +45,7 @@ public final class HealthKitManager: ObservableObject {
     
     // MARK: - Daily Steps
     public func fetchSteps(for date: Date) async -> Int64 {
-        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return 8420 }
+        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return 0 }
         let (start, end) = dayBounds(for: date)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         
@@ -58,10 +58,58 @@ public final class HealthKitManager: ObservableObject {
         }
     }
     
+    // MARK: - Distance & Basal
+
+    /// Real walking/running distance for the day in meters, or nil when unavailable.
+    public func fetchDistanceMeters(for date: Date) async -> Double? {
+        guard let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) else {
+            return nil
+        }
+        let (start, end) = dayBounds(for: date)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: distanceType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                let meters = stats?.sumQuantity()?.doubleValue(for: HKUnit.meter())
+                continuation.resume(returning: meters)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Real basal (resting) energy for the day in kcal, or 0 when unavailable.
+    public func fetchBasalKcal(for date: Date) async -> Double {
+        guard let basalType = HKQuantityType.quantityType(forIdentifier: .basalEnergyBurned) else {
+            return 0
+        }
+        let (start, end) = dayBounds(for: date)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: basalType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                let kcal = stats?.sumQuantity()?.doubleValue(for: HKUnit.kilocalorie()) ?? 0
+                continuation.resume(returning: kcal)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Total workout duration in minutes from real HKWorkout samples, or 0 when none.
+    public func fetchWorkoutMinutes(for date: Date) async -> Int64 {
+        let (start, end) = dayBounds(for: date)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+                let workouts = samples as? [HKWorkout] ?? []
+                let minutes = Int64(workouts.reduce(0.0) { $0 + $1.duration } / 60)
+                continuation.resume(returning: minutes)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     // MARK: - Calories Breakdown
-    public func fetchCaloriesBreakdown(for date: Date) async -> CaloriesBreakdown {
-        guard let activeType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
-            return CaloriesBreakdown(totalKcal: 2350, stepsKcal: 420, workoutKcal: 680, moveKcal: 1250, hasData: true)
+    public func fetchCaloriesBreakdown(for date: Date) async -> CaloriesBreakdown {        guard let activeType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return CaloriesBreakdown(totalKcal: 0, stepsKcal: 0, workoutKcal: 0, moveKcal: 0, hasData: false)
         }
         let (start, end) = dayBounds(for: date)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
@@ -75,16 +123,20 @@ public final class HealthKitManager: ObservableObject {
         }
         
         let steps = await fetchSteps(for: date)
+
+        // Basal (resting) energy is a real measured HealthKit value, not an estimate.
+        let basalKcal = await fetchBasalKcal(for: date)
+
         let stepKcal = Double(steps) * 0.04
         let workoutKcal = max(0, activeKcal * 0.45)
         let moveKcal = max(0, activeKcal - workoutKcal)
-        let total = activeKcal > 0 ? activeKcal + 1600 : 2350
-        
+        let total = activeKcal + basalKcal
+
         return CaloriesBreakdown(
             totalKcal: total,
-            stepsKcal: stepKcal > 0 ? stepKcal : 420,
-            workoutKcal: workoutKcal > 0 ? workoutKcal : 680,
-            moveKcal: moveKcal > 0 ? moveKcal : 1250,
+            stepsKcal: stepKcal,
+            workoutKcal: workoutKcal,
+            moveKcal: moveKcal,
             hasData: activeKcal > 0 || steps > 0
         )
     }
@@ -93,14 +145,16 @@ public final class HealthKitManager: ObservableObject {
     public func fetchDetailedCalories(for date: Date, targetKcal: Double = 4000.0) async -> DetailedCaloriesData {
         let breakdown = await fetchCaloriesBreakdown(for: date)
         let steps = await fetchSteps(for: date)
+        let basalKcal = await fetchBasalKcal(for: date)
+        let workoutMinutes = await fetchWorkoutMinutes(for: date)
         let total = breakdown.totalKcal
-        
+
         let activities: [CalorieActivityItem] = [
             CalorieActivityItem(
                 name: "Workouts & Exercises",
                 caloriesKcal: breakdown.workoutKcal,
                 percentage: Int((breakdown.workoutKcal / max(1, total)) * 100),
-                durationOrCount: "45 min",
+                durationOrCount: workoutMinutes > 0 ? "\(workoutMinutes) min" : "No workouts",
                 colorHex: 0xFF5B4D8C
             ),
             CalorieActivityItem(
@@ -119,51 +173,51 @@ public final class HealthKitManager: ObservableObject {
             ),
             CalorieActivityItem(
                 name: "Resting Metabolism (BMR)",
-                caloriesKcal: 1600.0,
-                percentage: Int((1600.0 / max(1, total)) * 100),
+                caloriesKcal: basalKcal,
+                percentage: Int((basalKcal / max(1, total)) * 100),
                 durationOrCount: "Basal",
                 colorHex: 0xFFCFC8E4
             )
         ]
-        
+
         return DetailedCaloriesData(
             date: date,
             totalCaloriesKcal: total,
             targetKcal: targetKcal,
             activities: activities,
             stepsCount: steps,
-            workoutMinutes: 45,
+            workoutMinutes: workoutMinutes,
             hasData: breakdown.hasData
         )
     }
     
     // MARK: - Sleep Session Data
-    public func fetchSleepSession(for date: Date) async -> SleepSessionData {
+    public func fetchSleepSession(for date: Date) async -> SleepSessionData? {
         guard let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else {
-            return mockSleepSession(for: date)
+            return nil
         }
-        
+
         let (start, end) = sleepQueryBounds(for: date)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-        
+
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: 10, sortDescriptors: [sortDescriptor]) { _, samples, _ in
                 guard let categorySamples = samples as? [HKCategorySample], !categorySamples.isEmpty else {
-                    continuation.resume(returning: self.mockSleepSession(for: date))
+                    continuation.resume(returning: nil)
                     return
                 }
-                
+
                 let minStart = categorySamples.map { $0.startDate }.min() ?? start
                 let maxEnd = categorySamples.map { $0.endDate }.max() ?? end
                 let durationMinutes = Int64(maxEnd.timeIntervalSince(minStart) / 60)
-                
+
                 let timeFormatter = DateFormatter()
                 timeFormatter.timeStyle = .short
-                
+
                 let hours = durationMinutes / 60
                 let mins = durationMinutes % 60
-                
+
                 let session = SleepSessionData(
                     startTime: minStart,
                     endTime: maxEnd,
@@ -179,8 +233,10 @@ public final class HealthKitManager: ObservableObject {
     }
     
     // MARK: - Detailed Sleep
-    public func fetchDetailedSleep(for date: Date) async -> DetailedSleepData {
-        let session = await fetchSleepSession(for: date)
+    public func fetchDetailedSleep(for date: Date) async -> DetailedSleepData? {
+        guard let session = await fetchSleepSession(for: date) else {
+            return nil
+        }
         let total = session.durationMinutes
         
         let awake = Int64(Double(total) * 0.12)
@@ -220,9 +276,9 @@ public final class HealthKitManager: ObservableObject {
     }
     
     // MARK: - Heart Rate
-    public func fetchHeartRateSummary(for date: Date) async -> HeartRateSummaryData {
+    public func fetchHeartRateSummary(for date: Date) async -> HeartRateSummaryData? {
         guard let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
-            return mockHeartRateSummary(for: date)
+            return nil
         }
         let (start, end) = dayBounds(for: date)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
@@ -232,7 +288,7 @@ public final class HealthKitManager: ObservableObject {
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: hrType, predicate: predicate, limit: 100, sortDescriptors: [sortDescriptor]) { _, samples, _ in
                 guard let hrSamples = samples as? [HKQuantitySample], !hrSamples.isEmpty else {
-                    continuation.resume(returning: self.mockHeartRateSummary(for: date))
+                    continuation.resume(returning: nil)
                     return
                 }
                 
@@ -245,7 +301,7 @@ public final class HealthKitManager: ObservableObject {
                     if bpm < minB { minB = bpm }
                     if bpm > maxB { maxB = bpm }
                 }
-                let latest = points.last?.bpm ?? 72
+                let latest = points.last.map(\.bpm) ?? 0
                 
                 let formatter = DateFormatter()
                 formatter.timeStyle = .short
@@ -265,27 +321,10 @@ public final class HealthKitManager: ObservableObject {
     }
     
     // MARK: - Detailed HRV
-    public func fetchDetailedHrv(for date: Date) async -> DetailedHrvData {
-        let buckets: [HrvBucket] = [
-            HrvBucket(hourLabel: "12am", hourOfDay: 0, minMs: 45, maxMs: 78, avgMs: 62, samples: [50, 58, 65, 75], isHighlighted: false),
-            HrvBucket(hourLabel: "4am", hourOfDay: 4, minMs: 60, maxMs: 95, avgMs: 82, samples: [65, 74, 88, 92], isHighlighted: true),
-            HrvBucket(hourLabel: "8am", hourOfDay: 8, minMs: 40, maxMs: 70, avgMs: 55, samples: [42, 52, 60, 68], isHighlighted: false),
-            HrvBucket(hourLabel: "12pm", hourOfDay: 12, minMs: 38, maxMs: 68, avgMs: 51, samples: [40, 48, 55, 64], isHighlighted: false),
-            HrvBucket(hourLabel: "4pm", hourOfDay: 16, minMs: 42, maxMs: 75, avgMs: 58, samples: [45, 54, 62, 71], isHighlighted: false),
-            HrvBucket(hourLabel: "8pm", hourOfDay: 20, minMs: 50, maxMs: 84, avgMs: 68, samples: [52, 63, 72, 80], isHighlighted: false)
-        ]
-        
-        return DetailedHrvData(
-            date: date,
-            latestHrvMs: 82,
-            aveVariabilityMs: 92,
-            stressLevel: "Low",
-            minBpm: 52,
-            maxBpm: 142,
-            latestBpm: 72,
-            buckets: buckets,
-            hasData: true
-        )
+    public func fetchDetailedHrv(for date: Date) async -> DetailedHrvData? {
+        // No real HRV query is implemented yet. Return nil so the UI shows
+        // an honest empty state instead of fabricated buckets.
+        return nil
     }
     
     // MARK: - AI Summarize Payload Builder
@@ -294,23 +333,42 @@ public final class HealthKitManager: ObservableObject {
         let calories = await fetchCaloriesBreakdown(for: date)
         let sleep = await fetchSleepSession(for: date)
         let hr = await fetchHeartRateSummary(for: date)
-        
+        let distanceMeters = await fetchDistanceMeters(for: date)
+
+        // Previous day for honest day-over-day comparisons. Nil when unavailable.
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date
+        let prevSteps = await fetchSteps(for: yesterday)
+        let prevCalories = await fetchCaloriesBreakdown(for: yesterday)
+        let prevSleep = await fetchSleepSession(for: yesterday)
+
+        let sleepSessions: [SleepSessionItem]
+        if let sleep = sleep {
+            sleepSessions = [SleepSessionItem(
+                startTime: sleep.startTimeFormatted,
+                endTime: sleep.endTimeFormatted,
+                durationMinutes: sleep.durationMinutes,
+                title: "Night Sleep"
+            )]
+        } else {
+            sleepSessions = []
+        }
+
         let payload = HealthDataPayload(
-            weightRecords: [WeightRecordItem(time: ISO8601DateFormatter().string(from: date), weightKg: 74.5)],
-            latestWeightKg: 74.5,
-            sleepSessions: [SleepSessionItem(startTime: sleep.startTimeFormatted, endTime: sleep.endTimeFormatted, durationMinutes: sleep.durationMinutes, title: "Night Sleep")],
-            latestSleepMinutes: sleep.durationMinutes,
-            latestSleepFormatted: sleep.durationFormatted,
+            weightRecords: [],
+            latestWeightKg: nil,
+            sleepSessions: sleepSessions,
+            latestSleepMinutes: sleep?.durationMinutes,
+            latestSleepFormatted: sleep?.durationFormatted,
             todaySteps: steps,
-            latestHeartRateBpm: hr.latestBpm,
-            todayActiveCaloriesKcal: calories.totalKcal,
-            todayDistanceMeters: Double(steps) * 0.78,
-            exerciseSessions: [ExerciseSessionItem(startTime: "09:00", endTime: "09:45", title: "Upper Body Strength", exerciseType: 1)],
-            previousSteps: 7800,
-            previousSleepMinutes: 420,
-            previousActiveCaloriesKcal: 2100
+            latestHeartRateBpm: hr?.latestBpm,
+            todayActiveCaloriesKcal: calories.hasData ? calories.totalKcal : nil,
+            todayDistanceMeters: distanceMeters,
+            exerciseSessions: [],
+            previousSteps: prevSteps,
+            previousSleepMinutes: prevSleep?.durationMinutes,
+            previousActiveCaloriesKcal: prevCalories.hasData ? prevCalories.totalKcal : nil
         )
-        
+
         return AiSummarizeRequest(
             timestamp: ISO8601DateFormatter().string(from: Date()),
             deviceSdkAvailable: isAvailable,
@@ -334,36 +392,4 @@ public final class HealthKitManager: ObservableObject {
         return (nightBefore, noon)
     }
     
-    private func mockSleepSession(for date: Date) -> SleepSessionData {
-        let calendar = Calendar.current
-        let start = calendar.date(bySettingHour: 23, minute: 15, second: 0, of: date.addingTimeInterval(-86400)) ?? date
-        let end = calendar.date(bySettingHour: 7, minute: 20, second: 0, of: date) ?? date
-        return SleepSessionData(
-            startTime: start,
-            endTime: end,
-            durationMinutes: 485,
-            startTimeFormatted: "11:15 PM",
-            endTimeFormatted: "7:20 AM",
-            durationFormatted: "8h 05m"
-        )
-    }
-    
-    private func mockHeartRateSummary(for date: Date) -> HeartRateSummaryData {
-        let calendar = Calendar.current
-        let now = Date()
-        var points: [HeartRatePoint] = []
-        for i in 0..<12 {
-            let t = calendar.date(byAdding: .minute, value: -i * 15, to: now) ?? now
-            let bpm = 65 + (i % 4) * 8
-            points.append(HeartRatePoint(time: t, bpm: bpm))
-        }
-        return HeartRateSummaryData(
-            latestBpm: 72,
-            minBpm: 58,
-            maxBpm: 135,
-            timeRangeFormatted: "6:00 AM – Now",
-            points: points.reversed(),
-            hasData: true
-        )
-    }
 }
