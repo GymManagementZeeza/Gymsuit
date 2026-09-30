@@ -29,16 +29,93 @@ public final class HealthKitManager: ObservableObject {
         return types
     }
     
+    // Health types to write (workout logging)
+    private var shareTypes: Set<HKSampleType> {
+        var types: Set<HKSampleType> = []
+        types.insert(HKObjectType.workoutType())
+        if let activeEnergy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) { types.insert(activeEnergy) }
+        return types
+    }
+
     public func requestAuthorization() async -> Bool {
         guard isAvailable else { return false }
         do {
-            try await healthStore.requestAuthorization(toShare: [], read: readTypes)
+            try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
             DispatchQueue.main.async {
                 self.isAuthorized = true
             }
             return true
         } catch {
             print("HealthKit authorization error: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    // MARK: - Workout Logging
+
+    /// Saves a strength-training workout to HealthKit with the logged details
+    /// (exercise name, sets, reps, volume) as metadata. Returns true on success.
+    /// No energy is estimated - only factual data is written.
+    public func saveWorkout(
+        exerciseName: String,
+        start: Date,
+        end: Date,
+        setCount: Int,
+        totalReps: Int,
+        totalVolumeKg: Double
+    ) async -> Bool {
+        guard isAvailable else { return false }
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .traditionalStrengthTraining
+        configuration.locationType = .indoor
+
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration)
+
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                builder.beginCollection(withStart: start) { success, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if !success {
+                        continuation.resume(throwing: WorkoutSaveError.collectionFailed)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+
+            builder.addMetadata([
+                "ca.zeezaglobal.Gymsuit.exerciseName": exerciseName,
+                "ca.zeezaglobal.Gymsuit.setCount": setCount,
+                "ca.zeezaglobal.Gymsuit.totalReps": totalReps,
+                "ca.zeezaglobal.Gymsuit.totalVolumeKg": totalVolumeKg,
+            ])
+
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                builder.endCollection(withEnd: end) { success, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if !success {
+                        continuation.resume(throwing: WorkoutSaveError.collectionFailed)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+
+            let _: HKWorkout? = try await withCheckedThrowingContinuation { continuation in
+                builder.finishWorkout { workout, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: workout)
+                    }
+                }
+            }
+            return true
+        } catch {
+            print("HealthKit workout save error: \(error.localizedDescription)")
+            builder.discardWorkout()
             return false
         }
     }

@@ -115,6 +115,8 @@ struct DashboardView: View {
                 // Main Content by Selected Tab
                 if selectedTab == .home {
                     homeContent
+                } else if selectedTab == .workouts {
+                    WorkoutsView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
                 } else {
