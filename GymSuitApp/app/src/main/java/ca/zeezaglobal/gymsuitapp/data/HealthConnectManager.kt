@@ -12,6 +12,7 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
@@ -209,7 +210,8 @@ class HealthConnectManager(private val context: Context) {
                 endZoneOffset = null,
                 exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
                 title = exerciseName,
-                notes = "GymSuit: $setCount sets, $totalReps reps, ${"%.0f".format(totalVolumeKg)} kg total volume"
+                notes = "GymSuit: $setCount sets, $totalReps reps, ${"%.0f".format(totalVolumeKg)} kg total volume",
+                metadata = Metadata.manualEntry()
             )
             client.insertRecords(listOf(record))
             true
