@@ -3,6 +3,7 @@ package com.zeezaglobal.gymmanagement.service;
 import com.zeezaglobal.gymmanagement.dto.MemberSubscriptionResponse;
 import com.zeezaglobal.gymmanagement.dto.SubscribeRequest;
 import com.zeezaglobal.gymmanagement.entity.ActivityType;
+import com.zeezaglobal.gymmanagement.entity.Gym;
 import com.zeezaglobal.gymmanagement.entity.Member;
 import com.zeezaglobal.gymmanagement.entity.MemberSubscription;
 import com.zeezaglobal.gymmanagement.entity.MembershipPlan;
