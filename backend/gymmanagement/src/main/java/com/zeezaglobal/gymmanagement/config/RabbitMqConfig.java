@@ -171,7 +171,7 @@ public class RabbitMqConfig {
         factory.setMissingQueuesFatal(false);
         factory.setAdviceChain(
                 RetryInterceptorBuilder.stateless()
-                        .maxAttempts(retryMaxAttempts)
+                        .maxRetries(retryMaxAttempts)
                         .backOffOptions(retryInitialIntervalMs, 2.0, retryMaxIntervalMs)
                         .build());
 

@@ -109,7 +109,7 @@ public class GymService {
         return response;
     }
 
-    Gym getGymOrThrow(Long id) {
+    public Gym getGymOrThrow(Long id) {
         return gymRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Gym not found with id: " + id));
     }
