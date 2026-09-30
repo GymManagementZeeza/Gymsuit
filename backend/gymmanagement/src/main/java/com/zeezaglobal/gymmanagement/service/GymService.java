@@ -22,6 +22,7 @@ import java.util.List;
 public class GymService {
 
     private final GymRepository gymRepository;
+    private final GymCache gymCache;
     private final ManagerService managerService;
     private final SecurityService securityService;
 
@@ -32,10 +33,11 @@ public class GymService {
     }
 
     public GymResponse findById(Long id) {
-        GymResponse response = GymResponse.fromEntity(getGymOrThrow(id));
+        // Cached unfiltered profile; the member role's contact-hiding is applied after
+        // the lookup so cached staff data never leaks across roles.
+        GymResponse response = gymCache.get(id);
         UserPrincipal user = securityService.currentUser();
         if (user != null && user.getRole() == Role.MEMBER) {
-            // Members can see their gym's profile, but not the owner/managers' personal contact details.
             return response.withoutStaffContacts();
         }
         return response;
@@ -56,19 +58,24 @@ public class GymService {
     public GymResponse update(Long id, GymRequest request) {
         Gym gym = getGymOrThrow(id);
         applyRequest(gym, request);
-        return GymResponse.fromEntity(gymRepository.save(gym));
+        GymResponse response = GymResponse.fromEntity(gymRepository.save(gym));
+        gymCache.evict(id);
+        return response;
     }
 
     public void delete(Long id) {
         Gym gym = getGymOrThrow(id);
         gymRepository.delete(gym);
+        gymCache.evict(id);
     }
 
     public GymResponse setOwner(Long gymId, Long managerId) {
         Gym gym = getGymOrThrow(gymId);
         Manager manager = managerService.getManagerOrThrow(managerId);
         gym.setOwner(manager);
-        return GymResponse.fromEntity(gymRepository.save(gym));
+        GymResponse response = GymResponse.fromEntity(gymRepository.save(gym));
+        gymCache.evict(gymId);
+        return response;
     }
 
     public GymResponse addManager(Long gymId, Long managerId) {
@@ -77,7 +84,9 @@ public class GymService {
         if (!gym.getManagers().add(manager)) {
             throw new ConflictException("Manager " + managerId + " is already assigned to gym " + gymId);
         }
-        return GymResponse.fromEntity(gymRepository.save(gym));
+        GymResponse response = GymResponse.fromEntity(gymRepository.save(gym));
+        gymCache.evict(gymId);
+        return response;
     }
 
     public GymResponse removeManager(Long gymId, Long managerId) {
@@ -86,7 +95,9 @@ public class GymService {
         if (!gym.getManagers().remove(manager)) {
             throw new ResourceNotFoundException("Manager " + managerId + " is not assigned to gym " + gymId);
         }
-        return GymResponse.fromEntity(gymRepository.save(gym));
+        GymResponse response = GymResponse.fromEntity(gymRepository.save(gym));
+        gymCache.evict(gymId);
+        return response;
     }
 
     Gym getGymOrThrow(Long id) {

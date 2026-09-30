@@ -15,6 +15,7 @@ import com.zeezaglobal.gymmanagement.entity.MemberSubscription;
 import com.zeezaglobal.gymmanagement.entity.PaymentMethod;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
+import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.payment.PaymentGatewayClient;
 import com.zeezaglobal.gymmanagement.payment.PaymentGatewayClientResolver;
 import com.zeezaglobal.gymmanagement.payment.PaymentGatewayRequest;
@@ -42,7 +43,7 @@ public class MemberPaymentService {
     private final MemberSubscriptionService memberSubscriptionService;
     private final PaymentGatewayClientResolver gatewayClientResolver;
     private final SecurityService securityService;
-    private final GymActivityService activityService;
+    private final EventPublisher eventPublisher;
 
     private static String formatAmount(BigDecimal amount) {
         if (amount == null) return "";
@@ -90,7 +91,7 @@ public class MemberPaymentService {
         }
 
         payment = memberPaymentRepository.save(payment);
-        activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
+        eventPublisher.publishActivity(gym.getId(), ActivityType.PAYMENT_RECEIVED,
                 "Payment received " + payment.getCurrency() + " " + formatAmount(payment.getAmount())
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " (" + method.name() + ")");
@@ -127,7 +128,7 @@ public class MemberPaymentService {
         payment.setPaidAt(LocalDateTime.now());
 
         payment = memberPaymentRepository.save(payment);
-        activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
+        eventPublisher.publishActivity(gym.getId(), ActivityType.PAYMENT_RECEIVED,
                 "Payment received " + payment.getCurrency() + " " + formatAmount(payment.getAmount())
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " for the " + subscription.getPlan().getName() + " plan (" + request.paymentMethod().name() + ")");
@@ -171,7 +172,7 @@ public class MemberPaymentService {
         member.setJoiningFeePaidAt(LocalDateTime.now());
         memberRepository.save(member);
 
-        activityService.record(gym, ActivityType.PAYMENT_RECEIVED,
+        eventPublisher.publishActivity(gym.getId(), ActivityType.PAYMENT_RECEIVED,
                 "Joining fee received " + payment.getCurrency() + " " + formatAmount(payment.getAmount())
                         + " from " + member.getFirstName() + " " + member.getLastName()
                         + " (" + request.paymentMethod().name() + ")");
