@@ -17,6 +17,21 @@ services:
       timeout: 10s
       retries: 5
 
+  redis:
+    image: redis:8-alpine
+    container_name: gymmanagement-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   backend:
     build:
       context: ./backend/gymmanagement
@@ -26,6 +41,8 @@ services:
       - "${BACKEND_PORT:-8081}:8080"
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://10.0.0.37:3306/gymmanagement}
@@ -43,6 +60,9 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-gymsuit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-gymsuit}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
   frontend:
     build:
@@ -59,3 +79,4 @@ services:
 
 volumes:
   rabbitmq-data:
+  redis-data:

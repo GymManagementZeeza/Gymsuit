@@ -1,5 +1,6 @@
 package com.zeezaglobal.gymmanagement.service;
 
+import com.zeezaglobal.gymmanagement.config.RedisConfig;
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanRequest;
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanResponse;
 import com.zeezaglobal.gymmanagement.dto.PlanMemberSummary;
@@ -13,6 +14,9 @@ import com.zeezaglobal.gymmanagement.repository.MemberSubscriptionRepository;
 import com.zeezaglobal.gymmanagement.repository.MembershipPlanRepository;
 import com.zeezaglobal.gymmanagement.util.CurrencyCodes;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +36,7 @@ public class MembershipPlanService {
     private final MemberSubscriptionRepository memberSubscriptionRepository;
     private final GymService gymService;
 
+    @Cacheable(value = RedisConfig.MEMBERSHIP_PLANS, key = "'all:' + #gymId")
     public List<MembershipPlanResponse> findAllByGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
         return membershipPlanRepository.findAllByGymId(gymId).stream()
@@ -40,6 +45,7 @@ public class MembershipPlanService {
     }
 
     /** Plans a prospective member can pick from during self-registration — active plans only. */
+    @Cacheable(value = RedisConfig.MEMBERSHIP_PLANS, key = "'active:' + #gymId")
     public List<MembershipPlanResponse> findActiveByGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
         return membershipPlanRepository.findAllByGymId(gymId).stream()
@@ -48,10 +54,15 @@ public class MembershipPlanService {
                 .toList();
     }
 
+    @Cacheable(value = RedisConfig.MEMBERSHIP_PLANS, key = "'one:' + #gymId + ':' + #id")
     public MembershipPlanResponse findById(Long gymId, Long id) {
         return MembershipPlanResponse.fromEntity(getPlanOrThrow(gymId, id));
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'all:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'active:' + #gymId")
+    })
     public MembershipPlanResponse create(Long gymId, MembershipPlanRequest request) {
         Gym gym = gymService.getGymOrThrow(gymId);
         MembershipPlan plan = new MembershipPlan();
@@ -60,12 +71,22 @@ public class MembershipPlanService {
         return MembershipPlanResponse.fromEntity(membershipPlanRepository.save(plan));
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'all:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'active:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'one:' + #gymId + ':' + #id")
+    })
     public MembershipPlanResponse update(Long gymId, Long id, MembershipPlanRequest request) {
         MembershipPlan plan = getPlanOrThrow(gymId, id);
         applyRequest(plan, request);
         return MembershipPlanResponse.fromEntity(membershipPlanRepository.save(plan));
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'all:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'active:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'one:' + #gymId + ':' + #id")
+    })
     public void delete(Long gymId, Long id) {
         MembershipPlan plan = getPlanOrThrow(gymId, id);
         if (membershipPlanRepository.countByGymId(gymId) <= 1) {
@@ -89,6 +110,11 @@ public class MembershipPlanService {
                 .toList();
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'all:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'active:' + #gymId"),
+            @CacheEvict(value = RedisConfig.MEMBERSHIP_PLANS, key = "'one:' + #gymId + ':' + #id")
+    })
     @Transactional
     public void reassignAndDelete(Long gymId, Long id, Long replacementPlanId) {
         MembershipPlan plan = getPlanOrThrow(gymId, id);
