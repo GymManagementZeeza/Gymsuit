@@ -12,8 +12,8 @@ public enum AiSummaryUiState: Equatable {
 public final class DashboardViewModel: ObservableObject {
     @Published public var summaryState: AiSummaryUiState = .idle
     @Published public var selectedDate: Date = Date()
-    @Published public var stepsCount: Int64 = 8420
-    @Published public var caloriesBreakdown: CaloriesBreakdown = CaloriesBreakdown(totalKcal: 2350, stepsKcal: 420, workoutKcal: 680, moveKcal: 1250, hasData: true)
+    @Published public var stepsCount: Int64 = 0
+    @Published public var caloriesBreakdown: CaloriesBreakdown = CaloriesBreakdown(totalKcal: 0, stepsKcal: 0, workoutKcal: 0, moveKcal: 0, hasData: false)
     @Published public var sleepSession: SleepSessionData?
     @Published public var heartRateSummary: HeartRateSummaryData?
     @Published public var isLoadingMetrics: Bool = false

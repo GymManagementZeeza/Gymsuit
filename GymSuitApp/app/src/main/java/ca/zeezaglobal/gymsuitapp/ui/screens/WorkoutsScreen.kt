@@ -121,6 +121,13 @@ fun WorkoutsScreen() {
             Spacer(Modifier.weight(1f))
             PointsPill()
         }
+        Text(
+            text = "Workouts",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = InkPrimary,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+        )
 
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier

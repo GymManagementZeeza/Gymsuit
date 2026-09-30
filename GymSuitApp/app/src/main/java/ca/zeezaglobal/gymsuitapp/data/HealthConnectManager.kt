@@ -143,6 +143,7 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getWritePermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class)
     )
 
@@ -178,6 +179,44 @@ class HealthConnectManager(private val context: Context) {
         val client = healthConnectClient ?: return false
         val granted = client.permissionController.getGrantedPermissions()
         return granted.contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
+    }
+
+    suspend fun hasExerciseWritePermission(): Boolean {
+        val client = healthConnectClient ?: return false
+        val granted = client.permissionController.getGrantedPermissions()
+        return granted.contains(HealthPermission.getWritePermission(ExerciseSessionRecord::class))
+    }
+
+    /**
+     * Writes a strength-training session to Health Connect with the logged
+     * details (exercise name, sets, reps, volume) in the notes/title. Only
+     * factual data is written - no energy is estimated. Returns true on success.
+     */
+    suspend fun insertExerciseSession(
+        exerciseName: String,
+        start: Instant,
+        end: Instant,
+        setCount: Int,
+        totalReps: Int,
+        totalVolumeKg: Double
+    ): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val record = ExerciseSessionRecord(
+                startTime = start,
+                startZoneOffset = null,
+                endTime = end,
+                endZoneOffset = null,
+                exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
+                title = exerciseName,
+                notes = "GymSuit: $setCount sets, $totalReps reps, ${"%.0f".format(totalVolumeKg)} kg total volume"
+            )
+            client.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to write exercise session", e)
+            false
+        }
     }
 
     suspend fun hasHeartRatePermission(): Boolean {
