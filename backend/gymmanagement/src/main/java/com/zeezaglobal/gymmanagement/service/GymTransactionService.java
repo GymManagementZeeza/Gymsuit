@@ -10,6 +10,7 @@ import com.zeezaglobal.gymmanagement.entity.Member;
 import com.zeezaglobal.gymmanagement.entity.Trainer;
 import com.zeezaglobal.gymmanagement.entity.TransactionDirection;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
+import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.GymTransactionRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberRepository;
 import com.zeezaglobal.gymmanagement.repository.TrainerRepository;
@@ -29,7 +30,7 @@ public class GymTransactionService {
     private final TrainerRepository trainerRepository;
     private final GymService gymService;
     private final ManagerService managerService;
-    private final GymActivityService activityService;
+    private final EventPublisher eventPublisher;
 
     public List<TransactionResponse> listForGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
@@ -75,7 +76,7 @@ public class GymTransactionService {
                 : trainer != null
                         ? " to " + trainer.getFirstName() + " " + trainer.getLastName()
                         : manager != null ? " to " + manager.getFirstName() + " " + manager.getLastName() : "";
-        activityService.record(gym, isIncome ? ActivityType.INCOME_RECORDED : ActivityType.EXPENSE_RECORDED,
+        eventPublisher.publishActivity(gym.getId(), isIncome ? ActivityType.INCOME_RECORDED : ActivityType.EXPENSE_RECORDED,
                 verb + " of " + transaction.getCurrency() + " " + transaction.getAmount()
                         + " — " + transaction.getDescription() + who);
 
