@@ -2,9 +2,11 @@ package com.zeezaglobal.gymmanagement.service;
 
 import com.zeezaglobal.gymmanagement.entity.OtpCode;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
+import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.OtpCodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpException;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -19,7 +21,7 @@ public class OtpService {
     private static final long OTP_TTL_MINUTES = 5;
 
     private final OtpCodeRepository otpCodeRepository;
-    private final EmailService emailService;
+    private final EventPublisher eventPublisher;
     private final SecureRandom random = new SecureRandom();
 
     public void generate(String email) {
@@ -31,8 +33,15 @@ public class OtpService {
         otp.setExpiresAt(Instant.now().plus(OTP_TTL_MINUTES, ChronoUnit.MINUTES));
         otpCodeRepository.save(otp);
 
-        log.info("OTP generated for {}: {} (expires in {} minutes)", email, code, OTP_TTL_MINUTES);
-        emailService.sendOtpEmail(email, code);
+        log.info("OTP generated for {} (expires in {} minutes)", email, OTP_TTL_MINUTES);
+        // Queued: the request returns immediately and a consumer sends the email via Resend.
+        // Failing fast here beats the old behavior of silently returning 200 with no email sent.
+        try {
+            eventPublisher.publishEmail(email, "Your GymSuit Login Code", EmailService.otpEmailHtml(code));
+        } catch (AmqpException e) {
+            log.error("Could not queue OTP email for {}: {}", email, e.getMessage(), e);
+            throw new BadRequestException("Could not send the login code right now, please try again");
+        }
     }
 
     public void verify(String email, String code) {

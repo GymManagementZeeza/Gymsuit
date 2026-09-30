@@ -19,6 +19,7 @@ import com.zeezaglobal.gymmanagement.entity.User;
 import com.zeezaglobal.gymmanagement.entity.WeightLog;
 import com.zeezaglobal.gymmanagement.exception.ConflictException;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
+import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.CheckInRepository;
 import com.zeezaglobal.gymmanagement.repository.GymTransactionRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberPaymentRepository;
@@ -54,7 +55,7 @@ public class MemberService {
     private final WeightLogRepository weightLogRepository;
     private final TrainerRepository trainerRepository;
     private final GymService gymService;
-    private final GymActivityService activityService;
+    private final EventPublisher eventPublisher;
     private final PasswordEncoder passwordEncoder;
 
     public List<MemberResponse> findAllByGym(Long gymId) {
@@ -91,7 +92,7 @@ public class MemberService {
         userRepository.save(user);
         logWeightIfPresent(member);
 
-        activityService.record(gym, ActivityType.MEMBER_JOINED,
+        eventPublisher.publishActivity(gym.getId(), ActivityType.MEMBER_JOINED,
                 member.getFirstName() + " " + member.getLastName() + " joined as a new member");
         return MemberResponse.fromEntity(member);
     }
@@ -195,20 +196,27 @@ public class MemberService {
         gymTransactionRepository.saveAll(transactions);
 
         memberRepository.delete(member);
-        activityService.record(gym, ActivityType.MEMBER_REMOVED, name + " was removed from the gym");
+        eventPublisher.publishActivity(gym.getId(), ActivityType.MEMBER_REMOVED, name + " was removed from the gym");
     }
 
     /**
-     * Records that a notification was sent to a member. WhatsApp is handled client-side via a
-     * wa.me redirect (no server-side WhatsApp integration); SMS and email have no delivery channel
+     * Notifies a member. The audit entry is queued, and EMAIL notifications are now actually
+     * delivered: they go through the notification queue to a consumer that sends via Resend.
+     * WhatsApp is still handled client-side via a wa.me redirect, and SMS has no provider
      * wired up yet, so those are recorded the same way but nothing is actually sent for them.
      */
     public void notify(Long gymId, Long id, MemberNotifyRequest request) {
         Member member = getMemberOrThrow(gymId, id);
         String name = member.getFirstName() + " " + member.getLastName();
-        activityService.record(member.getGym(), ActivityType.NOTIFICATION_SENT,
+        eventPublisher.publishActivity(member.getGym().getId(), ActivityType.NOTIFICATION_SENT,
                 notificationLabel(request.type()) + " sent to " + name + " via " + channelLabel(request.channel())
                         + ": \"" + request.message() + "\"");
+
+        if (request.channel() == NotificationChannel.EMAIL && member.getEmail() != null
+                && !member.getEmail().isBlank()) {
+            eventPublisher.publishNotification(gymId, NotificationChannel.EMAIL, request.type(),
+                    member.getEmail(), notificationLabel(request.type()), request.message());
+        }
     }
 
     private String notificationLabel(NotificationType type) {
