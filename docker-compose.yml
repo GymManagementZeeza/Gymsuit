@@ -1,4 +1,37 @@
 services:
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: gymmanagement-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-gymsuit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-gymsuit}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    container_name: gymmanagement-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   backend:
     build:
       context: ./backend/gymmanagement
@@ -6,6 +39,11 @@ services:
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-8081}:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://10.0.0.37:3306/gymmanagement}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-athul}
@@ -18,6 +56,13 @@ services:
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-onboarding@resend.dev}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-gymsuit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-gymsuit}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
   frontend:
     build:
@@ -31,3 +76,7 @@ services:
       - "${FRONTEND_PORT:-3001}:3000"
     depends_on:
       - backend
+
+volumes:
+  rabbitmq-data:
+  redis-data:

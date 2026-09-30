@@ -3,7 +3,6 @@ package com.zeezaglobal.gymmanagement.service;
 import com.zeezaglobal.gymmanagement.dto.MemberSubscriptionResponse;
 import com.zeezaglobal.gymmanagement.dto.SubscribeRequest;
 import com.zeezaglobal.gymmanagement.entity.ActivityType;
-import com.zeezaglobal.gymmanagement.entity.Gym;
 import com.zeezaglobal.gymmanagement.entity.Member;
 import com.zeezaglobal.gymmanagement.entity.MemberSubscription;
 import com.zeezaglobal.gymmanagement.entity.MembershipPlan;
@@ -11,6 +10,7 @@ import com.zeezaglobal.gymmanagement.entity.SubscriptionStatus;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import com.zeezaglobal.gymmanagement.exception.ConflictException;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
+import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.MemberRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +30,7 @@ public class MemberSubscriptionService {
     private final MemberRepository memberRepository;
     private final GymService gymService;
     private final MembershipPlanService membershipPlanService;
-    private final GymActivityService activityService;
+    private final EventPublisher eventPublisher;
 
     public List<MemberSubscriptionResponse> history(Long gymId, Long memberId) {
         gymService.getGymOrThrow(gymId);
@@ -70,7 +70,7 @@ public class MemberSubscriptionService {
         }
         MembershipPlan plan = requireActivePlan(gymId, request.planId());
         MemberSubscription subscription = assignPendingSubscription(gymId, memberId, plan);
-        activityService.record(subscription.getGym(), ActivityType.PLAN_ASSIGNED,
+        eventPublisher.publishActivity(subscription.getGym().getId(), ActivityType.PLAN_ASSIGNED,
                 memberName(subscription.getMember()) + " was assigned the " + plan.getName() + " plan — payment pending");
         return MemberSubscriptionResponse.fromEntity(subscription);
     }
@@ -81,7 +81,7 @@ public class MemberSubscriptionService {
         subscription.setAutoRenew(false);
         subscription.setCancelledAt(LocalDateTime.now());
         subscription = subscriptionRepository.save(subscription);
-        activityService.record(subscription.getGym(), ActivityType.SUBSCRIPTION_CANCELLED,
+        eventPublisher.publishActivity(subscription.getGym().getId(), ActivityType.SUBSCRIPTION_CANCELLED,
                 memberName(subscription.getMember()) + " cancelled the " + subscription.getPlan().getName() + " plan");
         return MemberSubscriptionResponse.fromEntity(subscription);
     }
@@ -98,7 +98,7 @@ public class MemberSubscriptionService {
         cancelIfPresent(subscriptionRepository.findByGymIdAndMemberIdAndStatus(gymId, memberId, SubscriptionStatus.PENDING));
 
         MemberSubscription subscription = assignPendingSubscription(gymId, memberId, plan);
-        activityService.record(subscription.getGym(), ActivityType.PLAN_CHANGED,
+        eventPublisher.publishActivity(subscription.getGym().getId(), ActivityType.PLAN_CHANGED,
                 memberName(subscription.getMember()) + " was moved to the " + plan.getName() + " plan — payment pending");
         return MemberSubscriptionResponse.fromEntity(subscription);
     }
@@ -114,7 +114,7 @@ public class MemberSubscriptionService {
         subscription.setCurrentPeriodEnd(subscription.getPlan().getBillingCycle().periodEnd(today));
         subscription = subscriptionRepository.save(subscription);
 
-        activityService.record(subscription.getGym(), ActivityType.PLAN_ASSIGNED,
+        eventPublisher.publishActivity(subscription.getGym().getId(), ActivityType.PLAN_ASSIGNED,
                 memberName(subscription.getMember()) + "'s " + subscription.getPlan().getName() + " plan is now active");
         return subscription;
     }
