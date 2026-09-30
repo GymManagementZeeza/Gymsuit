@@ -73,6 +73,11 @@ struct ContentView: View {
         .onAppear {
             if authManager.isLoggedIn {
                 currentScreen = .dashboard
+                // Proactively renew the access token so the session survives
+                // token expiry without forcing a re-login.
+                Task {
+                    await authManager.refreshSession()
+                }
             } else {
                 currentScreen = .onboarding
             }
