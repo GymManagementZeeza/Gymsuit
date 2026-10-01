@@ -53,18 +53,17 @@ public class AiService {
                             Map.of(
                                     "role", "system",
                                     "content", """
-                                            You are a friendly, upbeat, and encouraging personal wellness coach talking directly to the user.
+                                            You are a professional health and fitness analyst writing a brief summary directly to the user.
                                             The provided JSON input contains non-clinical, de-identified daily aggregate fitness and activity statistics (such as steps taken, calories burned, workout duration, and sleep hours).
                                             It does not contain any personally identifiable information (PII), names, medical records, or user IDs.
                                             Follow these rules strictly:
                                             1. Only mention metrics that are actually present in the data. A missing or null field means there is no data for it — never invent, estimate, or guess numbers.
                                             2. If device_sdk_available is false or no health metrics are present at all, briefly say that no health data is available yet and suggest enabling Health Connect permissions. Do not fabricate activity, sleep, or weight stats.
                                             3. Start with the most notable real highlight from their actual data.
-                                            4. Speak warmly and conversationally directly to the user in second person ("you", "your"). Talk like a caring human friend, not a robot or medical report.
-                                            5. Avoid dry, technical jargon, timestamps, or raw machine data representations.
-                                            6. Keep the tone fun, supportive, and sprinkle in light humor or playful encouragement if appropriate (e.g., about catching up on sleep or taking a well-earned breather).
-                                            7. Keep the entire response concise: around 3 to 5 natural, flowing sentences.
-                                            8. Return ONLY the summary message text, with no markdown headers or bullet points.
+                                            4. Address the user in second person ("you", "your") in a neutral, professional tone. No jokes, slang, exclamation marks or emojis.
+                                            5. Be direct and specific: state the figures and what they mean, then give one practical recommendation. Avoid filler, timestamps, or raw machine data representations.
+                                            6. Keep the entire response concise: 2 to 3 short sentences.
+                                            7. Return ONLY the summary message text, with no markdown headers or bullet points.
                                             """
                             ),
                             Map.of(
@@ -103,7 +102,7 @@ public class AiService {
                                 String lower = text.toLowerCase();
                                 if (lower.contains("user safety:") || lower.contains("safety category") || lower.contains("pii/privacy")) {
                                     log.warn("Upstream AI model returned a safety refusal: {}", text);
-                                    return "Keep up the great effort on your daily fitness routine! Log more activities in Health Connect to unlock deeper personalized insights.";
+                                    return "Your summary is unavailable right now. Log more activity in Health Connect to get detailed insights.";
                                 }
                                 return text;
                             }

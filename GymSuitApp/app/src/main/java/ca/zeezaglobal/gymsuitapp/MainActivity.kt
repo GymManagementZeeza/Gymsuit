@@ -2,6 +2,7 @@ package ca.zeezaglobal.gymsuitapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -76,6 +77,20 @@ class MainActivity : ComponentActivity() {
                         } else {
                             AppScreen.HEALTH_CONNECT_PERMISSION
                         }
+                    }
+                }
+
+                // Back goes up one level instead of closing the app
+                BackHandler(
+                    enabled = currentScreen in setOf(
+                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.CALORIES_DETAIL,
+                        AppScreen.REGISTER, AppScreen.LOGIN
+                    )
+                ) {
+                    currentScreen = when (currentScreen) {
+                        AppScreen.REGISTER -> AppScreen.LOGIN
+                        AppScreen.LOGIN -> AppScreen.ONBOARDING
+                        else -> AppScreen.DASHBOARD
                     }
                 }
 

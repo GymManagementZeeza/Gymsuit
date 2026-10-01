@@ -109,6 +109,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.PointsStore
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
+import ca.zeezaglobal.gymsuitapp.data.HealthWorkoutSignals
 import ca.zeezaglobal.gymsuitapp.data.model.Exercise
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
@@ -379,10 +380,16 @@ fun WorkoutsScreen(session: WorkoutSessionState = remember { WorkoutSessionState
         isAiLoading = true
         // Simulate in-device AI model inferencing and show smooth shimmer
         withContext(Dispatchers.Default) {
+            val health = try {
+                healthConnectManager.readWorkoutSignals()
+            } catch (e: Exception) {
+                HealthWorkoutSignals()
+            }
             val recommendation = OnDeviceWorkoutAiEngine.generateRecommendation(
                 selectedDate = selectedCalendarDate,
                 exercises = workoutStore.exercises,
-                loggedWorkouts = loggedWorkouts
+                loggedWorkouts = loggedWorkouts,
+                health = health
             )
             delay(650) // Realistic on-device neural/rule processing delay to display shimmer
             withContext(Dispatchers.Main) {
@@ -449,6 +456,7 @@ fun WorkoutsScreen(session: WorkoutSessionState = remember { WorkoutSessionState
                 onSelectBodyPart = { sessionPart = it }
             )
         } else if (isCatalogMode) {
+            BackHandler { isCatalogMode = false }
             // Secondary bar to return to Split view
             Row(
                 modifier = Modifier
@@ -989,6 +997,21 @@ object OnDeviceWorkoutAiEngine {
         else -> null
     }
 
+    private fun bodyPartFromTitle(title: String): String? {
+        val t = title.lowercase()
+        return when {
+            "chest" in t || "bench" in t || "push" in t -> "Chest"
+            "back" in t || "pull" in t || "row" in t -> "Back"
+            "shoulder" in t -> "Shoulders"
+            "bicep" in t || "curl" in t -> "Biceps"
+            "tricep" in t -> "Triceps"
+            "leg" in t || "squat" in t || "lunge" in t -> "Legs"
+            "calf" in t || "calves" in t -> "Calves"
+            "core" in t || "abs" in t || "plank" in t -> "Core / Abs"
+            else -> null
+        }
+    }
+
     private fun splitIndexFor(parts: List<String>): Int = when (parts.firstOrNull()) {
         "Chest", "Shoulders", "Triceps" -> 0
         "Back", "Biceps" -> 1
@@ -998,7 +1021,8 @@ object OnDeviceWorkoutAiEngine {
     fun generateRecommendation(
         selectedDate: LocalDate,
         exercises: List<Exercise>,
-        loggedWorkouts: List<LoggedWorkout>
+        loggedWorkouts: List<LoggedWorkout>,
+        health: HealthWorkoutSignals = HealthWorkoutSignals()
     ): WorkoutAiRecommendation {
         val zone = ZoneId.systemDefault()
         val byId = exercises.associateBy { it.id }
@@ -1013,7 +1037,33 @@ object OnDeviceWorkoutAiEngine {
             if (lastTrained[part]?.isBefore(date) != false) lastTrained[part] = date
         }
 
+        // Health Connect sessions: map to a body part when the title names one, else count as general load
+        val hcLoadDays = HashSet<LocalDate>()
+        var hasUnmappedHcToday = false
+        health.sessions.forEach { session ->
+            if (session.date.isAfter(selectedDate)) return@forEach
+            hcLoadDays.add(session.date)
+            val part = exercises.find { it.name.equals(session.title, true) }?.let(::bodyPartNameFor)
+                ?: bodyPartFromTitle(session.title)
+            if (part != null) {
+                if (lastTrained[part]?.isBefore(session.date) != false) lastTrained[part] = session.date
+            } else if (session.date == selectedDate) {
+                hasUnmappedHcToday = true
+            }
+        }
+
         val trainedToday = defaultBodyParts.map { it.name }.filter { lastTrained[it] == selectedDate }
+
+        if (trainedToday.size + (if (hasUnmappedHcToday) 1 else 0) >= RECOMMEND_COUNT) {
+            return WorkoutAiRecommendation(
+                splitTarget = "DONE",
+                targetSplitIndex = splitIndexFor(trainedToday),
+                headline = "Good job today!",
+                description = if (trainedToday.isEmpty()) "Health Connect shows a workout today. That's enough for today, so rest up and recover."
+                else "You trained ${trainedToday.joinToString(" & ")} today${if (hasUnmappedHcToday) " plus a Health Connect workout" else ""}. That's enough for today, so rest up and recover.",
+                recommendedBodyParts = emptyList()
+            )
+        }
 
         // Never-trained first, then the longest-rested; anything already done today is skipped
         val candidates = defaultBodyParts.map { it.name }
@@ -1021,7 +1071,20 @@ object OnDeviceWorkoutAiEngine {
             .sortedByDescending { part ->
                 lastTrained[part]?.let { java.time.temporal.ChronoUnit.DAYS.between(it, selectedDate) } ?: Long.MAX_VALUE
             }
-        val picks = candidates.take(RECOMMEND_COUNT)
+        // Recovery check from Health Connect: recent training load and last night's sleep
+        val loggedDays = lastTrained.values.toSet() + hcLoadDays
+        val recentLoadDays = (1..3).count { selectedDate.minusDays(it.toLong()) in loggedDays }
+        val shortSleep = health.lastSleepMinutes?.let { it < 360 } == true
+        val heavyLoad = recentLoadDays >= 3
+        val pickCount = if (shortSleep || heavyLoad) 1 else RECOMMEND_COUNT
+        val picks = candidates.take(pickCount)
+        val recoveryNote = buildString {
+            if (shortSleep) {
+                val m = health.lastSleepMinutes!!
+                append(" You slept ${m / 60}h ${m % 60}m, so keep the volume light.")
+            }
+            if (heavyLoad) append(" You've trained 3 days in a row, so don't overdo it.")
+        }
 
         val reasons = picks.joinToString(" ") { part ->
             val last = lastTrained[part]
@@ -1039,7 +1102,7 @@ object OnDeviceWorkoutAiEngine {
             splitTarget = picks.joinToString(" & ") { it.substringBefore(" /").uppercase() },
             targetSplitIndex = splitIndexFor(picks),
             headline = if (trainedToday.isNotEmpty()) "Next Up" else "Today's Recommendation",
-            description = intro + reasons,
+            description = intro + reasons + recoveryNote,
             recommendedBodyParts = picks
         )
     }
@@ -1998,7 +2061,9 @@ private fun WorkoutLogSheet(
                     val sets = setRows.map {
                         WorkoutSet(reps = it.repsText.toIntOrNull() ?: 0, weightKg = it.weightText.toDoubleOrNull() ?: 0.0)
                     }
-                    val timestamp = logDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    // Today logs use the current time so the Health Connect session lands on today
+                    val timestamp = if (logDate == LocalDate.now()) Instant.now().toEpochMilli()
+                    else logDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                         .coerceAtMost(Instant.now().toEpochMilli())
                     val workout = LoggedWorkout(
                         exerciseId = exercise.id,
