@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.webkit.WebView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -23,12 +24,25 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.geometry.Offset
@@ -42,6 +56,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
@@ -74,6 +89,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +99,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -109,7 +126,24 @@ import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Locale
 
-// MARK: - Workout Split Data Models
+// MARK: - Workout Split & Body Parts Data Models
+data class BodyPartItem(
+    val id: String,
+    val name: String,
+    val subtitle: String
+)
+
+val defaultBodyParts = listOf(
+    BodyPartItem(id = "chest", name = "Chest", subtitle = "Pecs, push-ups, dumbbells"),
+    BodyPartItem(id = "back", name = "Back", subtitle = "Lats, traps, rows"),
+    BodyPartItem(id = "shoulders", name = "Shoulders", subtitle = "Deltoids, presses"),
+    BodyPartItem(id = "biceps", name = "Biceps", subtitle = "Curls, dumbbells"),
+    BodyPartItem(id = "triceps", name = "Triceps", subtitle = "Extensions, dips"),
+    BodyPartItem(id = "legs", name = "Legs", subtitle = "Quads, hamstrings, glutes"),
+    BodyPartItem(id = "core", name = "Core / Abs", subtitle = "Planks, crunches, rotational"),
+    BodyPartItem(id = "calves", name = "Calves", subtitle = "Calf raises, jumps")
+)
+
 data class SplitExerciseItem(
     val exerciseName: String,
     val catalogExerciseId: String,
@@ -299,7 +333,7 @@ val workoutSplits = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutsScreen() {
+fun WorkoutsScreen(session: WorkoutSessionState = remember { WorkoutSessionState() }) {
     val context = LocalContext.current
     val workoutStore = remember { WorkoutStore(context) }
     val healthConnectManager = remember { HealthConnectManager(context) }
@@ -307,6 +341,8 @@ fun WorkoutsScreen() {
 
     var selectedSplitIndex by remember { mutableIntStateOf(2) } // Default to "Legs" matching reference design
     var isCatalogMode by remember { mutableStateOf(false) }
+    var sessionPart by remember { mutableStateOf<String?>(null) }
+    var setLogExercise by remember { mutableStateOf<Exercise?>(null) }
     var query by remember { mutableStateOf("") }
     var selectedGroup by remember { mutableStateOf<String?>(null) }
     
@@ -328,13 +364,24 @@ fun WorkoutsScreen() {
     var aiRecommendation by remember { mutableStateOf<WorkoutAiRecommendation?>(null) }
     var isAiLoading by remember { mutableStateOf(true) }
 
+    // Selected body parts (max 3, none selected until the user picks them)
+    var selectedBodyParts by remember { mutableStateOf(emptyList<String>()) }
+
+    // Session stopwatch keeps counting even while a sub-page is open; pause stops it
+    LaunchedEffect(session.active, session.running) {
+        while (session.active && session.running) {
+            delay(1000)
+            session.tick()
+        }
+    }
+
     LaunchedEffect(selectedCalendarDate, completedDates) {
         isAiLoading = true
         // Simulate in-device AI model inferencing and show smooth shimmer
         withContext(Dispatchers.Default) {
             val recommendation = OnDeviceWorkoutAiEngine.generateRecommendation(
                 selectedDate = selectedCalendarDate,
-                completedDates = completedDates,
+                exercises = workoutStore.exercises,
                 loggedWorkouts = loggedWorkouts
             )
             delay(650) // Realistic on-device neural/rule processing delay to display shimmer
@@ -345,10 +392,63 @@ fun WorkoutsScreen() {
         }
     }
 
+    val onWorkoutSaved: (LoggedWorkout) -> Unit = { workout ->
+        loggedWorkouts = workoutStore.logWorkout(workout)
+            PointsStore.init(context)
+            PointsStore.awardForWorkout(
+                exerciseName = workout.exerciseName,
+                setCount = workout.sets.size,
+                durationMinutes = workout.durationMinutes
+            )
+            loggingExercise = null
+            scope.launch {
+                val ok = healthConnectManager.insertExerciseSession(
+                    exerciseName = workout.exerciseName,
+                    start = Instant.ofEpochMilli(workout.timestampMillis)
+                        .minusSeconds(workout.durationMinutes * 60L),
+                    end = Instant.ofEpochMilli(workout.timestampMillis),
+                    setCount = workout.sets.size,
+                    totalReps = workout.totalReps,
+                    totalVolumeKg = workout.totalVolumeKg
+                )
+                if (ok) loggedWorkouts = workoutStore.markSynced(workout.id)
+            }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        if (isCatalogMode) {
+        if (session.active && setLogExercise != null) {
+            val exercise = setLogExercise!!
+            SetBySetLogPage(
+                exercise = exercise,
+                sessionRunning = session.running,
+                onBack = { setLogExercise = null },
+                onFinished = { workout ->
+                    onWorkoutSaved(workout)
+                    session.record(
+                        exercise,
+                        OnDeviceWorkoutAiEngine.bodyPartNameFor(exercise) ?: sessionPart.orEmpty(),
+                        workout.sets.size
+                    )
+                    setLogExercise = null
+                }
+            )
+        } else if (session.active && sessionPart != null) {
+            BackHandler { sessionPart = null }
+            BodyPartWorkoutPickerPage(
+                bodyParts = listOf(sessionPart!!),
+                exercises = workoutStore.exercises,
+                onBack = { sessionPart = null },
+                onExerciseClick = { exercise -> setLogExercise = exercise }
+            )
+        } else if (session.active) {
+            WorkoutSessionPage(
+                session = session,
+                onFinish = { session.end() },
+                onSelectBodyPart = { sessionPart = it }
+            )
+        } else if (isCatalogMode) {
             // Secondary bar to return to Split view
             Row(
                 modifier = Modifier
@@ -394,30 +494,20 @@ fun WorkoutsScreen() {
                 completedDates = completedDates,
                 aiRecommendation = aiRecommendation,
                 isAiLoading = isAiLoading,
-                onStartAiWorkout = {
-                    val targetIdx = aiRecommendation?.targetSplitIndex ?: selectedSplitIndex
-                    selectedSplitIndex = targetIdx.coerceIn(0, workoutSplits.lastIndex)
-                    val targetSplit = workoutSplits[selectedSplitIndex]
-                    val firstExercise = targetSplit.exercises.firstOrNull()
-                    if (firstExercise != null) {
-                        val matched = workoutStore.exercises.find { it.id == firstExercise.catalogExerciseId }
-                            ?: workoutStore.exercises.find { it.name.contains(firstExercise.exerciseName, ignoreCase = true) }
-                            ?: Exercise(
-                                id = firstExercise.catalogExerciseId,
-                                name = firstExercise.exerciseName,
-                                bodyPart = targetSplit.name.lowercase(),
-                                equipment = "Gym Equipment",
-                                primaryMuscle = firstExercise.muscles.split(",").firstOrNull()?.trim() ?: "Muscles",
-                                secondaryMuscles = emptyList(),
-                                instructions = listOf("Perform ${firstExercise.exerciseName} with proper form."),
-                                gif = "",
-                                img = ""
-                            )
-                        loggingExercise = matched
-                        loggingTargetReps = firstExercise.targetRepsInt
-                        loggingTargetWeightKg = firstExercise.targetWeightKg
-                        loggingSetCount = firstExercise.setsCount
+                selectedBodyParts = selectedBodyParts,
+                recommendedBodyParts = aiRecommendation?.recommendedBodyParts.orEmpty(),
+                onToggleBodyPart = { partName ->
+                    if (selectedBodyParts.contains(partName)) {
+                        selectedBodyParts = selectedBodyParts - partName
+                    } else if (selectedBodyParts.size < 3) {
+                        selectedBodyParts = selectedBodyParts + partName
                     }
+                },
+                onRemoveBodyPart = { partName ->
+                    selectedBodyParts = selectedBodyParts - partName
+                },
+                onStartAiWorkout = {
+                    session.start(selectedBodyParts)
                 },
                 onSelectCalendarDate = { selectedCalendarDate = it },
                 onSelectSplit = { selectedSplitIndex = it },
@@ -453,28 +543,7 @@ fun WorkoutsScreen() {
             initialTargetWeightKg = loggingTargetWeightKg,
             initialSetCount = loggingSetCount,
             onDismiss = { loggingExercise = null },
-            onSaved = { workout ->
-                loggedWorkouts = workoutStore.logWorkout(workout)
-                PointsStore.init(context)
-                PointsStore.awardForWorkout(
-                    exerciseName = workout.exerciseName,
-                    setCount = workout.sets.size,
-                    durationMinutes = workout.durationMinutes
-                )
-                loggingExercise = null
-                scope.launch {
-                    val ok = healthConnectManager.insertExerciseSession(
-                        exerciseName = workout.exerciseName,
-                        start = Instant.ofEpochMilli(workout.timestampMillis)
-                            .minusSeconds(workout.durationMinutes * 60L),
-                        end = Instant.ofEpochMilli(workout.timestampMillis),
-                        setCount = workout.sets.size,
-                        totalReps = workout.totalReps,
-                        totalVolumeKg = workout.totalVolumeKg
-                    )
-                    if (ok) loggedWorkouts = workoutStore.markSynced(workout.id)
-                }
-            }
+            onSaved = onWorkoutSaved
         )
     }
 }
@@ -488,6 +557,10 @@ private fun WorkoutSplitContent(
     completedDates: Set<LocalDate>,
     aiRecommendation: WorkoutAiRecommendation?,
     isAiLoading: Boolean,
+    selectedBodyParts: List<String>,
+    recommendedBodyParts: List<String>,
+    onToggleBodyPart: (String) -> Unit,
+    onRemoveBodyPart: (String) -> Unit,
     onStartAiWorkout: () -> Unit,
     onSelectCalendarDate: (LocalDate) -> Unit,
     onSelectSplit: (Int) -> Unit,
@@ -513,88 +586,32 @@ private fun WorkoutSplitContent(
             AiRecommendationCard(
                 recommendation = aiRecommendation,
                 isLoading = isAiLoading,
+                selectedBodyParts = selectedBodyParts,
+                onRemoveBodyPart = onRemoveBodyPart,
                 onStartWorkout = onStartAiWorkout
             )
         }
 
-        // Section Header Row: Title & Link to full catalog
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Workout Split",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-
-                Text(
-                    text = "All Exercises",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onOpenCatalog)
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                )
-            }
-        }
-
-        // Split Filter Pills: Push | Pull | Legs
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                workoutSplits.forEachIndexed { index, item ->
-                    val isSelected = selectedSplitIndex == index
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .clickable { onSelectSplit(index) },
-                        shape = RoundedCornerShape(22.dp),
-                        color = if (isSelected) Color(0xFF0F172A) else Color.White,
-                        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        shadowElevation = if (isSelected) 2.dp else 0.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = item.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isSelected) Color.White else Color(0xFF334155)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Overview Card: Legs Day / Push Day / Pull Day
+        // Body Parts Section Container (Matching Reference Image)
         item {
             ElevatedCard(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    // Header Row: "Body parts" + "8 parts" badge
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = split.title,
+                            text = "Body parts",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
@@ -602,41 +619,148 @@ private fun WorkoutSplitContent(
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF1F5F9)
+                            color = Color(0xFFEFF6FF) // Soft light blue badge background
                         ) {
                             Text(
-                                text = "${split.exercises.size} Exercises",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF475569),
+                                text = "${defaultBodyParts.size} parts",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2563EB), // Vibrant blue
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }
 
+                    // Subtitle
                     Text(
-                        text = "${split.durationText} • ${split.difficultyText}",
+                        text = "Choose the focus for your next session",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                         color = Color(0xFF64748B)
                     )
 
-                    Text(
-                        text = split.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF475569),
-                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
-                    )
+                    Spacer(Modifier.height(2.dp))
+
+                    // List of 8 Body Part Cards
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        defaultBodyParts.forEach { part ->
+                            val isSelected = selectedBodyParts.contains(part.name)
+                            val canAdd = selectedBodyParts.size < 3
+                            val isRecommended = part.name in recommendedBodyParts
+                            val glow by rememberInfiniteTransition(label = "recommend_glow").animateFloat(
+                                initialValue = 0.25f,
+                                targetValue = 1f,
+                                animationSpec = infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                                label = "recommend_glow_alpha"
+                            )
+
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color.White,
+                                border = BorderStroke(
+                                    if (isRecommended) 2.dp else 1.dp,
+                                    when {
+                                        isRecommended -> Color(0xFF8B5CF6).copy(alpha = glow)
+                                        isSelected -> Color(0xFF2563EB).copy(alpha = 0.4f)
+                                        else -> Color(0xFFF1F5F9)
+                                    }
+                                ),
+                                shadowElevation = if (isRecommended) (2 + 10 * glow).dp else 0.5.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (isRecommended) Modifier.shadow(
+                                            elevation = (4 + 12 * glow).dp,
+                                            shape = RoundedCornerShape(18.dp),
+                                            ambientColor = Color(0xFF8B5CF6),
+                                            spotColor = Color(0xFF8B5CF6)
+                                        ) else Modifier
+                                    )
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .clickable { onToggleBodyPart(part.name) }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = part.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF0F172A)
+                                            )
+                                            if (isRecommended) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color(0xFF8B5CF6).copy(alpha = 0.12f)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Outlined.AutoAwesome,
+                                                            contentDescription = null,
+                                                            tint = Color(0xFF7C3AED),
+                                                            modifier = Modifier.size(11.dp)
+                                                        )
+                                                        Text(
+                                                            text = "Recommended",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color(0xFF7C3AED)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Text(
+                                            text = part.subtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF64748B)
+                                        )
+                                    }
+
+                                    // Circular Add / Check Button
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isSelected) Color(0xFF10B981) else if (canAdd) Color(0xFF2563EB) else Color(0xFF94A3B8),
+                                        modifier = Modifier.size(38.dp)
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isSelected) Icons.Filled.Check else Icons.Filled.Add,
+                                                contentDescription = if (isSelected) "Selected" else "Add body part",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        }
-
-        // Exercise Cards List matching reference design
-        items(split.exercises, key = { it.exerciseName }) { exerciseItem ->
-            SplitExerciseCard(
-                item = exerciseItem,
-                onClick = { onExerciseClick(exerciseItem) }
-            )
         }
     }
 }
@@ -842,81 +966,82 @@ private fun CalendarDayCard(
 
 // MARK: - On-Device AI Workout Recommendation
 data class WorkoutAiRecommendation(
-    val splitTarget: String, // e.g. "LEG DAY", "CHEST & TRICEPS", "BACK & BICEPS"
+    val splitTarget: String, // e.g. "CHEST & TRICEPS"
     val targetSplitIndex: Int,
     val headline: String,
-    val description: String
+    val description: String,
+    val recommendedBodyParts: List<String> = emptyList()
 )
 
 object OnDeviceWorkoutAiEngine {
+    private const val RECOMMEND_COUNT = 2
+
+    /** Maps a catalog exercise to one of the names in [defaultBodyParts]. */
+    fun bodyPartNameFor(exercise: Exercise): String? = when (exercise.bodyPart) {
+        "chest" -> "Chest"
+        "back" -> "Back"
+        "shoulders" -> "Shoulders"
+        "upper arms" -> if (exercise.primaryMuscle.contains("tricep", ignoreCase = true)) "Triceps" else "Biceps"
+        "lower arms" -> "Biceps"
+        "upper legs" -> "Legs"
+        "lower legs" -> "Calves"
+        "waist" -> "Core / Abs"
+        else -> null
+    }
+
+    private fun splitIndexFor(parts: List<String>): Int = when (parts.firstOrNull()) {
+        "Chest", "Shoulders", "Triceps" -> 0
+        "Back", "Biceps" -> 1
+        else -> 2
+    }
+
     fun generateRecommendation(
         selectedDate: LocalDate,
-        completedDates: Set<LocalDate>,
+        exercises: List<Exercise>,
         loggedWorkouts: List<LoggedWorkout>
     ): WorkoutAiRecommendation {
-        val dayOfWeek = selectedDate.dayOfWeek
-        val isToday = selectedDate == LocalDate.now()
+        val zone = ZoneId.systemDefault()
+        val byId = exercises.associateBy { it.id }
 
-        // Check if selected date was already logged
-        val hasCompleted = selectedDate in completedDates
-        if (hasCompleted) {
-            val loggedOnDay = loggedWorkouts.filter {
-                Instant.ofEpochMilli(it.timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate() == selectedDate
+        // Body part -> most recent day it was trained (up to and including the selected date)
+        val lastTrained = HashMap<String, LocalDate>()
+        loggedWorkouts.forEach { log ->
+            val date = Instant.ofEpochMilli(log.timestampMillis).atZone(zone).toLocalDate()
+            if (date.isAfter(selectedDate)) return@forEach
+            val exercise = byId[log.exerciseId] ?: exercises.find { it.name.equals(log.exerciseName, true) }
+            val part = exercise?.let(::bodyPartNameFor) ?: return@forEach
+            if (lastTrained[part]?.isBefore(date) != false) lastTrained[part] = date
+        }
+
+        val trainedToday = defaultBodyParts.map { it.name }.filter { lastTrained[it] == selectedDate }
+
+        // Never-trained first, then the longest-rested; anything already done today is skipped
+        val candidates = defaultBodyParts.map { it.name }
+            .filter { it !in trainedToday }
+            .sortedByDescending { part ->
+                lastTrained[part]?.let { java.time.temporal.ChronoUnit.DAYS.between(it, selectedDate) } ?: Long.MAX_VALUE
             }
-            val primaryName = loggedOnDay.firstOrNull()?.exerciseName ?: "Routine"
-            return WorkoutAiRecommendation(
-                splitTarget = "COMPLETED",
-                targetSplitIndex = 2,
-                headline = "Workout Finished!",
-                description = "You already crushed $primaryName today. Prioritize hydration, 30g+ protein intake, and active mobility recovery."
-            )
-        }
+        val picks = candidates.take(RECOMMEND_COUNT)
 
-        // Recommend based on split rotation & day of week
-        return when (dayOfWeek) {
-            DayOfWeek.MONDAY -> WorkoutAiRecommendation(
-                splitTarget = "CHEST & TRICEPS",
-                targetSplitIndex = 0, // Push
-                headline = "Today's Recommendation",
-                description = "Focus on heavy compound pressing like barbell bench press and overhead press to build upper body explosive push power."
-            )
-            DayOfWeek.TUESDAY -> WorkoutAiRecommendation(
-                splitTarget = "BACK & BICEPS",
-                targetSplitIndex = 1, // Pull
-                headline = "Today's Recommendation",
-                description = "Target posterior lats and rhomboids with weighted pull-ups and bent-over rows to balance anterior shoulder posture."
-            )
-            DayOfWeek.WEDNESDAY -> WorkoutAiRecommendation(
-                splitTarget = "LEG DAY",
-                targetSplitIndex = 2, // Legs
-                headline = "Today's Recommendation",
-                description = "Focus on compound exercises like squats and deadlifts to maximize your leg growth."
-            )
-            DayOfWeek.THURSDAY -> WorkoutAiRecommendation(
-                splitTarget = "PUSH INTENSITY",
-                targetSplitIndex = 0, // Push
-                headline = "Today's Recommendation",
-                description = "Incline dumbbell presses and dips are dialed in today to stimulate upper clavicular chest fibers."
-            )
-            DayOfWeek.FRIDAY -> WorkoutAiRecommendation(
-                splitTarget = "PULL & CORE",
-                targetSplitIndex = 1, // Pull
-                headline = "Today's Recommendation",
-                description = "Cable lat pulldowns and heavy barbell shrugs will reinforce strong spinal erectors and back thickness."
-            )
-            DayOfWeek.SATURDAY -> WorkoutAiRecommendation(
-                splitTarget = "LEG DAY",
-                targetSplitIndex = 2, // Legs
-                headline = "Today's Recommendation",
-                description = "High rep Romanian deadlifts and Bulgarian split squats for hamstring isolation and knee stabilization."
-            )
-            DayOfWeek.SUNDAY -> WorkoutAiRecommendation(
-                splitTarget = "ACTIVE RECOVERY",
-                targetSplitIndex = 0,
-                headline = "Today's Recommendation",
-                description = "Light mobility stretching, 20 minutes brisk walking, and central nervous system replenishment for the upcoming cycle."
-            )
+        val reasons = picks.joinToString(" ") { part ->
+            val last = lastTrained[part]
+            if (last == null) "$part hasn't been trained yet."
+            else {
+                val days = java.time.temporal.ChronoUnit.DAYS.between(last, selectedDate)
+                "$part was last trained $days day${if (days == 1L) "" else "s"} ago."
+            }
         }
+        val intro = if (trainedToday.isNotEmpty())
+            "You already trained ${trainedToday.joinToString(", ")} today, so switch to something fresh. "
+        else ""
+
+        return WorkoutAiRecommendation(
+            splitTarget = picks.joinToString(" & ") { it.substringBefore(" /").uppercase() },
+            targetSplitIndex = splitIndexFor(picks),
+            headline = if (trainedToday.isNotEmpty()) "Next Up" else "Today's Recommendation",
+            description = intro + reasons,
+            recommendedBodyParts = picks
+        )
     }
 }
 
@@ -924,6 +1049,8 @@ object OnDeviceWorkoutAiEngine {
 private fun AiRecommendationCard(
     recommendation: WorkoutAiRecommendation?,
     isLoading: Boolean,
+    selectedBodyParts: List<String>,
+    onRemoveBodyPart: (String) -> Unit,
     onStartWorkout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -979,26 +1106,123 @@ private fun AiRecommendationCard(
                     lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
                 )
 
-                Spacer(Modifier.height(2.dp))
+                // Body Parts in AI Card (Flowing badges from list below)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Body parts",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE2E8F0)
+                        )
+
+                        Text(
+                            text = "${selectedBodyParts.size}/3 part limit",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+
+                    // Pills stay composed until their exit animation finishes
+                    val shownParts = remember { mutableStateListOf<String>() }
+                    val pillStates = remember { HashMap<String, MutableTransitionState<Boolean>>() }
+                    LaunchedEffect(selectedBodyParts) {
+                        selectedBodyParts.forEach { part ->
+                            val state = pillStates.getOrPut(part) { MutableTransitionState(false) }
+                            state.targetState = true
+                            if (part !in shownParts) shownParts.add(part)
+                        }
+                        shownParts.filter { it !in selectedBodyParts }
+                            .forEach { pillStates[it]?.targetState = false }
+                    }
+
+                    // Pills Row with smooth add/remove animation
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(tween(300)),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        shownParts.toList().forEach { part ->
+                          key(part) {
+                            val visibleState = pillStates.getOrPut(part) { MutableTransitionState(false) }
+                            LaunchedEffect(visibleState.currentState, visibleState.isIdle) {
+                                if (visibleState.isIdle && !visibleState.currentState && part !in selectedBodyParts) {
+                                    shownParts.remove(part)
+                                    pillStates.remove(part)
+                                }
+                            }
+                            AnimatedVisibility(
+                                visibleState = visibleState,
+                                enter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.6f) + expandHorizontally(tween(300)),
+                                exit = fadeOut(tween(250)) + scaleOut(tween(250))
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = BorderStroke(1.dp, Color(0xFF334155)),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .clickable { onRemoveBodyPart(part) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = part,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                          }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
 
                 // Big White Pill Button "Start Workout"
                 Button(
                     onClick = onStartWorkout,
+                    enabled = selectedBodyParts.isNotEmpty(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
                     shape = RoundedCornerShape(26.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White,
-                        contentColor = Color(0xFF0F172A)
+                        contentColor = Color(0xFF0F172A),
+                        disabledContainerColor = Color.White.copy(alpha = 0.6f),
+                        disabledContentColor = Color(0xFF0F172A).copy(alpha = 0.7f)
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
                     Text(
-                        text = "Start Workout",
+                        text = if (selectedBodyParts.isEmpty()) "Select Body Part" else "Start Workout",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = if (selectedBodyParts.isEmpty()) Color(0xFF0F172A).copy(alpha = 0.7f) else Color(0xFF0F172A)
                     )
                 }
             }
@@ -1813,8 +2037,157 @@ private fun WorkoutLogSheet(
     }
 }
 
+// MARK: - Workout picker page (exercises of the selected body parts, with animated demos)
 @Composable
-private fun GifWebView(url: String, modifier: Modifier = Modifier) {
+private fun BodyPartWorkoutPickerPage(
+    bodyParts: List<String>,
+    exercises: List<Exercise>,
+    onBack: () -> Unit,
+    onExerciseClick: (Exercise) -> Unit
+) {
+    var filterPart by remember { mutableStateOf<String?>(null) }
+    val results = remember(bodyParts, exercises, filterPart) {
+        exercises.filter { ex ->
+            val part = OnDeviceWorkoutAiEngine.bodyPartNameFor(ex)
+            if (filterPart != null) part == filterPart else part in bodyParts
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Column {
+                Text(
+                    text = "Choose a workout",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${results.size} exercises for ${bodyParts.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (bodyParts.size > 1) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = filterPart == null,
+                    onClick = { filterPart = null },
+                    label = { Text("All") },
+                    shape = RoundedCornerShape(8.dp)
+                )
+                bodyParts.forEach { part ->
+                    FilterChip(
+                        selected = filterPart == part,
+                        onClick = { filterPart = if (filterPart == part) null else part },
+                        label = { Text(part) },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (results.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(vertical = 40.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Text(
+                    text = "No exercises found for this body part.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                items(results, key = { it.id }) { exercise ->
+                    ElevatedCard(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                val gif = exercise.gifUrl
+                                Box(
+                                    modifier = Modifier
+                                        .size(96.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.White),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (gif != null) {
+                                        GifWebView(url = gif, modifier = Modifier.fillMaxSize())
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Outlined.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = exercise.name.replaceFirstChar { it.uppercaseChar() },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 2
+                                    )
+                                    Text(
+                                        text = "${exercise.primaryMuscleLabel} • ${exercise.equipment}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                            // The WebView swallows touches, so capture taps on an overlay
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { onExerciseClick(exercise) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GifWebView(url: String, modifier: Modifier = Modifier) {
     AndroidView(
         modifier = modifier,
         factory = { ctx ->

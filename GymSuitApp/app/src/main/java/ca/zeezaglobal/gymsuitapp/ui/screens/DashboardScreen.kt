@@ -106,6 +106,11 @@ fun DashboardScreen(
     onNavigateToCaloriesDetail: (LocalDate) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
+    // Lives here so an active workout survives tab changes and locks navigation
+    val workoutSession = remember { WorkoutSessionState() }
+    if (workoutSession.active && selectedTab != DashboardTab.WORKOUTS) {
+        selectedTab = DashboardTab.WORKOUTS
+    }
 
     // Dynamically generate 30 days ending with Today (last index = 29 = Today)
     val today = remember { LocalDate.now() }
@@ -564,7 +569,7 @@ fun DashboardScreen(
                         )
                     }
                     DashboardTab.WORKOUTS -> {
-                        WorkoutsScreen()
+                        WorkoutsScreen(session = workoutSession)
                     }
                     else -> {
                         // Blank Page Content for other non-Home tabs
@@ -583,10 +588,13 @@ fun DashboardScreen(
                 .padding(bottom = 16.dp, start = 16.dp, end = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            DashboardFloatingNavBar(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
+            // Hidden while a workout is running: it must be ended before leaving
+            if (!workoutSession.active) {
+                DashboardFloatingNavBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+            }
         }
 
         if (showNamePromptDialog) {
