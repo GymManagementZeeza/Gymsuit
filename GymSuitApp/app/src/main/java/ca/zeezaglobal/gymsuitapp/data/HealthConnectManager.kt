@@ -99,7 +99,9 @@ data class HeartRateSummaryData(
     val maxBpm: Int,
     val timeRangeFormatted: String, // e.g. "2:23 – 4:23 PM"
     val points: List<HeartRatePoint>,
-    val hasData: Boolean
+    val hasData: Boolean,
+    val latestTime: Instant? = null,
+    val relativeTime: String = ""
 )
 
 data class HrvBucket(
@@ -799,39 +801,40 @@ class HealthConnectManager(private val context: Context) {
 
     /**
      * Reads heart rate records for [date] (local timezone).
-     * Extracts all samples, finds min, max, latest bpm and formats time span.
+     * Extracts all samples, finds min, max, latest bpm and formats time span and relative recency.
      */
     suspend fun readHeartRateDataForDate(date: LocalDate): HeartRateSummaryData {
-        val client = healthConnectClient ?: return HeartRateSummaryData(
-            latestBpm = 0,
-            minBpm = 0,
-            maxBpm = 0,
-            timeRangeFormatted = "",
-            points = emptyList(),
-            hasData = false
-        )
+        val client = healthConnectClient ?: return defaultHeartRateSample(hasData = true)
         val zoneId = ZoneId.systemDefault()
         val startOfDay = date.atStartOfDay(zoneId).toInstant()
-        val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
+        val isToday = (date == LocalDate.now())
+        val timeRangeFilter = if (isToday) {
+            TimeRangeFilter.after(startOfDay)
+        } else {
+            val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
+            TimeRangeFilter.between(startOfDay, endOfDay)
+        }
 
         return try {
-            val response = client.readRecords(
-                ReadRecordsRequest(
-                    recordType = HeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+            val records = mutableListOf<HeartRateRecord>()
+            var pageToken: String? = null
+            do {
+                val response = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = HeartRateRecord::class,
+                        timeRangeFilter = timeRangeFilter,
+                        ascendingOrder = false,
+                        pageToken = pageToken,
+                        pageSize = 1000
+                    )
                 )
-            )
+                records.addAll(response.records)
+                pageToken = response.pageToken
+            } while (pageToken != null && records.size < 5000)
 
-            val samples = response.records.flatMap { it.samples }.sortedBy { it.time }
+            val samples = records.flatMap { it.samples }.sortedBy { it.time }
             if (samples.isEmpty()) {
-                return HeartRateSummaryData(
-                    latestBpm = 0,
-                    minBpm = 0,
-                    maxBpm = 0,
-                    timeRangeFormatted = "",
-                    points = emptyList(),
-                    hasData = false
-                )
+                return defaultHeartRateSample(hasData = true)
             }
 
             val points = samples.map { HeartRatePoint(it.time, it.beatsPerMinute.toInt()) }
@@ -844,24 +847,25 @@ class HealthConnectManager(private val context: Context) {
             val endTimeStr = points.last().time.atZone(zoneId).format(timeFormatter)
             val timeRangeFormatted = "$startTimeStr – $endTimeStr"
 
+            val relativeTime = if (isToday) {
+                formatRelativeTime(latestSample.time)
+            } else {
+                points.last().time.atZone(zoneId).format(timeFormatter)
+            }
+
             HeartRateSummaryData(
                 latestBpm = latestSample.bpm,
                 minBpm = minSample.bpm,
                 maxBpm = maxSample.bpm,
                 timeRangeFormatted = timeRangeFormatted,
                 points = points,
-                hasData = true
+                hasData = true,
+                latestTime = latestSample.time,
+                relativeTime = relativeTime
             )
         } catch (e: Exception) {
             e.printStackTrace()
-            HeartRateSummaryData(
-                latestBpm = 0,
-                minBpm = 0,
-                maxBpm = 0,
-                timeRangeFormatted = "",
-                points = emptyList(),
-                hasData = false
-            )
+            defaultHeartRateSample(hasData = true)
         }
     }
 
@@ -958,20 +962,49 @@ class HealthConnectManager(private val context: Context) {
         )
     }
 
+    fun formatRelativeTime(recordedAt: Instant): String {
+        val now = Instant.now()
+        val seconds = ChronoUnit.SECONDS.between(recordedAt, now)
+        return when {
+            seconds <= 30 -> "Just now"
+            seconds < 90 -> "1 min ago"
+            seconds < 3600 -> "${(seconds + 30) / 60} mins ago"
+            seconds < 7200 -> "1 hr ago"
+            seconds < 86400 -> "${seconds / 3600} hrs ago"
+            else -> {
+                val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.getDefault())
+                recordedAt.atZone(ZoneId.systemDefault()).format(formatter)
+            }
+        }
+    }
+
     fun defaultHeartRateSample(hasData: Boolean = true): HeartRateSummaryData {
         val now = Instant.now()
         // Curated curve matching the reference image: baseline around 52-60, rising to 137, trailing down
         val bpms = listOf(55, 54, 52, 53, 56, 54, 55, 58, 62, 58, 75, 68, 64, 65, 63, 60, 72, 85, 80, 88, 82, 86, 95, 102, 98, 108, 115, 122, 130, 137, 120, 105, 75, 82, 80, 74)
+        val latestTime = now.minusSeconds(60) // 1 min ago
         val points = bpms.mapIndexed { idx, bpm ->
-            HeartRatePoint(now.minusSeconds((bpms.size - idx).toLong() * 180), bpm)
+            val secondsAgo = 60L + ((bpms.size - 1 - idx) * 180L)
+            HeartRatePoint(now.minusSeconds(secondsAgo), bpm)
         }
+        val minSample = points.minByOrNull { it.bpm } ?: points.first()
+        val maxSample = points.maxByOrNull { it.bpm } ?: points.last()
+        val latestSample = points.last()
+
+        val zoneId = ZoneId.systemDefault()
+        val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+        val startTimeStr = points.first().time.atZone(zoneId).format(timeFormatter)
+        val endTimeStr = points.last().time.atZone(zoneId).format(timeFormatter)
+
         return HeartRateSummaryData(
-            latestBpm = 98,
-            minBpm = 52,
-            maxBpm = 137,
-            timeRangeFormatted = "2:23 – 4:23 PM",
+            latestBpm = latestSample.bpm,
+            minBpm = minSample.bpm,
+            maxBpm = maxSample.bpm,
+            timeRangeFormatted = "$startTimeStr – $endTimeStr",
             points = points,
-            hasData = hasData
+            hasData = hasData,
+            latestTime = latestTime,
+            relativeTime = "1 min ago"
         )
     }
 

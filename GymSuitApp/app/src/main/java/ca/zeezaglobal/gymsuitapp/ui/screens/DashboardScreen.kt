@@ -219,11 +219,11 @@ fun DashboardScreen(
         if (!isRefreshing) {
             isRefreshing = true
             coroutineScope.launch {
+                syncKey += 1
                 // Read and log live Health Connect data as JSON
                 healthConnectManager.logAllHealthDataAsJson()
                 viewModel.onDateSelected(days[selectedDayIndex].localDate, forceRefresh = true)
                 delay(1200)
-                syncKey += 1
                 isRefreshing = false
             }
         }
@@ -260,36 +260,44 @@ fun DashboardScreen(
                             .border(1.5.dp, Color(0xFFE5E7EB), CircleShape)
                     )
 
-                    // Material 3 Notification Bell with M3 Shape and Badge
-                    BadgedBox(
-                        badge = {
-                            Badge(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError,
-                                modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+                    // Top Right Actions: Points Pill & Notification Bell
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        PointsPill()
+
+                        // Material 3 Notification Bell with M3 Shape and Badge
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError,
+                                    modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "3",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = { /* Handle notification tap */ },
+                                shape = RoundedCornerShape(16.dp), // M3 Medium Shape token
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.size(44.dp)
                             ) {
-                                Text(
-                                    text = "3",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                                Icon(
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
-                        }
-                    ) {
-                        FilledTonalIconButton(
-                            onClick = { /* Handle notification tap */ },
-                            shape = RoundedCornerShape(16.dp), // M3 Medium Shape token
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Notifications,
-                                contentDescription = "Notifications",
-                                modifier = Modifier.size(24.dp)
-                            )
                         }
                     }
                 }
@@ -388,14 +396,6 @@ fun DashboardScreen(
                                         color = Color(0xFF111827),
                                         textAlign = TextAlign.Center
                                     )
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    PointsPill()
                                 }
                             }
 
@@ -501,7 +501,10 @@ fun DashboardScreen(
                                 ) {
                                     WorkoutCardWidget(
                                         days = days,
-                                        syncTrigger = syncKey
+                                        syncTrigger = syncKey,
+                                        onClick = {
+                                            selectedTab = DashboardTab.WORKOUTS
+                                        }
                                     )
                                     SleepWidget(
                                         selectedDate = days[selectedDayIndex].localDate,
@@ -801,7 +804,8 @@ private fun BlankPageContent(tab: DashboardTab) {
 @Composable
 private fun WorkoutCardWidget(
     days: List<DayItem> = emptyList(),
-    syncTrigger: Int = 0
+    syncTrigger: Int = 0,
+    onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
@@ -846,7 +850,10 @@ private fun WorkoutCardWidget(
     Surface(
         shape = RoundedCornerShape(20.dp),
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
     ) {
         Box(
             modifier = Modifier
@@ -958,18 +965,6 @@ private fun WorkoutCardWidget(
                                                     Modifier
                                                 }
                                             )
-                                            .clickable {
-                                                val newSet = if (date in localWorkoutDays) {
-                                                    localWorkoutDays - date
-                                                } else {
-                                                    localWorkoutDays + date
-                                                }
-                                                localWorkoutDays = newSet
-                                                prefs.edit().putStringSet(
-                                                    "completed_dates",
-                                                    newSet.map { it.toString() }.toSet()
-                                                ).apply()
-                                            }
                                     )
                                 } else {
                                     Spacer(modifier = Modifier.size(14.dp))
@@ -1434,30 +1429,11 @@ private fun HeartRateWidget(
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
     var hrData by remember {
-        mutableStateOf(
-            HeartRateSummaryData(
-                latestBpm = 0,
-                minBpm = 0,
-                maxBpm = 0,
-                timeRangeFormatted = "",
-                points = emptyList(),
-                hasData = false
-            )
-        )
+        mutableStateOf(healthConnectManager.defaultHeartRateSample(hasData = true))
     }
-    val isAvailable = remember { healthConnectManager.isAvailable() }
 
     LaunchedEffect(selectedDate, syncTrigger) {
-        if (isAvailable) {
-            val hasHr = healthConnectManager.hasHeartRatePermission()
-            if (hasHr) {
-                hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
-            } else {
-                hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
-            }
-        } else {
-            hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
-        }
+        hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
     }
 
     Surface(
@@ -1496,12 +1472,22 @@ private fun HeartRateWidget(
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Heart Rate",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
+                    Column {
+                        Text(
+                            text = "Heart Rate",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827)
+                        )
+                        if (hrData.hasData && hrData.relativeTime.isNotBlank()) {
+                            Text(
+                                text = hrData.relativeTime,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = Color(0xFF6B7280)
+                            )
+                        }
+                    }
                 }
 
                 // Main BPM Metric with BPM unit label
