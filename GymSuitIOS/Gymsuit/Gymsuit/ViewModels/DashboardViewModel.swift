@@ -71,7 +71,20 @@ public final class DashboardViewModel: ObservableObject {
             
             let (steps, calories, sleep, heartRate) = await (s, c, sl, hr)
             self.stepsCount = steps
-            self.caloriesBreakdown = calories
+            // App-logged workouts not yet synced to HealthKit are invisible to it,
+            // so add their estimate on top (~7.5 kcal/min, same as Android).
+            let unsyncedKcal = WorkoutStore.shared.loggedWorkouts
+                .filter { !$0.syncedToHealthKit && Calendar.current.isDate($0.date, inSameDayAs: date) }
+                .reduce(0.0) { $0 + Double($1.durationMinutes) * 7.5 }
+            let workoutKcal = calories.workoutKcal + unsyncedKcal
+            let totalKcal = calories.stepsKcal + workoutKcal
+            self.caloriesBreakdown = CaloriesBreakdown(
+                totalKcal: totalKcal,
+                stepsKcal: calories.stepsKcal,
+                workoutKcal: workoutKcal,
+                moveKcal: calories.moveKcal,
+                hasData: totalKcal > 0
+            )
             self.sleepSession = sleep
             self.heartRateSummary = heartRate
             self.isLoadingMetrics = false
