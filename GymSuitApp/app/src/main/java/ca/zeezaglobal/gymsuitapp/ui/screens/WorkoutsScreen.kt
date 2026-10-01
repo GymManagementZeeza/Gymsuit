@@ -2,6 +2,7 @@ package ca.zeezaglobal.gymsuitapp.ui.screens
 
 import android.app.DatePickerDialog
 import android.webkit.WebView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
@@ -86,11 +88,202 @@ import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSet
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Calendar
+import java.util.Locale
+
+// MARK: - Workout Split Data Models
+data class SplitExerciseItem(
+    val exerciseName: String,
+    val catalogExerciseId: String,
+    val type: String, // "Compound" or "Isolation"
+    val muscles: String,
+    val setsCount: Int,
+    val targetReps: String,
+    val targetRepsInt: Int,
+    val targetWeight: String,
+    val targetWeightKg: Double
+)
+
+data class WorkoutSplitPreset(
+    val id: String,
+    val name: String, // "Push", "Pull", "Legs"
+    val title: String,
+    val durationText: String,
+    val difficultyText: String,
+    val description: String,
+    val exercises: List<SplitExerciseItem>
+)
+
+val workoutSplits = listOf(
+    WorkoutSplitPreset(
+        id = "push",
+        name = "Push",
+        title = "Push Day",
+        durationText = "55-70 minutes",
+        difficultyText = "Intermediate",
+        description = "Focus on chest, anterior deltoids, and triceps with pressing mechanics. Prioritize clean form and controlled eccentrics on every repetition.",
+        exercises = listOf(
+            SplitExerciseItem(
+                exerciseName = "Barbell Bench Press",
+                catalogExerciseId = "0025",
+                type = "Compound",
+                muscles = "Chest, Front Deltoids, Triceps",
+                setsCount = 4,
+                targetReps = "8-10 Reps",
+                targetRepsInt = 8,
+                targetWeight = "65kg",
+                targetWeightKg = 65.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Overhead Shoulder Press",
+                catalogExerciseId = "0997",
+                type = "Compound",
+                muscles = "Shoulders, Upper Chest, Triceps",
+                setsCount = 3,
+                targetReps = "8-12 Reps",
+                targetRepsInt = 10,
+                targetWeight = "40kg",
+                targetWeightKg = 40.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Incline Dumbbell Press",
+                catalogExerciseId = "1254",
+                type = "Compound",
+                muscles = "Upper Chest, Anterior Deltoids",
+                setsCount = 3,
+                targetReps = "10-12 Reps",
+                targetRepsInt = 10,
+                targetWeight = "22kg",
+                targetWeightKg = 22.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Triceps Dips",
+                catalogExerciseId = "0019",
+                type = "Compound",
+                muscles = "Triceps, Lower Chest",
+                setsCount = 3,
+                targetReps = "10-15 Reps",
+                targetRepsInt = 12,
+                targetWeight = "Bodyweight",
+                targetWeightKg = 0.0
+            )
+        )
+    ),
+    WorkoutSplitPreset(
+        id = "pull",
+        name = "Pull",
+        title = "Pull Day",
+        durationText = "50-65 minutes",
+        difficultyText = "Intermediate",
+        description = "Target the entire posterior chain including lats, rhomboids, rear delts, and biceps. Focus on full scapular retraction and a squeeze at peak contraction.",
+        exercises = listOf(
+            SplitExerciseItem(
+                exerciseName = "Pull-Ups",
+                catalogExerciseId = "0652",
+                type = "Compound",
+                muscles = "Latissimus Dorsi, Upper Back, Biceps",
+                setsCount = 4,
+                targetReps = "6-10 Reps",
+                targetRepsInt = 8,
+                targetWeight = "Bodyweight",
+                targetWeightKg = 0.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Barbell Bent Over Row",
+                catalogExerciseId = "0027",
+                type = "Compound",
+                muscles = "Lats, Rhomboids, Lower Back",
+                setsCount = 4,
+                targetReps = "8-10 Reps",
+                targetRepsInt = 8,
+                targetWeight = "60kg",
+                targetWeightKg = 60.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Cable Lat Pulldown",
+                catalogExerciseId = "2330",
+                type = "Compound",
+                muscles = "Lats, Middle Back, Biceps",
+                setsCount = 3,
+                targetReps = "10-12 Reps",
+                targetRepsInt = 10,
+                targetWeight = "50kg",
+                targetWeightKg = 50.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Bicep Curls",
+                catalogExerciseId = "1634",
+                type = "Isolation",
+                muscles = "Biceps Brachii, Forearms",
+                setsCount = 3,
+                targetReps = "12-15 Reps",
+                targetRepsInt = 12,
+                targetWeight = "14kg",
+                targetWeightKg = 14.0
+            )
+        )
+    ),
+    WorkoutSplitPreset(
+        id = "legs",
+        name = "Legs",
+        title = "Legs Day",
+        durationText = "60-75 minutes",
+        difficultyText = "Intermediate",
+        description = "Focus on compound movements to maximize muscle recruitment and strength gains. Rest for 90-120 seconds between heavy sets.",
+        exercises = listOf(
+            SplitExerciseItem(
+                exerciseName = "Squats",
+                catalogExerciseId = "0043",
+                type = "Compound",
+                muscles = "Quadriceps, Hamstrings, Glutes",
+                setsCount = 4,
+                targetReps = "8-12 Reps",
+                targetRepsInt = 10,
+                targetWeight = "70kg",
+                targetWeightKg = 70.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Romanian Deadlifts",
+                catalogExerciseId = "0085",
+                type = "Compound",
+                muscles = "Hamstrings, Glutes, Lower Back",
+                setsCount = 4,
+                targetReps = "8-10 Reps",
+                targetRepsInt = 8,
+                targetWeight = "80kg",
+                targetWeightKg = 80.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Leg Press",
+                catalogExerciseId = "0739",
+                type = "Compound",
+                muscles = "Quadriceps, Glutes",
+                setsCount = 3,
+                targetReps = "10-12 Reps",
+                targetRepsInt = 10,
+                targetWeight = "120kg",
+                targetWeightKg = 120.0
+            ),
+            SplitExerciseItem(
+                exerciseName = "Lunges",
+                catalogExerciseId = "0336",
+                type = "Compound",
+                muscles = "Quadriceps, Glutes, Calves",
+                setsCount = 3,
+                targetReps = "12-15 Reps",
+                targetRepsInt = 12,
+                targetWeight = "16kg",
+                targetWeightKg = 16.0
+            )
+        )
+    )
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,22 +293,36 @@ fun WorkoutsScreen() {
     val healthConnectManager = remember { HealthConnectManager(context) }
     val scope = rememberCoroutineScope()
 
-    var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedSplitIndex by remember { mutableIntStateOf(2) } // Default to "Legs" matching reference design
+    var isCatalogMode by remember { mutableStateOf(false) }
+    var tabIndex by remember { mutableIntStateOf(0) } // 0: Routine / Splits, 1: History
     var query by remember { mutableStateOf("") }
     var selectedGroup by remember { mutableStateOf<String?>(null) }
+    
+    // Active logging exercise and its preset configuration
     var loggingExercise by remember { mutableStateOf<Exercise?>(null) }
+    var loggingTargetReps by remember { mutableIntStateOf(10) }
+    var loggingTargetWeightKg by remember { mutableStateOf(0.0) }
+    var loggingSetCount by remember { mutableIntStateOf(3) }
+    
     var loggedWorkouts by remember { mutableStateOf(workoutStore.getLoggedWorkouts()) }
+    var selectedCalendarDate by remember { mutableStateOf(LocalDate.now()) }
+    val completedDates = remember(loggedWorkouts) {
+        loggedWorkouts.map {
+            Instant.ofEpochMilli(it.timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        }.toSet()
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
-        // Material 3 Single Choice Segmented Button Row
+        // Top Switcher: Workout Routine / Split vs History
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth()
         ) {
-            listOf("Exercises", "History").forEachIndexed { index, label ->
+            listOf("Workout Routine", "History").forEachIndexed { index, label ->
                 SegmentedButton(
                     selected = tabIndex == index,
                     onClick = { tabIndex = index },
@@ -140,14 +347,75 @@ fun WorkoutsScreen() {
         Spacer(Modifier.height(14.dp))
 
         if (tabIndex == 0) {
-            ExercisesContent(
-                workoutStore = workoutStore,
-                query = query,
-                onQueryChange = { query = it },
-                selectedGroup = selectedGroup,
-                onGroupSelected = { group -> selectedGroup = if (selectedGroup == group) null else group },
-                onExerciseClick = { loggingExercise = it }
-            )
+            if (isCatalogMode) {
+                // Secondary bar to return to Split view
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Exercises Catalog",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    FilledTonalButton(
+                        onClick = { isCatalogMode = false },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Back to Splits", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                ExercisesContent(
+                    workoutStore = workoutStore,
+                    query = query,
+                    onQueryChange = { query = it },
+                    selectedGroup = selectedGroup,
+                    onGroupSelected = { group -> selectedGroup = if (selectedGroup == group) null else group },
+                    onExerciseClick = { exercise ->
+                        loggingExercise = exercise
+                        loggingTargetReps = 10
+                        loggingTargetWeightKg = 0.0
+                        loggingSetCount = 3
+                    }
+                )
+            } else {
+                val currentSplit = workoutSplits[selectedSplitIndex.coerceIn(0, workoutSplits.lastIndex)]
+                WorkoutSplitContent(
+                    split = currentSplit,
+                    selectedSplitIndex = selectedSplitIndex,
+                    selectedCalendarDate = selectedCalendarDate,
+                    completedDates = completedDates,
+                    onSelectCalendarDate = { selectedCalendarDate = it },
+                    onSelectSplit = { selectedSplitIndex = it },
+                    onOpenCatalog = { isCatalogMode = true },
+                    onExerciseClick = { splitItem ->
+                        // Match catalog exercise or synthesize fallback
+                        val matched = workoutStore.exercises.find { it.id == splitItem.catalogExerciseId }
+                            ?: workoutStore.exercises.find { it.name.contains(splitItem.exerciseName, ignoreCase = true) }
+                            ?: Exercise(
+                                id = splitItem.catalogExerciseId,
+                                name = splitItem.exerciseName,
+                                bodyPart = currentSplit.name.lowercase(),
+                                equipment = "Gym Equipment",
+                                primaryMuscle = splitItem.muscles.split(",").firstOrNull()?.trim() ?: "Muscles",
+                                secondaryMuscles = emptyList(),
+                                instructions = listOf("Perform ${splitItem.exerciseName} with proper form for ${splitItem.targetReps}."),
+                                gif = "",
+                                img = ""
+                            )
+                        loggingExercise = matched
+                        loggingTargetReps = splitItem.targetRepsInt
+                        loggingTargetWeightKg = splitItem.targetWeightKg
+                        loggingSetCount = splitItem.setsCount
+                    }
+                )
+            }
         } else {
             HistoryContent(
                 loggedWorkouts = loggedWorkouts,
@@ -161,6 +429,9 @@ fun WorkoutsScreen() {
     loggingExercise?.let { exercise ->
         WorkoutLogSheet(
             exercise = exercise,
+            initialTargetReps = loggingTargetReps,
+            initialTargetWeightKg = loggingTargetWeightKg,
+            initialSetCount = loggingSetCount,
             onDismiss = { loggingExercise = null },
             onSaved = { workout ->
                 loggedWorkouts = workoutStore.logWorkout(workout)
@@ -185,6 +456,355 @@ fun WorkoutsScreen() {
                 }
             }
         )
+    }
+}
+
+// MARK: - Workout Split Content (Matches Reference Design)
+@Composable
+private fun WorkoutSplitContent(
+    split: WorkoutSplitPreset,
+    selectedSplitIndex: Int,
+    selectedCalendarDate: LocalDate,
+    completedDates: Set<LocalDate>,
+    onSelectCalendarDate: (LocalDate) -> Unit,
+    onSelectSplit: (Int) -> Unit,
+    onOpenCatalog: () -> Unit,
+    onExerciseClick: (SplitExerciseItem) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 100.dp)
+    ) {
+        // Top Week Calendar Strip (Matching Reference Image)
+        item {
+            WeeklyWorkoutCalendarStrip(
+                selectedDate = selectedCalendarDate,
+                completedDates = completedDates,
+                onSelectDate = onSelectCalendarDate
+            )
+        }
+
+        // Section Header Row: Title & Link to full catalog
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Workout Split",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+
+                Text(
+                    text = "All Exercises",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onOpenCatalog)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // Split Filter Pills: Push | Pull | Legs
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                workoutSplits.forEachIndexed { index, item ->
+                    val isSelected = selectedSplitIndex == index
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .clickable { onSelectSplit(index) },
+                        shape = RoundedCornerShape(22.dp),
+                        color = if (isSelected) Color(0xFF0F172A) else Color.White,
+                        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        shadowElevation = if (isSelected) 2.dp else 0.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = item.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) Color.White else Color(0xFF334155)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Overview Card: Legs Day / Push Day / Pull Day
+        item {
+            ElevatedCard(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = split.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF1F5F9)
+                        ) {
+                            Text(
+                                text = "${split.exercises.size} Exercises",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF475569),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "${split.durationText} • ${split.difficultyText}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B)
+                    )
+
+                    Text(
+                        text = split.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF475569),
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+                    )
+                }
+            }
+        }
+
+        // Exercise Cards List matching reference design
+        items(split.exercises, key = { it.exerciseName }) { exerciseItem ->
+            SplitExerciseCard(
+                item = exerciseItem,
+                onClick = { onExerciseClick(exerciseItem) }
+            )
+        }
+    }
+}
+
+// MARK: - Exercise Card Matching Reference Image
+@Composable
+private fun SplitExerciseCard(
+    item: SplitExerciseItem,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp, pressedElevation = 3.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header Row: Exercise Name + Sets Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.exerciseName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A),
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Text(
+                        text = "${item.setsCount} Sets",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF475569),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // Subtitle: Type & Muscles
+            Text(
+                text = "${item.type} • ${item.muscles}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Target Pills Row: Target Reps pill + Target Weight pill
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Text(
+                        text = item.targetReps,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF334155),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Text(
+                        text = item.targetWeight,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF334155),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Weekly Workout Calendar Strip Matching Reference Image
+data class WorkoutCalendarDay(
+    val date: LocalDate,
+    val dayName: String, // "Mon", "Tue", etc.
+    val dayNumber: String, // "24", "25", etc.
+    val isCompleted: Boolean
+)
+
+@Composable
+private fun WeeklyWorkoutCalendarStrip(
+    selectedDate: LocalDate,
+    completedDates: Set<LocalDate>,
+    onSelectDate: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Current week starting from Monday to Sunday enclosing selectedDate
+    val monday = remember(selectedDate) {
+        selectedDate.with(DayOfWeek.MONDAY)
+    }
+    val weekDays = remember(monday, completedDates) {
+        (0L..6L).map { offset ->
+            val date = monday.plusDays(offset)
+            WorkoutCalendarDay(
+                date = date,
+                dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                dayNumber = date.dayOfMonth.toString(),
+                isCompleted = date in completedDates
+            )
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        weekDays.forEach { day ->
+            val isSelected = day.date == selectedDate
+            CalendarDayCard(
+                day = day,
+                isSelected = isSelected,
+                onClick = { onSelectDate(day.date) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CalendarDayCard(
+    day: WorkoutCalendarDay,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .width(52.dp)
+            .height(84.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = if (isSelected) Color(0xFF0F172A) else Color.White,
+        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shadowElevation = if (isSelected) 3.dp else 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = day.dayName,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = if (isSelected) Color(0xFF94A3B8) else Color(0xFF64748B)
+            )
+
+            Text(
+                text = day.dayNumber,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) Color.White else Color(0xFF0F172A)
+            )
+
+            if (day.isCompleted) {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = "Completed",
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            } else {
+                Spacer(Modifier.size(18.dp))
+            }
+        }
     }
 }
 
@@ -566,6 +1186,9 @@ private class SetRowUi(reps: String, weight: String) {
 @Composable
 private fun WorkoutLogSheet(
     exercise: Exercise,
+    initialTargetReps: Int = 10,
+    initialTargetWeightKg: Double = 0.0,
+    initialSetCount: Int = 3,
     onDismiss: () -> Unit,
     onSaved: (LoggedWorkout) -> Unit
 ) {
@@ -573,7 +1196,11 @@ private fun WorkoutLogSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val setRows = remember(exercise.id) {
         mutableStateListOf<SetRowUi>().apply {
-            repeat(3) { add(SetRowUi("10", "0")) }
+            val weightStr = if (initialTargetWeightKg > 0) {
+                if (initialTargetWeightKg % 1.0 == 0.0) initialTargetWeightKg.toInt().toString() else initialTargetWeightKg.toString()
+            } else "0"
+            val count = if (initialSetCount in 1..8) initialSetCount else 3
+            repeat(count) { add(SetRowUi(initialTargetReps.toString(), weightStr)) }
         }
     }
     var durationMinutes by remember { mutableIntStateOf(30) }
