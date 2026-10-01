@@ -25,6 +25,18 @@ import android.util.Log
 import org.json.JSONObject
 import org.json.JSONArray
 
+data class HealthWorkoutSession(
+    val date: LocalDate,
+    val title: String,
+    val durationMinutes: Long
+)
+
+/** Recovery-relevant Health Connect data used by the workout recommendation. */
+data class HealthWorkoutSignals(
+    val sessions: List<HealthWorkoutSession> = emptyList(),
+    val lastSleepMinutes: Long? = null
+)
+
 data class SleepSessionData(
     val startTime: Instant,
     val endTime: Instant,
@@ -313,107 +325,47 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
-     * Reads and computes a dynamic category breakdown of calories burned on [date]:
-     * - Steps (calories from walking / steps)
-     * - Workout (calories from exercise sessions)
-     * - Move (general active daily movement)
+     * Calories burned on [date] from steps and workouts only.
+     * - Steps: ~0.04 kcal per step (estimate).
+     * - Workouts: active calories recorded during exercise sessions when available,
+     *   otherwise ~7.5 kcal per minute of session time (estimate).
      */
     suspend fun readCaloriesBreakdownForDate(date: LocalDate): CaloriesBreakdown {
         val client = healthConnectClient ?: return CaloriesBreakdown(0.0, 0.0, 0.0, 0.0, false)
         val zoneId = ZoneId.systemDefault()
         val startOfDay = date.atStartOfDay(zoneId).toInstant()
         val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
+        val range = TimeRangeFilter.between(startOfDay, endOfDay)
 
         return try {
-            // 1. Query Steps
-            val stepsResponse = try {
-                client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = StepsRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                    )
-                )
-            } catch (e: Exception) { null }
-            val totalSteps = stepsResponse?.records?.sumOf { it.count } ?: 0L
-            val rawStepsKcal = totalSteps * 0.04 // ~0.04 kcal/step
+            val totalSteps = try {
+                client.readRecords(ReadRecordsRequest(recordType = StepsRecord::class, timeRangeFilter = range))
+                    .records.sumOf { it.count }
+            } catch (e: Exception) { 0L }
+            val stepsKcal = totalSteps * 0.04
 
-            // 2. Query Workouts / Exercise sessions
-            val exerciseResponse = try {
-                client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = ExerciseSessionRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                    )
-                )
-            } catch (e: Exception) { null }
-            val exerciseMins = exerciseResponse?.records?.sumOf {
-                java.time.Duration.between(it.startTime, it.endTime).toMinutes()
-            } ?: 0L
-            val rawWorkoutKcal = exerciseMins * 7.5 // ~7.5 kcal/min for workout
+            val sessions = try {
+                client.readRecords(ReadRecordsRequest(recordType = ExerciseSessionRecord::class, timeRangeFilter = range)).records
+            } catch (e: Exception) { emptyList() }
+            val activeRecords = try {
+                client.readRecords(ReadRecordsRequest(recordType = ActiveCaloriesBurnedRecord::class, timeRangeFilter = range)).records
+            } catch (e: Exception) { emptyList() }
 
-            // 3. Query recorded ActiveCaloriesBurnedRecord
-            val activeResponse = try {
-                client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = ActiveCaloriesBurnedRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                    )
-                )
-            } catch (e: Exception) { null }
-            val recordedActiveKcal = activeResponse?.records?.sumOf { it.energy.inKilocalories } ?: 0.0
-
-            // 4. Query TotalCaloriesBurnedRecord
-            val totalCalResponse = try {
-                client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = TotalCaloriesBurnedRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                    )
-                )
-            } catch (e: Exception) { null }
-            val recordedTotalKcal = totalCalResponse?.records?.sumOf { it.energy.inKilocalories } ?: 0.0
-
-            // Active calories only (excluding BMR / Basal Metabolic Rate)
-            // Wearables often log total calories (~4210 kcal) but only 1 active record (~5 kcal) or omit active splits.
-            // We combine:
-            // 1. Workouts & Exercises (~707 kcal)
-            // 2. Steps & Walking (~728 kcal)
-            // 3. Active Movement (~586 kcal)
-            // Total Active = 707 + 728 + 586 = 2,021 kcal (excluding ~2,189 kcal BMR)
-            val hasActiveSignal = recordedTotalKcal > 2000.0 || totalSteps > 5000 || rawStepsKcal + rawWorkoutKcal > 100.0 || recordedActiveKcal > 100.0
-
-            val baseActive = when {
-                recordedTotalKcal > 2000.0 -> {
-                    // Total burn ~4210.6 kcal minus resting BMR (~2189 kcal) = 2,021 kcal
-                    val estimatedBmr = (recordedTotalKcal * 0.52).coerceAtLeast(1800.0)
-                    recordedTotalKcal - estimatedBmr
-                }
-                hasActiveSignal -> {
-                    val sKcal = if (rawStepsKcal > 0) rawStepsKcal else (totalSteps * 0.046)
-                    val wKcal = if (rawWorkoutKcal > 0) rawWorkoutKcal else (sKcal * 0.97)
-                    val mKcal = (sKcal + wKcal) * 0.40
-                    sKcal + wKcal + mKcal
-                }
-                recordedActiveKcal > 0.0 -> recordedActiveKcal
-                else -> 0.0
+            val workoutKcal = sessions.sumOf { session ->
+                val recorded = activeRecords
+                    .filter { it.startTime < session.endTime && it.endTime > session.startTime }
+                    .sumOf { it.energy.inKilocalories }
+                if (recorded > 0.0) recorded
+                else java.time.Duration.between(session.startTime, session.endTime).toMinutes() * 7.5
             }
 
-            if (baseActive <= 0.0) {
-                return CaloriesBreakdown(0.0, 0.0, 0.0, 0.0, false)
-            }
-
-            // Distribute into 707 workout + 728 steps + 586 active movement proportions
-            val workoutShare = if (rawWorkoutKcal > 100) rawWorkoutKcal else (baseActive * 0.35)
-            val stepsShare = if (rawStepsKcal > 100) rawStepsKcal else (baseActive * 0.36)
-            val moveShare = (baseActive - workoutShare - stepsShare).coerceAtLeast(baseActive * 0.29)
-            val combinedActive = workoutShare + stepsShare + moveShare
-
+            val total = stepsKcal + workoutKcal
             CaloriesBreakdown(
-                totalKcal = combinedActive, // 707 + 728 + 586 = 2,021 active kcal (NO BMR)
-                stepsKcal = stepsShare,
-                workoutKcal = workoutShare,
-                moveKcal = moveShare,
-                hasData = true
+                totalKcal = total,
+                stepsKcal = stepsKcal,
+                workoutKcal = workoutKcal,
+                moveKcal = 0.0,
+                hasData = total > 0.0
             )
         } catch (e: Exception) {
             e.printStackTrace()
@@ -490,32 +442,20 @@ class HealthConnectManager(private val context: Context) {
                 return emptyDetailedCalories(date)
             }
 
-            // Distribute into 4 clean categories with purple/lavender/violet tones matching user image:
-            // 1. Workout
-            // 2. Steps / Walking
-            // 3. Daily Movement
-            // 4. Resting Metabolism (BMR)
-            val restingKcal = (totalBurn * 0.55).coerceAtLeast(1200.0)
-            val activePool = (totalBurn - restingKcal).coerceAtLeast(100.0)
-
-            val computedWorkoutKcal = if (workoutKcal > 0) {
-                workoutKcal.coerceAtMost(activePool * 0.6)
-            } else {
-                activePool * 0.35
-            }
-            val computedStepsKcal = if (stepsKcal > 0) {
-                stepsKcal.coerceAtMost(activePool * 0.5)
-            } else {
-                activePool * 0.45
-            }
-            val computedMovementKcal = (totalBurn - restingKcal - computedWorkoutKcal - computedStepsKcal).coerceAtLeast(80.0)
+            // Workout and steps use the same real values as the Home card (no invented numbers).
+            // Resting burn is an estimate (~55% of total); movement is whatever remains.
+            val real = readCaloriesBreakdownForDate(date)
+            val restingKcal = totalBurn * 0.55
+            val computedWorkoutKcal = real.workoutKcal
+            val computedStepsKcal = real.stepsKcal
+            val computedMovementKcal = (totalBurn - restingKcal - computedWorkoutKcal - computedStepsKcal).coerceAtLeast(0.0)
 
             val activities = listOf(
                 CalorieActivityItem(
                     name = "Workouts & Exercises",
                     caloriesKcal = computedWorkoutKcal,
                     percentage = ((computedWorkoutKcal / totalBurn) * 100).toInt(),
-                    durationOrCount = if (workoutMins > 0) "$workoutMins min" else "45 min",
+                    durationOrCount = "$workoutMins min",
                     colorHex = 0xFF5B4D8C // Deep Violet/Purple (as in uploaded ring)
                 ),
                 CalorieActivityItem(
@@ -588,6 +528,37 @@ class HealthConnectManager(private val context: Context) {
             e.printStackTrace()
             emptySet()
         }
+    }
+
+    /** Reads exercise sessions (with titles) from the last [daysBack] days. */
+    suspend fun readRecentWorkoutSessions(daysBack: Long = 14): List<HealthWorkoutSession> {
+        val client = healthConnectClient ?: return emptyList()
+        val zoneId = ZoneId.systemDefault()
+        return try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.after(Instant.now().minus(daysBack, ChronoUnit.DAYS))
+                )
+            ).records.map {
+                HealthWorkoutSession(
+                    date = it.startTime.atZone(zoneId).toLocalDate(),
+                    title = it.title.orEmpty(),
+                    durationMinutes = java.time.Duration.between(it.startTime, it.endTime).toMinutes()
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to read workout sessions", e)
+            emptyList()
+        }
+    }
+
+    /** Collects workout history and last night's sleep, skipping anything not permitted. */
+    suspend fun readWorkoutSignals(): HealthWorkoutSignals {
+        if (!isAvailable()) return HealthWorkoutSignals()
+        val sessions = if (hasExercisePermission()) readRecentWorkoutSessions() else emptyList()
+        val sleep = if (hasSleepPermission()) readLatestSleepDurationMinutes() else null
+        return HealthWorkoutSignals(sessions, sleep)
     }
 
     /**

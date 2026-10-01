@@ -12,8 +12,8 @@ interface LocalAiEngine {
 }
 
 /**
- * High-quality on-device wellness coach engine.
- * Generates natural, conversational, personalized coaching summaries without
+ * On-device wellness summary engine.
+ * Generates concise, factual summaries without
  * any network connection or heavy model downloads. Never fabricates missing metrics.
  */
 class OnDeviceRuleInsightEngine : LocalAiEngine {
@@ -24,7 +24,7 @@ class OnDeviceRuleInsightEngine : LocalAiEngine {
 
     override suspend fun generateSummary(request: AiSummarizeRequest): String = withContext(Dispatchers.Default) {
         if (!request.deviceSdkAvailable) {
-            return@withContext "Health Connect isn't connected yet! We can't spy on your workout heroics (or your afternoon couch hibernation) until you grant permission."
+            return@withContext "Health Connect is not connected. Grant permission to see your activity, sleep and heart rate summary."
         }
 
         val data = request.healthData
@@ -46,94 +46,72 @@ class OnDeviceRuleInsightEngine : LocalAiEngine {
         val hasAnyData = steps != null || calories != null || sleepMinutes != null || heartRate != null || exercises.isNotEmpty()
 
         if (!hasAnyData) {
-            return@withContext "Zero data logged for today! Either you discovered teleportation, or you've perfected the ancient art of becoming a statue. Go move a muscle!"
+            return@withContext "No health data has been recorded today. Check that Health Connect permissions are enabled."
         }
 
-        // --- RULE 1: SUDDEN CHANGE IN STEPS ---
+        // --- RULE 1: STEPS ---
         if (steps != null && prevSteps != null && prevSteps > 0) {
             val stepDelta = steps - prevSteps
             val stepPercentChange = (stepDelta.toDouble() / prevSteps.toDouble()) * 100.0
 
             if (stepPercentChange >= 75.0 && stepDelta >= 3500) {
-                // Massive surge in steps
-                sentences.add("Whoa, someone set your sneakers on fire! You leaped from ${"%,d".format(prevSteps)} to ${"%,d".format(steps)} steps today (+${stepPercentChange.toInt()}% surge). Were you running away from responsibilities or chasing down the ice cream truck?")
+                sentences.add("Steps increased ${stepPercentChange.toInt()}% to ${"%,d".format(steps)}, up from ${"%,d".format(prevSteps)} yesterday.")
             } else if (stepPercentChange <= -50.0 && prevSteps >= 7000) {
-                // Sudden step cliff
-                sentences.add("Your step count took a hilarious nose-dive from ${"%,d".format(prevSteps)} yesterday down to ${"%,d".format(steps)} today (-${Math.abs(stepPercentChange).toInt()}% drop). Did your couch develop gravitational pull?")
+                sentences.add("Steps fell ${Math.abs(stepPercentChange).toInt()}% to ${"%,d".format(steps)}, down from ${"%,d".format(prevSteps)} yesterday.")
             }
         } else if (steps != null) {
-            // Absolute extremes if no previous day baseline exists
             if (steps >= 14000) {
-                sentences.add("You clocked a wild ${"%,d".format(steps)} steps! Are you training for an ultramarathon or did you lose your car keys in a corn maze?")
+                sentences.add("You recorded ${"%,d".format(steps)} steps, a high activity level.")
             } else if (steps in 1..900) {
-                sentences.add("You've only clocked ${"%,d".format(steps)} steps today. Even a three-toed sloth is looking at your step tracker with judgment.")
+                sentences.add("Only ${"%,d".format(steps)} steps recorded so far today.")
             }
         }
 
-        // --- RULE 2: SUDDEN CHANGE IN SLEEP ---
+        // --- RULE 2: SLEEP ---
         if (sleepMinutes != null && prevSleepMinutes != null && prevSleepMinutes > 0) {
             val sleepDelta = sleepMinutes - prevSleepMinutes
             val sleepDeltaHours = Math.abs(sleepDelta) / 60.0
+            val formatted = sleepFormatted ?: "${sleepMinutes / 60}h ${sleepMinutes % 60}m"
 
-            if (sleepDelta <= -150) { // Lost 2.5+ hours of sleep suddenly
-                val formatted = sleepFormatted ?: "${sleepMinutes / 60}h ${sleepMinutes % 60}m"
-                sentences.add("Sleep alert: you dropped ${String.format("%.1f", sleepDeltaHours)} hours of sleep compared to yesterday, waking up after just $formatted. Fueled purely by iced coffee and chaotic energy today!")
-            } else if (sleepDelta >= 180) { // Gained 3+ hours of sleep suddenly
-                val formatted = sleepFormatted ?: "${sleepMinutes / 60}h ${sleepMinutes % 60}m"
-                sentences.add("Rip Van Winkle award goes to you today! You slept $formatted (${String.format("%.1f", sleepDeltaHours)} hours longer than yesterday). Your bed must be thanking you for the thorough inspection.")
+            if (sleepDelta <= -150) {
+                sentences.add("Sleep was $formatted, ${String.format("%.1f", sleepDeltaHours)} hours less than yesterday. Prioritise rest tonight.")
+            } else if (sleepDelta >= 180) {
+                sentences.add("Sleep was $formatted, ${String.format("%.1f", sleepDeltaHours)} hours more than yesterday.")
             }
         } else if (sleepMinutes != null) {
-            if (sleepMinutes < 300) { // Under 5 hours
-                sentences.add("A whopping ${sleepFormatted ?: "${sleepMinutes / 60}h"} of sleep logged. You're practically operating in zombie mode — please avoid operating heavy machinery and don't reply to risky texts.")
-            } else if (sleepMinutes >= 630) { // Over 10.5 hours
-                sentences.add("${sleepFormatted ?: "${sleepMinutes / 60}h"} of slumber recorded! That wasn't just a nap, you were in hibernation.")
+            val formatted = sleepFormatted ?: "${sleepMinutes / 60}h ${sleepMinutes % 60}m"
+            if (sleepMinutes < 300) {
+                sentences.add("Sleep was only $formatted, below the recommended 7 to 9 hours.")
+            } else if (sleepMinutes >= 630) {
+                sentences.add("Sleep was $formatted, longer than the typical 7 to 9 hours.")
             }
         }
 
-        // --- RULE 3: SUDDEN CHANGE IN ACTIVE CALORIES / WORKOUT SURGE ---
+        // --- RULE 3: ACTIVE CALORIES ---
         if (calories != null && prevCalories != null && prevCalories > 0) {
             val calDelta = calories - prevCalories
             val calPercentChange = (calDelta / prevCalories) * 100.0
 
             if (calPercentChange >= 80.0 && calDelta >= 300.0) {
-                sentences.add("Calorie burn exploded by +${calPercentChange.toInt()}% today (${calories.toInt()} kcal vs ${prevCalories.toInt()} kcal yesterday). Absolute beast mode!")
+                sentences.add("Active calories rose ${calPercentChange.toInt()}% to ${calories.toInt()} kcal, from ${prevCalories.toInt()} kcal yesterday.")
             } else if (calPercentChange <= -60.0 && prevCalories >= 500.0) {
-                sentences.add("Active calorie burn tanked by ${Math.abs(calPercentChange).toInt()}% compared to yesterday. Today was clearly dedicated to aggressive energy conservation.")
+                sentences.add("Active calories fell ${Math.abs(calPercentChange).toInt()}% compared with yesterday.")
             }
         } else if (calories != null && calories >= 750) {
-            sentences.add("Torched ${calories.toInt()} active calories today! You basically incinerated dinner before even eating it.")
+            sentences.add("Active calories reached ${calories.toInt()} kcal today.")
         }
 
-        // --- RULE 4: UNUSUAL WORKOUT SPIKES ---
+        // --- RULE 4: WORKOUT SESSIONS ---
         if (exercises.isNotEmpty()) {
             val workout = exercises.firstOrNull()
-            val workoutTitle = workout?.title?.ifBlank { "sweat session" } ?: "sweat session"
+            val workoutTitle = workout?.title?.ifBlank { "workout" } ?: "workout"
             if (sentences.isEmpty()) {
-                sentences.add("You decided to surprise your muscles with a surprise $workoutTitle today! Hopefully they forgive you by tomorrow morning.")
+                sentences.add("You completed a $workoutTitle session today.")
             }
         }
 
-        // --- FALLBACK IF NO WILD METRIC SHIFTS HAPPENED ---
-        // If everything was ordinary and stable, give a funny, self-aware roast about being steady
         if (sentences.isEmpty()) {
-            val steadyJokes = listOf(
-                "No wild plot twists in your metrics today — you were suspiciously consistent. Keep it up, steady Eddie!",
-                "Your numbers today are so consistent you might actually be a well-calibrated robot. Keep rolling!",
-                "No dramatic health drama or sudden marathons detected today. Just smooth, respectable, drama-free living.",
-                "Smooth sailing across your metrics today. Neither lazy nor completely out of your mind — perfectly balanced, as all things should be."
-            )
-            val jokeIndex = ((steps ?: 0L) % steadyJokes.size).toInt()
-            sentences.add(steadyJokes[jokeIndex])
-        } else {
-            // Add a punchy funny signoff
-            val wittySignoffs = listOf(
-                "Drink some water and stay legendary!",
-                "Don't let your couch plot revenge tomorrow!",
-                "Keep this energy up and tomorrow might just be legendary!",
-                "Listen to your body (and maybe stretch before getting off that chair)!"
-            )
-            val signoffIndex = ((steps ?: 0L) % wittySignoffs.size).toInt()
-            sentences.add(wittySignoffs[signoffIndex])
+            sentences.add("Your activity, sleep and heart rate are steady with no notable changes today.")
         }
 
         sentences.joinToString(" ")
@@ -144,7 +122,7 @@ class OnDeviceRuleInsightEngine : LocalAiEngine {
  * Hybrid Local AI Engine.
  * Attempts to run local quantized weights (e.g. gemma-2b, phi-2) if an on-device
  * model file is detected in app storage.
- * Gracefully defaults to the witty OnDeviceRuleInsightEngine otherwise.
+ * Gracefully defaults to the OnDeviceRuleInsightEngine otherwise.
  */
 class HybridLocalAiEngine(
     private val context: Context,
@@ -171,7 +149,7 @@ class HybridLocalAiEngine(
             }
         }
 
-        Log.d(TAG, "Using witty on-device rule insight engine (100% local, sudden-change detection)")
+        Log.d(TAG, "Using on-device rule insight engine (100% local, sudden-change detection)")
         return fallbackEngine.generateSummary(request)
     }
 
@@ -211,12 +189,12 @@ class HybridLocalAiEngine(
 
     private fun buildPrompt(request: AiSummarizeRequest): String {
         return """
-            You are a witty, hilarious personal fitness buddy talking directly to the user in second person ("you").
+            You are a professional health and fitness analyst writing a brief summary for the user, in second person ("you").
             Rules:
-            1. ONLY highlight metrics that experienced a sudden change, surge, or drop (e.g. huge step jump/fall, sleep spike or crash, massive calorie burn). Ignore ordinary numbers.
-            2. Be genuinely funny and roast them playfully with light humor (e.g. comparing sudden inactivity to becoming a statue or intense steps to running away from adulthood).
+            1. State only metrics that changed notably (sudden rise or drop in steps, sleep or calories). Ignore ordinary numbers.
+            2. Use a neutral, professional tone. No jokes, slang, exclamation marks or emojis.
             3. Never invent numbers.
-            4. Keep it concise: 2-3 snappy sentences. No markdown headers or bullet points.
+            4. Keep it concise: 2-3 short sentences, ending with one practical recommendation. No markdown headers or bullet points.
             Input data:
             ${request.healthData.toJsonObject()}
         """.trimIndent()

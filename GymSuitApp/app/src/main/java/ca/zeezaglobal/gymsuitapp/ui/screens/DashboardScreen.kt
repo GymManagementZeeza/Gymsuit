@@ -35,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.health.connect.client.PermissionController
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
@@ -48,6 +49,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
+import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -110,6 +112,10 @@ fun DashboardScreen(
     val workoutSession = remember { WorkoutSessionState() }
     if (workoutSession.active && selectedTab != DashboardTab.WORKOUTS) {
         selectedTab = DashboardTab.WORKOUTS
+    }
+    // Back from any other tab returns to Home (inner workout back handlers take priority)
+    BackHandler(enabled = selectedTab != DashboardTab.HOME && !workoutSession.active) {
+        selectedTab = DashboardTab.HOME
     }
 
     // Dynamically generate 30 days ending with Today (last index = 29 = Today)
@@ -845,9 +851,19 @@ private fun WorkoutCardWidget(
         }
     }
 
-    val allWorkoutDays = remember(localWorkoutDays, healthConnectWorkoutDays) {
-        localWorkoutDays + healthConnectWorkoutDays
+    // Workouts logged manually in the app
+    val loggedWorkoutDays = remember(syncTrigger) {
+        val zone = ZoneId.systemDefault()
+        WorkoutStore(context).getLoggedWorkouts()
+            .map { java.time.Instant.ofEpochMilli(it.timestampMillis).atZone(zone).toLocalDate() }
+            .toSet()
     }
+
+    val allWorkoutDays = remember(localWorkoutDays, healthConnectWorkoutDays, loggedWorkoutDays) {
+        localWorkoutDays + healthConnectWorkoutDays + loggedWorkoutDays
+    }
+    // Card turns white once any workout is done today
+    val workedOutToday = today in allWorkoutDays
 
     val workoutCountInMonth = remember(currentMonthDates, allWorkoutDays) {
         currentMonthDates.count { it in allWorkoutDays }
@@ -866,7 +882,8 @@ private fun WorkoutCardWidget(
         Box(
             modifier = Modifier
                 .background(
-                    Brush.verticalGradient(
+                    if (workedOutToday) Brush.verticalGradient(listOf(Color.White, Color.White))
+                    else Brush.verticalGradient(
                         colors = listOf(Color(0xFFDCFCE7), Color(0xFFA7F3D0))
                     )
                 )
@@ -955,6 +972,7 @@ private fun WorkoutCardWidget(
                                             .clip(CircleShape)
                                             .background(
                                                 when {
+                                                    didWorkout && workedOutToday -> Color(0xFF10B981)
                                                     didWorkout -> Color.White
                                                     isToday -> Color(0xFF059669).copy(alpha = 0.6f)
                                                     isFuture -> Color(0xFF059669).copy(alpha = 0.15f)
@@ -965,6 +983,8 @@ private fun WorkoutCardWidget(
                                                 if (isToday) {
                                                     // Highlight today's dot (e.g. 23rd dot)
                                                     if (didWorkout) {
+                                                        Modifier.border(2.dp, Color(0xFF065F46), CircleShape)
+                                                    } else if (workedOutToday) {
                                                         Modifier.border(2.dp, Color(0xFF065F46), CircleShape)
                                                     } else {
                                                         Modifier.border(2.dp, Color.White, CircleShape)
@@ -1743,7 +1763,19 @@ private fun CaloriesBurnedWidget(
             val granted = healthConnectManager.hasCaloriesPermission()
             hasPermission = granted
             if (granted) {
-                caloriesBreakdown = healthConnectManager.readCaloriesBreakdownForDate(selectedDate)
+                val hc = healthConnectManager.readCaloriesBreakdownForDate(selectedDate)
+                // Workouts logged in the app that Health Connect doesn't have yet (not synced)
+                val zone = java.time.ZoneId.systemDefault()
+                val unsyncedKcal = WorkoutStore(context).getLoggedWorkouts()
+                    .filter { !it.syncedToHealth }
+                    .filter { java.time.Instant.ofEpochMilli(it.timestampMillis).atZone(zone).toLocalDate() == selectedDate }
+                    .sumOf { it.durationMinutes * 7.5 }
+                val workoutKcal = hc.workoutKcal + unsyncedKcal
+                caloriesBreakdown = hc.copy(
+                    workoutKcal = workoutKcal,
+                    totalKcal = hc.stepsKcal + workoutKcal,
+                    hasData = hc.stepsKcal + workoutKcal > 0.0
+                )
             }
         }
     }
@@ -1799,11 +1831,8 @@ private fun CaloriesBurnedWidget(
             val targetKcal = remember(syncTrigger) {
                 prefs.getFloat("calorie_goal", 4000.0f).toDouble()
             }
-            // Active calories only (combination of workout + steps + active movement)
-            val activeKcal = caloriesBreakdown.stepsKcal + caloriesBreakdown.workoutKcal + caloriesBreakdown.moveKcal
-            val displayKcal = if (hasData) {
-                if (activeKcal > 0) activeKcal else caloriesBreakdown.totalKcal
-            } else 0.0
+            // Calories burned by steps and workouts
+            val displayKcal = if (hasData) caloriesBreakdown.totalKcal else 0.0
 
             val progressFraction = if (targetKcal > 0) {
                 (displayKcal / targetKcal).coerceIn(0.0, 1.0).toFloat()
@@ -1868,7 +1897,7 @@ private fun CaloriesBurnedWidget(
                         color = if (hasData) Color(0xFF111827) else Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "active kcal",
+                        text = "kcal burned",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF6B7280)
@@ -1876,7 +1905,18 @@ private fun CaloriesBurnedWidget(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Steps ${caloriesBreakdown.stepsKcal.toInt()} • Workouts ${caloriesBreakdown.workoutKcal.toInt()}",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF475569),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Target Footer Readout
             Row(
