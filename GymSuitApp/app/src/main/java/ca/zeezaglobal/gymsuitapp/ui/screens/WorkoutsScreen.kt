@@ -23,8 +23,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -64,6 +72,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -87,7 +96,10 @@ import ca.zeezaglobal.gymsuitapp.data.model.Exercise
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSet
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -295,7 +307,6 @@ fun WorkoutsScreen() {
 
     var selectedSplitIndex by remember { mutableIntStateOf(2) } // Default to "Legs" matching reference design
     var isCatalogMode by remember { mutableStateOf(false) }
-    var tabIndex by remember { mutableIntStateOf(0) } // 0: Routine / Splits, 1: History
     var query by remember { mutableStateOf("") }
     var selectedGroup by remember { mutableStateOf<String?>(null) }
     
@@ -313,114 +324,123 @@ fun WorkoutsScreen() {
         }.toSet()
     }
 
+    // On-device AI recommendation state with loading shimmer
+    var aiRecommendation by remember { mutableStateOf<WorkoutAiRecommendation?>(null) }
+    var isAiLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(selectedCalendarDate, completedDates) {
+        isAiLoading = true
+        // Simulate in-device AI model inferencing and show smooth shimmer
+        withContext(Dispatchers.Default) {
+            val recommendation = OnDeviceWorkoutAiEngine.generateRecommendation(
+                selectedDate = selectedCalendarDate,
+                completedDates = completedDates,
+                loggedWorkouts = loggedWorkouts
+            )
+            delay(650) // Realistic on-device neural/rule processing delay to display shimmer
+            withContext(Dispatchers.Main) {
+                aiRecommendation = recommendation
+                isAiLoading = false
+            }
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        Spacer(Modifier.height(4.dp))
-
-        // Top Switcher: Workout Routine / Split vs History
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            listOf("Workout Routine", "History").forEachIndexed { index, label ->
-                SegmentedButton(
-                    selected = tabIndex == index,
-                    onClick = { tabIndex = index },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
-                    colors = SegmentedButtonDefaults.colors(
-                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    label = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+        if (isCatalogMode) {
+            // Secondary bar to return to Split view
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "All Exercises Catalog",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        if (tabIndex == 0) {
-            if (isCatalogMode) {
-                // Secondary bar to return to Split view
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                FilledTonalButton(
+                    onClick = { isCatalogMode = false },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        text = "All Exercises Catalog",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    FilledTonalButton(
-                        onClick = { isCatalogMode = false },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Back to Splits", style = MaterialTheme.typography.labelMedium)
-                    }
+                    Text("Back to Splits", style = MaterialTheme.typography.labelMedium)
                 }
+            }
 
-                ExercisesContent(
-                    workoutStore = workoutStore,
-                    query = query,
-                    onQueryChange = { query = it },
-                    selectedGroup = selectedGroup,
-                    onGroupSelected = { group -> selectedGroup = if (selectedGroup == group) null else group },
-                    onExerciseClick = { exercise ->
-                        loggingExercise = exercise
-                        loggingTargetReps = 10
-                        loggingTargetWeightKg = 0.0
-                        loggingSetCount = 3
-                    }
-                )
-            } else {
-                val currentSplit = workoutSplits[selectedSplitIndex.coerceIn(0, workoutSplits.lastIndex)]
-                WorkoutSplitContent(
-                    split = currentSplit,
-                    selectedSplitIndex = selectedSplitIndex,
-                    selectedCalendarDate = selectedCalendarDate,
-                    completedDates = completedDates,
-                    onSelectCalendarDate = { selectedCalendarDate = it },
-                    onSelectSplit = { selectedSplitIndex = it },
-                    onOpenCatalog = { isCatalogMode = true },
-                    onExerciseClick = { splitItem ->
-                        // Match catalog exercise or synthesize fallback
-                        val matched = workoutStore.exercises.find { it.id == splitItem.catalogExerciseId }
-                            ?: workoutStore.exercises.find { it.name.contains(splitItem.exerciseName, ignoreCase = true) }
+            ExercisesContent(
+                workoutStore = workoutStore,
+                query = query,
+                onQueryChange = { query = it },
+                selectedGroup = selectedGroup,
+                onGroupSelected = { group -> selectedGroup = if (selectedGroup == group) null else group },
+                onExerciseClick = { exercise ->
+                    loggingExercise = exercise
+                    loggingTargetReps = 10
+                    loggingTargetWeightKg = 0.0
+                    loggingSetCount = 3
+                }
+            )
+        } else {
+            val currentSplit = workoutSplits[selectedSplitIndex.coerceIn(0, workoutSplits.lastIndex)]
+            WorkoutSplitContent(
+                split = currentSplit,
+                selectedSplitIndex = selectedSplitIndex,
+                selectedCalendarDate = selectedCalendarDate,
+                completedDates = completedDates,
+                aiRecommendation = aiRecommendation,
+                isAiLoading = isAiLoading,
+                onStartAiWorkout = {
+                    val targetIdx = aiRecommendation?.targetSplitIndex ?: selectedSplitIndex
+                    selectedSplitIndex = targetIdx.coerceIn(0, workoutSplits.lastIndex)
+                    val targetSplit = workoutSplits[selectedSplitIndex]
+                    val firstExercise = targetSplit.exercises.firstOrNull()
+                    if (firstExercise != null) {
+                        val matched = workoutStore.exercises.find { it.id == firstExercise.catalogExerciseId }
+                            ?: workoutStore.exercises.find { it.name.contains(firstExercise.exerciseName, ignoreCase = true) }
                             ?: Exercise(
-                                id = splitItem.catalogExerciseId,
-                                name = splitItem.exerciseName,
-                                bodyPart = currentSplit.name.lowercase(),
+                                id = firstExercise.catalogExerciseId,
+                                name = firstExercise.exerciseName,
+                                bodyPart = targetSplit.name.lowercase(),
                                 equipment = "Gym Equipment",
-                                primaryMuscle = splitItem.muscles.split(",").firstOrNull()?.trim() ?: "Muscles",
+                                primaryMuscle = firstExercise.muscles.split(",").firstOrNull()?.trim() ?: "Muscles",
                                 secondaryMuscles = emptyList(),
-                                instructions = listOf("Perform ${splitItem.exerciseName} with proper form for ${splitItem.targetReps}."),
+                                instructions = listOf("Perform ${firstExercise.exerciseName} with proper form."),
                                 gif = "",
                                 img = ""
                             )
                         loggingExercise = matched
-                        loggingTargetReps = splitItem.targetRepsInt
-                        loggingTargetWeightKg = splitItem.targetWeightKg
-                        loggingSetCount = splitItem.setsCount
+                        loggingTargetReps = firstExercise.targetRepsInt
+                        loggingTargetWeightKg = firstExercise.targetWeightKg
+                        loggingSetCount = firstExercise.setsCount
                     }
-                )
-            }
-        } else {
-            HistoryContent(
-                loggedWorkouts = loggedWorkouts,
-                onDelete = { id ->
-                    loggedWorkouts = workoutStore.deleteWorkout(id)
+                },
+                onSelectCalendarDate = { selectedCalendarDate = it },
+                onSelectSplit = { selectedSplitIndex = it },
+                onOpenCatalog = { isCatalogMode = true },
+                onExerciseClick = { splitItem ->
+                    // Match catalog exercise or synthesize fallback
+                    val matched = workoutStore.exercises.find { it.id == splitItem.catalogExerciseId }
+                        ?: workoutStore.exercises.find { it.name.contains(splitItem.exerciseName, ignoreCase = true) }
+                        ?: Exercise(
+                            id = splitItem.catalogExerciseId,
+                            name = splitItem.exerciseName,
+                            bodyPart = currentSplit.name.lowercase(),
+                            equipment = "Gym Equipment",
+                            primaryMuscle = splitItem.muscles.split(",").firstOrNull()?.trim() ?: "Muscles",
+                            secondaryMuscles = emptyList(),
+                            instructions = listOf("Perform ${splitItem.exerciseName} with proper form for ${splitItem.targetReps}."),
+                            gif = "",
+                            img = ""
+                        )
+                    loggingExercise = matched
+                    loggingTargetReps = splitItem.targetRepsInt
+                    loggingTargetWeightKg = splitItem.targetWeightKg
+                    loggingSetCount = splitItem.setsCount
                 }
             )
         }
@@ -466,6 +486,9 @@ private fun WorkoutSplitContent(
     selectedSplitIndex: Int,
     selectedCalendarDate: LocalDate,
     completedDates: Set<LocalDate>,
+    aiRecommendation: WorkoutAiRecommendation?,
+    isAiLoading: Boolean,
+    onStartAiWorkout: () -> Unit,
     onSelectCalendarDate: (LocalDate) -> Unit,
     onSelectSplit: (Int) -> Unit,
     onOpenCatalog: () -> Unit,
@@ -482,6 +505,15 @@ private fun WorkoutSplitContent(
                 selectedDate = selectedCalendarDate,
                 completedDates = completedDates,
                 onSelectDate = onSelectCalendarDate
+            )
+        }
+
+        // AI Recommendation Card with shimmer effect (Directly below date selection)
+        item {
+            AiRecommendationCard(
+                recommendation = aiRecommendation,
+                isLoading = isAiLoading,
+                onStartWorkout = onStartAiWorkout
             )
         }
 
@@ -804,6 +836,259 @@ private fun CalendarDayCard(
             } else {
                 Spacer(Modifier.size(18.dp))
             }
+        }
+    }
+}
+
+// MARK: - On-Device AI Workout Recommendation
+data class WorkoutAiRecommendation(
+    val splitTarget: String, // e.g. "LEG DAY", "CHEST & TRICEPS", "BACK & BICEPS"
+    val targetSplitIndex: Int,
+    val headline: String,
+    val description: String
+)
+
+object OnDeviceWorkoutAiEngine {
+    fun generateRecommendation(
+        selectedDate: LocalDate,
+        completedDates: Set<LocalDate>,
+        loggedWorkouts: List<LoggedWorkout>
+    ): WorkoutAiRecommendation {
+        val dayOfWeek = selectedDate.dayOfWeek
+        val isToday = selectedDate == LocalDate.now()
+
+        // Check if selected date was already logged
+        val hasCompleted = selectedDate in completedDates
+        if (hasCompleted) {
+            val loggedOnDay = loggedWorkouts.filter {
+                Instant.ofEpochMilli(it.timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate() == selectedDate
+            }
+            val primaryName = loggedOnDay.firstOrNull()?.exerciseName ?: "Routine"
+            return WorkoutAiRecommendation(
+                splitTarget = "COMPLETED",
+                targetSplitIndex = 2,
+                headline = "Workout Finished!",
+                description = "You already crushed $primaryName today. Prioritize hydration, 30g+ protein intake, and active mobility recovery."
+            )
+        }
+
+        // Recommend based on split rotation & day of week
+        return when (dayOfWeek) {
+            DayOfWeek.MONDAY -> WorkoutAiRecommendation(
+                splitTarget = "CHEST & TRICEPS",
+                targetSplitIndex = 0, // Push
+                headline = "Today's Recommendation",
+                description = "Focus on heavy compound pressing like barbell bench press and overhead press to build upper body explosive push power."
+            )
+            DayOfWeek.TUESDAY -> WorkoutAiRecommendation(
+                splitTarget = "BACK & BICEPS",
+                targetSplitIndex = 1, // Pull
+                headline = "Today's Recommendation",
+                description = "Target posterior lats and rhomboids with weighted pull-ups and bent-over rows to balance anterior shoulder posture."
+            )
+            DayOfWeek.WEDNESDAY -> WorkoutAiRecommendation(
+                splitTarget = "LEG DAY",
+                targetSplitIndex = 2, // Legs
+                headline = "Today's Recommendation",
+                description = "Focus on compound exercises like squats and deadlifts to maximize your leg growth."
+            )
+            DayOfWeek.THURSDAY -> WorkoutAiRecommendation(
+                splitTarget = "PUSH INTENSITY",
+                targetSplitIndex = 0, // Push
+                headline = "Today's Recommendation",
+                description = "Incline dumbbell presses and dips are dialed in today to stimulate upper clavicular chest fibers."
+            )
+            DayOfWeek.FRIDAY -> WorkoutAiRecommendation(
+                splitTarget = "PULL & CORE",
+                targetSplitIndex = 1, // Pull
+                headline = "Today's Recommendation",
+                description = "Cable lat pulldowns and heavy barbell shrugs will reinforce strong spinal erectors and back thickness."
+            )
+            DayOfWeek.SATURDAY -> WorkoutAiRecommendation(
+                splitTarget = "LEG DAY",
+                targetSplitIndex = 2, // Legs
+                headline = "Today's Recommendation",
+                description = "High rep Romanian deadlifts and Bulgarian split squats for hamstring isolation and knee stabilization."
+            )
+            DayOfWeek.SUNDAY -> WorkoutAiRecommendation(
+                splitTarget = "ACTIVE RECOVERY",
+                targetSplitIndex = 0,
+                headline = "Today's Recommendation",
+                description = "Light mobility stretching, 20 minutes brisk walking, and central nervous system replenishment for the upcoming cycle."
+            )
+        }
+    }
+}
+
+@Composable
+private fun AiRecommendationCard(
+    recommendation: WorkoutAiRecommendation?,
+    isLoading: Boolean,
+    onStartWorkout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (isLoading || recommendation == null) {
+        AiRecommendationShimmerCard(modifier = modifier)
+    } else {
+        // High-contrast dark navy card matching the reference image
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A), // Dark navy slate matching reference design
+            shadowElevation = 4.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Header Row: "Today's Recommendation" + Badge (e.g. "LEG DAY")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = recommendation.headline,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF1E293B) // Subtle container badge
+                    ) {
+                        Text(
+                            text = recommendation.splitTarget,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFCBD5E1),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+
+                // AI description sentence matching reference design
+                Text(
+                    text = recommendation.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFF94A3B8), // Soft slate gray
+                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                // Big White Pill Button "Start Workout"
+                Button(
+                    onClick = onStartWorkout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF0F172A)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Text(
+                        text = "Start Workout",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiRecommendationShimmerCard(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "ai_card_shimmer")
+    val translateAnim by transition.animateFloat(
+        initialValue = -300f,
+        targetValue = 1200f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer_anim"
+    )
+
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF1E293B),
+            Color(0xFF334155),
+            Color(0xFF1E293B)
+        ),
+        start = Offset(translateAnim - 200f, translateAnim - 200f),
+        end = Offset(translateAnim, translateAnim)
+    )
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0xFF0F172A),
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header Row Shimmer
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(180.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(shimmerBrush)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(70.dp)
+                        .height(22.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(shimmerBrush)
+                )
+            }
+
+            // Description Lines Shimmer
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(shimmerBrush)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.75f)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(shimmerBrush)
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            // Button Shimmer
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(shimmerBrush)
+            )
         }
     }
 }
