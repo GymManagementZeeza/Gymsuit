@@ -13,9 +13,10 @@ struct WorkoutLogView: View {
     @State private var repsText: [String]
     @State private var weightText: [String]
 
-    init(exercise: Exercise) {
+    init(exercise: Exercise, targetReps: Int = 10, targetWeightKg: Double = 0, setCount: Int = 3) {
         self.exercise = exercise
-        let initial = (0..<3).map { _ in WorkoutSet(reps: 10, weightKg: 0) }
+        let count = min(max(setCount, 1), 8)
+        let initial = (0..<count).map { _ in WorkoutSet(reps: targetReps, weightKg: targetWeightKg) }
         _sets = State(initialValue: initial)
         _repsText = State(initialValue: initial.map { String($0.reps) })
         _weightText = State(initialValue: initial.map { String(format: "%g", $0.weightKg) })
@@ -224,9 +225,6 @@ struct WorkoutLogView: View {
                     saveMessage = "Saved and synced to Apple Health. +\(earned) pts earned!"
                 } else {
                     saveMessage = "Saved in GymSuit (+\(earned) pts). Apple Health sync needs workout write permission - grant it in the Health app."
-                    saveMessage = "Saved and synced to Apple Health."
-                } else {
-                    saveMessage = "Saved in GymSuit. Apple Health sync needs workout write permission - grant it in the Health app."
                 }
                 isSaving = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
