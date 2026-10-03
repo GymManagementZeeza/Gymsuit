@@ -3,6 +3,20 @@ import Combine
 import SwiftUI
 import HealthKit
 
+/// A recent HealthKit workout, used by workout recommendations.
+public struct HealthWorkoutSession: Identifiable {
+    public let id = UUID()
+    public let date: Date
+    public let title: String
+    public let durationMinutes: Int
+}
+
+/// Recovery-relevant health data used by workout recommendations.
+public struct HealthWorkoutSignals {
+    public var sessions: [HealthWorkoutSession] = []
+    public var lastSleepMinutes: Int? = nil
+}
+
 public final class HealthKitManager: ObservableObject {
     public static let shared = HealthKitManager()
     
@@ -85,6 +99,7 @@ public final class HealthKitManager: ObservableObject {
             }
 
             builder.addMetadata([
+                HKMetadataKeyWasUserEntered: true,
                 "ca.zeezaglobal.Gymsuit.exerciseName": exerciseName,
                 "ca.zeezaglobal.Gymsuit.setCount": setCount,
                 "ca.zeezaglobal.Gymsuit.totalReps": totalReps,
@@ -120,6 +135,66 @@ public final class HealthKitManager: ObservableObject {
         }
     }
     
+    // MARK: - Workout Signals
+
+    /// Reads exercise sessions from the last `daysBack` days, newest first.
+    public func readRecentWorkoutSessions(daysBack: Int = 14) async -> [HealthWorkoutSession] {
+        guard isAvailable else { return [] }
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -daysBack, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+                let workouts = samples as? [HKWorkout] ?? []
+                let sessions = workouts.map { workout -> HealthWorkoutSession in
+                    let title = (workout.metadata?["ca.zeezaglobal.Gymsuit.exerciseName"] as? String)
+                        ?? self.readableWorkoutName(for: workout.workoutActivityType)
+                    return HealthWorkoutSession(
+                        date: workout.startDate,
+                        title: title,
+                        durationMinutes: Int(workout.duration / 60)
+                    )
+                }
+                continuation.resume(returning: sessions)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Collects recent workouts plus the duration of the most recent sleep session.
+    public func readWorkoutSignals() async -> HealthWorkoutSignals {
+        guard isAvailable else { return HealthWorkoutSignals() }
+        let sessions = await readRecentWorkoutSessions()
+        // fetchSleepSession(Date()) covers the night before the given date.
+        let lastSleepMinutes = await fetchSleepSession(Date()).map { Int($0.durationMinutes) }
+        return HealthWorkoutSignals(sessions: sessions, lastSleepMinutes: lastSleepMinutes)
+    }
+
+    private func readableWorkoutName(for activityType: HKWorkoutActivityType) -> String {
+        switch activityType {
+        case .traditionalStrengthTraining: return "Strength Training"
+        case .functionalStrengthTraining: return "Functional Strength"
+        case .crossTraining: return "Cross Training"
+        case .highIntensityIntervalTraining: return "HIIT"
+        case .coreTraining: return "Core Training"
+        case .running: return "Run"
+        case .walking: return "Walk"
+        case .cycling: return "Cycling"
+        case .swimming: return "Swim"
+        case .rowing: return "Rowing"
+        case .elliptical: return "Elliptical"
+        case .stairClimbing: return "Stair Climb"
+        case .hiking: return "Hike"
+        case .yoga: return "Yoga"
+        case .pilates: return "Pilates"
+        case .dance: return "Dance"
+        case .flexibility: return "Flexibility"
+        default: return "Workout"
+        }
+    }
+
     // MARK: - Daily Steps
     public func fetchSteps(for date: Date) async -> Int64 {
         guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return 0 }
@@ -169,52 +244,67 @@ public final class HealthKitManager: ObservableObject {
         }
     }
 
-    /// Total workout duration in minutes from real HKWorkout samples, or 0 when none.
-    public func fetchWorkoutMinutes(for date: Date) async -> Int64 {
+    /// Real HKWorkout samples for the day, or empty when none.
+    public func fetchWorkouts(for date: Date) async -> [HKWorkout] {
         let (start, end) = dayBounds(for: date)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, _ in
-                let workouts = samples as? [HKWorkout] ?? []
-                let minutes = Int64(workouts.reduce(0.0) { $0 + $1.duration } / 60)
-                continuation.resume(returning: minutes)
+                continuation.resume(returning: (samples as? [HKWorkout]) ?? [])
             }
             healthStore.execute(query)
         }
     }
 
-    // MARK: - Calories Breakdown
-    public func fetchCaloriesBreakdown(for date: Date) async -> CaloriesBreakdown {        guard let activeType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
-            return CaloriesBreakdown(totalKcal: 0, stepsKcal: 0, workoutKcal: 0, moveKcal: 0, hasData: false)
+    /// Total workout duration in minutes from real HKWorkout samples, or 0 when none.
+    public func fetchWorkoutMinutes(for date: Date) async -> Int64 {
+        let workouts = await fetchWorkouts(for: date)
+        return Int64(workouts.reduce(0.0) { $0 + $1.duration } / 60)
+    }
+
+    /// Cumulative active energy (kcal) recorded within [start, end].
+    private func activeEnergyKcal(from start: Date, to end: Date) async -> Double {
+        guard let activeType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return 0
         }
-        let (start, end) = dayBounds(for: date)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        
-        let activeKcal: Double = await withCheckedContinuation { continuation in
+        return await withCheckedContinuation { continuation in
             let query = HKStatisticsQuery(quantityType: activeType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
                 let kcal = stats?.sumQuantity()?.doubleValue(for: HKUnit.kilocalorie()) ?? 0
                 continuation.resume(returning: kcal)
             }
             self.healthStore.execute(query)
         }
-        
+    }
+
+    // MARK: - Calories Breakdown
+
+    /// Calories for the day from steps (~0.04 kcal/step) and workouts only.
+    /// Workout energy is the active energy actually recorded during each session;
+    /// when nothing was recorded, ~7.5 kcal per session minute is used (estimate).
+    public func fetchCaloriesBreakdown(for date: Date) async -> CaloriesBreakdown {
         let steps = await fetchSteps(for: date)
+        let stepsKcal = Double(steps) * 0.04
 
-        // Basal (resting) energy is a real measured HealthKit value, not an estimate.
-        let basalKcal = await fetchBasalKcal(for: date)
+        let workouts = await fetchWorkouts(for: date)
+        var workoutKcal = 0.0
+        for workout in workouts {
+            let recorded = await activeEnergyKcal(from: workout.startDate, to: workout.endDate)
+            if recorded > 0 {
+                workoutKcal += recorded
+            } else {
+                workoutKcal += Double(Int(workout.duration / 60)) * 7.5
+            }
+        }
 
-        let stepKcal = Double(steps) * 0.04
-        let workoutKcal = max(0, activeKcal * 0.45)
-        let moveKcal = max(0, activeKcal - workoutKcal)
-        let total = activeKcal + basalKcal
-
+        let total = stepsKcal + workoutKcal
         return CaloriesBreakdown(
             totalKcal: total,
-            stepsKcal: stepKcal,
+            stepsKcal: stepsKcal,
             workoutKcal: workoutKcal,
-            moveKcal: moveKcal,
-            hasData: activeKcal > 0 || steps > 0
+            moveKcal: 0.0,
+            hasData: total > 0
         )
     }
     
@@ -222,9 +312,11 @@ public final class HealthKitManager: ObservableObject {
     public func fetchDetailedCalories(for date: Date, targetKcal: Double = 4000.0) async -> DetailedCaloriesData {
         let breakdown = await fetchCaloriesBreakdown(for: date)
         let steps = await fetchSteps(for: date)
+        // Resting energy is a real measured HealthKit value on iOS — Android
+        // estimates it as ~55% of a guessed total, which we deliberately do not copy.
         let basalKcal = await fetchBasalKcal(for: date)
         let workoutMinutes = await fetchWorkoutMinutes(for: date)
-        let total = breakdown.totalKcal
+        let total = breakdown.stepsKcal + breakdown.workoutKcal + basalKcal
 
         let activities: [CalorieActivityItem] = [
             CalorieActivityItem(
@@ -242,17 +334,10 @@ public final class HealthKitManager: ObservableObject {
                 colorHex: 0xFF7C6FA6
             ),
             CalorieActivityItem(
-                name: "Active Movement",
-                caloriesKcal: breakdown.moveKcal,
-                percentage: Int((breakdown.moveKcal / max(1, total)) * 100),
-                durationOrCount: "Daily burn",
-                colorHex: 0xFFA498C7
-            ),
-            CalorieActivityItem(
                 name: "Resting Metabolism (BMR)",
                 caloriesKcal: basalKcal,
                 percentage: Int((basalKcal / max(1, total)) * 100),
-                durationOrCount: "Basal",
+                durationOrCount: "Measured",
                 colorHex: 0xFFCFC8E4
             )
         ]
@@ -264,7 +349,7 @@ public final class HealthKitManager: ObservableObject {
             activities: activities,
             stepsCount: steps,
             workoutMinutes: workoutMinutes,
-            hasData: breakdown.hasData
+            hasData: total > 0
         )
     }
     
@@ -379,6 +464,7 @@ public final class HealthKitManager: ObservableObject {
                     if bpm > maxB { maxB = bpm }
                 }
                 let latest = points.last.map(\.bpm) ?? 0
+                let latestTime = points.last?.time
                 
                 let formatter = DateFormatter()
                 formatter.timeStyle = .short
@@ -390,7 +476,9 @@ public final class HealthKitManager: ObservableObject {
                     maxBpm: maxB,
                     timeRangeFormatted: timeRange,
                     points: points,
-                    hasData: true
+                    hasData: true,
+                    latestTime: latestTime,
+                    relativeTime: latestTime.map { self.formatRelativeTime($0) } ?? ""
                 ))
             }
             healthStore.execute(query)
@@ -453,6 +541,24 @@ public final class HealthKitManager: ObservableObject {
         )
     }
     
+    // MARK: - Relative Time
+
+    /// "Just now" / "N mins ago" / "MMM d, h:mm a" style relative time.
+    public func formatRelativeTime(_ date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+        switch seconds {
+        case ...30: return "Just now"
+        case ..<90: return "1 min ago"
+        case ..<3600: return "\((seconds + 30) / 60) mins ago"
+        case ..<7200: return "1 hr ago"
+        case ..<86400: return "\(seconds / 3600) hrs ago"
+        default:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d, h:mm a"
+            return formatter.string(from: date)
+        }
+    }
+
     // MARK: - Date Helpers
     private func dayBounds(for date: Date) -> (Date, Date) {
         let calendar = Calendar.current
