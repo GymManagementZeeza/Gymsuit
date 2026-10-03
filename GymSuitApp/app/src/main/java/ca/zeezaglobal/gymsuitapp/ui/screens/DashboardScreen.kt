@@ -54,6 +54,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -118,8 +119,12 @@ fun DashboardScreen(
         selectedTab = DashboardTab.HOME
     }
 
-    // Dynamically generate 30 days ending with Today (last index = 29 = Today)
-    val today = remember { LocalDate.now() }
+    // Dynamically generate 30 days ending with Today (last index = 29 = Today).
+    // NOTE: `today` is deliberately NOT remembered. A remembered LocalDate.now()
+    // freezes "today" for the whole composition lifetime, so if the app stays alive
+    // across midnight every widget keeps showing yesterday's data (and refresh just
+    // re-reads the same stale date). Recomputing each composition is cheap.
+    val today = LocalDate.now()
     val days = remember(today) {
         val dayNameFormatter = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
         (29 downTo 0).map { daysAgo ->
@@ -133,7 +138,21 @@ fun DashboardScreen(
     }
 
     // Default to Today (last index in the 30-day window)
-    var selectedDayIndex by remember { mutableIntStateOf(29) }
+    var selectedDayIndex by remember { mutableIntStateOf(days.lastIndex) }
+
+    // Midnight rollover: `days` is rebuilt when `today` changes. If the user was
+    // viewing the latest day, follow to the new today; if they had navigated to a
+    // specific past date, keep that calendar date pinned by shifting the index.
+    val lastSeenToday = remember { mutableStateOf(today) }
+    if (lastSeenToday.value != today) {
+        val elapsedDays = ChronoUnit.DAYS.between(lastSeenToday.value, today).toInt().coerceAtLeast(1)
+        selectedDayIndex = if (selectedDayIndex >= days.lastIndex) {
+            days.lastIndex
+        } else {
+            (selectedDayIndex - elapsedDays).coerceIn(0, days.lastIndex)
+        }
+        lastSeenToday.value = today
+    }
 
     val allGreetingTexts = remember {
         listOf(
@@ -826,7 +845,9 @@ private fun WorkoutCardWidget(
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
-    val today = remember { LocalDate.now() }
+    // Not remembered: recompute every composition so a midnight rollover while the
+    // app is alive updates the month label and current-month dates.
+    val today = LocalDate.now()
     val currentYearMonth = remember(today) { YearMonth.from(today) }
     val daysInCurrentMonth = remember(currentYearMonth) { currentYearMonth.lengthOfMonth() }
     val monthName = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault())) }
@@ -2002,7 +2023,9 @@ private fun AiSummaryCardWidget(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val today = remember { LocalDate.now() }
+    // Not remembered: recompute every composition so the "Today" tag stays correct
+    // when the app is alive across midnight.
+    val today = LocalDate.now()
     val isToday = (selectedDate == today)
     val dateTag = if (isToday) "Today" else selectedDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
 

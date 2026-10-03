@@ -77,7 +77,7 @@ public final class OnDeviceRuleInsightEngine: LocalAiEngine {
     
     public func generateSummary(request: AiSummarizeRequest) async -> String {
         guard request.deviceSdkAvailable else {
-            return "Apple Health isn't connected yet! We can't spy on your workout heroics (or your afternoon couch hibernation) until you grant permission."
+            return "Apple Health is not connected. Grant permission to see your activity, sleep and heart rate summary."
         }
         
         let data = request.healthData
@@ -94,7 +94,7 @@ public final class OnDeviceRuleInsightEngine: LocalAiEngine {
         
         let hasAnyData = steps != nil || calories != nil || sleepMinutes != nil || data.latestHeartRateBpm != nil || !exercises.isEmpty
         if !hasAnyData {
-            return "Zero data logged for today! Either you discovered teleportation, or you've perfected the ancient art of becoming a statue. Go move a muscle!"
+            return "No health data has been recorded today. Check that Apple Health permissions are enabled."
         }
         
         // RULE 1: STEPS
@@ -102,15 +102,15 @@ public final class OnDeviceRuleInsightEngine: LocalAiEngine {
             let delta = steps - prevSteps
             let percent = (Double(delta) / Double(prevSteps)) * 100.0
             if percent >= 75.0 && delta >= 3500 {
-                sentences.append("Whoa, someone set your sneakers on fire! You leaped from \(prevSteps.formatted()) to \(steps.formatted()) steps today (+\(Int(percent))% surge). Were you running away from responsibilities or chasing down the ice cream truck?")
+                sentences.append("Steps increased \(Int(percent))% to \(steps.formatted()), up from \(prevSteps.formatted()) yesterday.")
             } else if percent <= -50.0 && prevSteps >= 7000 {
-                sentences.append("Your step count took a hilarious nose-dive from \(prevSteps.formatted()) yesterday down to \(steps.formatted()) today (-\(abs(Int(percent)))% drop). Did your couch develop gravitational pull?")
+                sentences.append("Steps fell \(abs(Int(percent)))% to \(steps.formatted()), down from \(prevSteps.formatted()) yesterday.")
             }
         } else if let steps = steps {
             if steps >= 14000 {
-                sentences.append("You clocked a wild \(steps.formatted()) steps! Are you training for an ultramarathon or did you lose your car keys in a corn maze?")
+                sentences.append("You recorded \(steps.formatted()) steps, a high activity level.")
             } else if (1...900).contains(steps) {
-                sentences.append("You've only clocked \(steps.formatted()) steps today. Even a three-toed sloth is looking at your step tracker with judgment.")
+                sentences.append("Only \(steps.formatted()) steps recorded so far today.")
             }
         }
         
@@ -118,18 +118,18 @@ public final class OnDeviceRuleInsightEngine: LocalAiEngine {
         if let sleepMinutes = sleepMinutes, let prevSleepMinutes = prevSleepMinutes, prevSleepMinutes > 0 {
             let delta = sleepMinutes - prevSleepMinutes
             let deltaHours = Double(abs(delta)) / 60.0
+            let fmt = sleepFormatted ?? "\(sleepMinutes / 60)h \(sleepMinutes % 60)m"
             if delta <= -150 {
-                let fmt = sleepFormatted ?? "\(sleepMinutes / 60)h \(sleepMinutes % 60)m"
-                sentences.append("Sleep alert: you dropped \(String(format: "%.1f", deltaHours)) hours of sleep compared to yesterday, waking up after just \(fmt). Fueled purely by iced coffee and chaotic energy today!")
+                sentences.append("Sleep was \(fmt), \(String(format: "%.1f", deltaHours)) hours less than yesterday. Prioritise rest tonight.")
             } else if delta >= 180 {
-                let fmt = sleepFormatted ?? "\(sleepMinutes / 60)h \(sleepMinutes % 60)m"
-                sentences.append("Rip Van Winkle award goes to you today! You slept \(fmt) (\(String(format: "%.1f", deltaHours)) hours longer than yesterday). Your bed must be thanking you for the thorough inspection.")
+                sentences.append("Sleep was \(fmt), \(String(format: "%.1f", deltaHours)) hours more than yesterday.")
             }
         } else if let sleepMinutes = sleepMinutes {
+            let fmt = sleepFormatted ?? "\(sleepMinutes / 60)h \(sleepMinutes % 60)m"
             if sleepMinutes < 300 {
-                sentences.append("A whopping \(sleepFormatted ?? "\(sleepMinutes / 60)h") of sleep logged. You're practically operating in zombie mode — please avoid operating heavy machinery and don't reply to risky texts.")
+                sentences.append("Sleep was only \(fmt), below the recommended 7 to 9 hours.")
             } else if sleepMinutes >= 630 {
-                sentences.append("\(sleepFormatted ?? "\(sleepMinutes / 60)h") of slumber recorded! That wasn't just a nap, you were in hibernation.")
+                sentences.append("Sleep was \(fmt), longer than the typical 7 to 9 hours.")
             }
         }
         
@@ -138,33 +138,26 @@ public final class OnDeviceRuleInsightEngine: LocalAiEngine {
             let delta = calories - prevCalories
             let percent = (delta / prevCalories) * 100.0
             if percent >= 80.0 && delta >= 300.0 {
-                sentences.append("Calorie burn exploded by +\(Int(percent))% today (\(Int(calories)) kcal vs \(Int(prevCalories)) kcal yesterday). Absolute beast mode!")
+                sentences.append("Active calories rose \(Int(percent))% to \(Int(calories)) kcal, from \(Int(prevCalories)) kcal yesterday.")
             } else if percent <= -60.0 && prevCalories >= 500.0 {
-                sentences.append("Active calorie burn tanked by \(abs(Int(percent)))% compared to yesterday. Today was clearly dedicated to aggressive energy conservation.")
+                sentences.append("Active calories fell \(abs(Int(percent)))% compared with yesterday.")
             }
         } else if let calories = calories, calories >= 750 {
-            sentences.append("Torched \(Int(calories)) active calories today! You basically incinerated dinner before even eating it.")
+            sentences.append("Active calories reached \(Int(calories)) kcal today.")
         }
         
-        // Fallbacks
+        // RULE 4: WORKOUT SESSIONS
+        if !exercises.isEmpty {
+            let firstTitle = exercises.first?.title ?? ""
+            let workoutTitle = firstTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "workout" : firstTitle
+            if sentences.isEmpty {
+                sentences.append("You completed a \(workoutTitle) session today.")
+            }
+        }
+        
+        // Fallback
         if sentences.isEmpty {
-            let steadyJokes = [
-                "No wild plot twists in your metrics today — you were suspiciously consistent. Keep it up, steady Eddie!",
-                "Your numbers today are so consistent you might actually be a well-calibrated robot. Keep rolling!",
-                "No dramatic health drama or sudden marathons detected today. Just smooth, respectable, drama-free living.",
-                "Smooth sailing across your metrics today. Neither lazy nor completely out of your mind — perfectly balanced, as all things should be."
-            ]
-            let idx = Int(steps ?? 0) % steadyJokes.count
-            sentences.append(steadyJokes[idx])
-        } else {
-            let signoffs = [
-                "Drink some water and stay legendary!",
-                "Don't let your couch plot revenge tomorrow!",
-                "Keep this energy up and tomorrow might just be legendary!",
-                "Listen to your body (and maybe stretch before getting off that chair)!"
-            ]
-            let sIdx = Int(steps ?? 0) % signoffs.count
-            sentences.append(signoffs[sIdx])
+            sentences.append("Your activity, sleep and heart rate are steady with no notable changes today.")
         }
         
         return sentences.joined(separator: " ")

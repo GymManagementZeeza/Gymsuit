@@ -157,6 +157,8 @@ public struct HeartRateSummaryData {
     public let timeRangeFormatted: String
     public let points: [HeartRatePoint]
     public let hasData: Bool
+    public let latestTime: Date?
+    public let relativeTime: String
 }
 
 public struct HrvBucket: Identifiable {
