@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import android.util.Log
+import ca.zeezaglobal.gymsuitapp.data.model.ProgressTotals
 import org.json.JSONObject
 import org.json.JSONArray
 
@@ -321,6 +322,59 @@ class HealthConnectManager(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    /**
+     * Sums steps, workout sessions, calories and distance over [startDate, endDate]
+     * inclusive (local timezone). Used for group-challenge progress sync.
+     * Calorie logic mirrors [readCaloriesForDate]: recorded totals first, then active
+     * calories, then the steps-derived estimate — never fabricated, zeros when empty.
+     */
+    suspend fun readProgressTotals(startDate: LocalDate, endDate: LocalDate): ProgressTotals {
+        val client = healthConnectClient ?: return ProgressTotals(0L, 0, 0.0, 0.0)
+        val zoneId = ZoneId.systemDefault()
+        val rangeStart = startDate.atStartOfDay(zoneId).toInstant()
+        val rangeEnd = endDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+        val range = TimeRangeFilter.between(rangeStart, rangeEnd)
+
+        return try {
+            val steps = try {
+                client.readRecords(
+                    ReadRecordsRequest(recordType = StepsRecord::class, timeRangeFilter = range)
+                ).records.sumOf { it.count }
+            } catch (e: Exception) { 0L }
+
+            val workouts = try {
+                client.readRecords(
+                    ReadRecordsRequest(recordType = ExerciseSessionRecord::class, timeRangeFilter = range)
+                ).records.size
+            } catch (e: Exception) { 0 }
+
+            val distanceKm = try {
+                client.readRecords(
+                    ReadRecordsRequest(recordType = DistanceRecord::class, timeRangeFilter = range)
+                ).records.sumOf { it.distance.inKilometers }
+            } catch (e: Exception) { 0.0 }
+
+            val calories = try {
+                val total = client.readRecords(
+                    ReadRecordsRequest(recordType = TotalCaloriesBurnedRecord::class, timeRangeFilter = range)
+                ).records.sumOf { it.energy.inKilocalories }
+                if (total > 0.0) {
+                    total
+                } else {
+                    val active = client.readRecords(
+                        ReadRecordsRequest(recordType = ActiveCaloriesBurnedRecord::class, timeRangeFilter = range)
+                    ).records.sumOf { it.energy.inKilocalories }
+                    if (active > 0.0) active else steps * 0.04
+                }
+            } catch (e: Exception) { steps * 0.04 }
+
+            ProgressTotals(steps = steps, workouts = workouts, calories = calories, distanceKm = distanceKm)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ProgressTotals(0L, 0, 0.0, 0.0)
         }
     }
 

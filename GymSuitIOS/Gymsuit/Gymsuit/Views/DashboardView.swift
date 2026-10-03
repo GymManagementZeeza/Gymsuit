@@ -4,7 +4,7 @@ enum DashboardTab: String, CaseIterable {
     case plan = "Plan"
     case workouts = "Workouts"
     case home = "Home"
-    case analytics = "Analytics"
+    case challenges = "Challenges"
     case settings = "Settings"
     
     var iconName: String {
@@ -12,7 +12,7 @@ enum DashboardTab: String, CaseIterable {
         case .plan: return "calendar"
         case .workouts: return "dumbbell.fill"
         case .home: return "house.fill"
-        case .analytics: return "chart.bar.xaxis"
+        case .challenges: return "person.3.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -35,6 +35,8 @@ struct DashboardView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @State private var selectedTab: DashboardTab = .home
     @State private var days: [DayItemModel] = []
+    // Hoisted here so an active guided session survives tab switches and locks navigation.
+    @StateObject private var workoutSession = WorkoutSessionState()
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -56,7 +58,10 @@ struct DashboardView: View {
                     
                     PointsPill()
                     
-                    Button(action: { selectedTab = .settings }) {
+                    Button(action: {
+                        guard !workoutSession.active else { return }
+                        selectedTab = .settings
+                    }) {
                         Image("avatar_gaze_1")
                             .resizable()
                             .scaledToFill()
@@ -119,6 +124,9 @@ struct DashboardView: View {
                     homeContent
                 } else if selectedTab == .workouts {
                     WorkoutsView()
+                        .environmentObject(workoutSession)
+                } else if selectedTab == .challenges {
+                    ChallengesView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
                 } else {
@@ -126,9 +134,18 @@ struct DashboardView: View {
                 }
             }
             .padding(.bottom, 74) // Space for bottom bar
+            .onChange(of: workoutSession.active) { _, active in
+                // While a guided session runs, lock the user on the Workouts tab.
+                if active {
+                    selectedTab = .workouts
+                }
+            }
             
-            // Floating Bottom Tab Bar
-            customTabBar
+            // Floating Bottom Tab Bar — hidden while a session runs: it must be
+            // ended from the Workouts tab before navigating away.
+            if !workoutSession.active {
+                customTabBar
+            }
         }
     }
     
@@ -139,6 +156,9 @@ struct DashboardView: View {
                 // AI Summary Insight Banner Card
                 aiSummaryCard
                 
+                // Workout Card — tap opens the Workouts tab
+                WorkoutCardWidget(onOpenWorkouts: { selectedTab = .workouts })
+                
                 // Key Biometrics Grid Cards
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
                     // Calories Card
@@ -146,8 +166,8 @@ struct DashboardView: View {
                         MetricDashboardCard(
                             title: "Calories",
                             value: viewModel.isLoadingMetrics ? "…" : "\(Int(viewModel.caloriesBreakdown.totalKcal))",
-                            unit: "kcal",
-                            subtitle: "\(Int(viewModel.caloriesBreakdown.stepsKcal)) walk • \(Int(viewModel.caloriesBreakdown.workoutKcal)) workout",
+                            unit: "kcal burned",
+                            subtitle: "Steps \(Int(viewModel.caloriesBreakdown.stepsKcal)) • Workouts \(Int(viewModel.caloriesBreakdown.workoutKcal))",
                             icon: "flame.fill",
                             tint: AppColors.calories
                         )
@@ -189,7 +209,8 @@ struct DashboardView: View {
                             unit: "bpm",
                             subtitle: {
                                 if let h = viewModel.heartRateSummary {
-                                    return "\(h.minBpm) min • \(h.maxBpm) max"
+                                    let range = "\(h.minBpm) min • \(h.maxBpm) max"
+                                    return h.relativeTime.isEmpty ? range : "\(h.relativeTime) • \(range)"
                                 } else {
                                     return "No data yet"
                                 }
@@ -301,6 +322,8 @@ struct DashboardView: View {
             ForEach(DashboardTab.allCases, id: \.self) { tab in
                 Spacer()
                 Button(action: {
+                    // Locked while a guided session is active — it must be ended first.
+                    guard !workoutSession.active else { return }
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedTab = tab
                     }
@@ -339,7 +362,7 @@ struct DashboardView: View {
             Text("\(tab.rawValue) Coming Soon")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
-            Text("GymSuit workout plans, schedules, and analytics module.")
+            Text("GymSuit workout plans and schedules module.")
                 .font(.system(size: 14))
                 .foregroundColor(AppColors.textSecondary)
             Spacer()
@@ -372,6 +395,170 @@ struct DashboardView: View {
             }
         }
         self.days = list
+    }
+}
+
+// MARK: - Workout Card Widget (ported from Android WorkoutCardWidget)
+//
+// Green gradient card that turns white once any workout is done today.
+// Dots reflect real data only: app-logged workouts ∪ HealthKit sessions.
+// Tapping opens the Workouts tab.
+private struct WorkoutCardWidget: View {
+    var onOpenWorkouts: () -> Void
+    
+    @ObservedObject private var workoutStore = WorkoutStore.shared
+    @State private var hkWorkoutDays: Set<Date> = []
+    
+    private var calendar: Calendar { Calendar.current }
+    private var today: Date { calendar.startOfDay(for: Date()) }
+    private var darkGreen: Color { Color(hex: 0xFF065F46) }
+    private var deepGreen: Color { Color(hex: 0xFF064E3B) }
+    
+    private var monthDays: [Date] {
+        let comps = calendar.dateComponents([.year, .month], from: Date())
+        guard let monthStart = calendar.date(from: comps),
+              let range = calendar.range(of: .day, in: .month, for: monthStart) else { return [] }
+        return range.compactMap { calendar.date(byAdding: .day, value: $0 - 1, to: monthStart) }
+    }
+    
+    private var loggedDays: Set<Date> {
+        Set(workoutStore.loggedWorkouts.map { calendar.startOfDay(for: $0.date) })
+    }
+    
+    private var allWorkoutDays: Set<Date> { loggedDays.union(hkWorkoutDays) }
+    private var workedOutToday: Bool { allWorkoutDays.contains(today) }
+    
+    private var workoutsThisMonth: Int {
+        monthDays.filter { allWorkoutDays.contains($0) }.count
+    }
+    
+    private var monthName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: Date())
+    }
+    
+    var body: some View {
+        Button(action: onOpenWorkouts) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header: icon, title & month tag
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "dumbbell.fill")
+                            .font(.system(size: 16))
+                        Text("Workout")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(darkGreen)
+                    Spacer()
+                    Text(monthName)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(darkGreen)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(darkGreen.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                
+                // Big count: completed days this month
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text("\(workoutsThisMonth)")
+                        .font(.system(size: 26, weight: .heavy))
+                        .foregroundColor(deepGreen)
+                    Text("/\(monthDays.count) days")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(darkGreen.opacity(0.75))
+                }
+                .padding(.top, 10)
+                
+                // Dot grid for the days of the month
+                dotGrid
+                    .padding(.top, 14)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Group {
+                    if workedOutToday {
+                        Color.white
+                    } else {
+                        LinearGradient(
+                            colors: [Color(hex: 0xFFDCFCE7), Color(hex: 0xFFA7F3D0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .shadow(color: Color.black.opacity(0.04), radius: 6, y: 3)
+        }
+        .task { await loadHKWorkoutDays() }
+        .onChange(of: workoutStore.loggedWorkouts.count) { _, _ in
+            Task { await loadHKWorkoutDays() }
+        }
+    }
+    
+    private var dotGrid: some View {
+        let columns = 6
+        let rows = (monthDays.count + columns - 1) / columns
+        return VStack(alignment: .leading, spacing: 6) {
+            ForEach(0..<rows, id: \.self) { row in
+                HStack(spacing: 6) {
+                    ForEach(0..<columns, id: \.self) { col in
+                        let idx = row * columns + col
+                        if idx < monthDays.count {
+                            let date = monthDays[idx]
+                            let didWorkout = allWorkoutDays.contains(date)
+                            let isToday = calendar.isDate(date, inSameDayAs: today)
+                            let isFuture = date > today
+                            Circle()
+                                .fill(dotFill(didWorkout: didWorkout, isToday: isToday, isFuture: isFuture))
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Group {
+                                        if isToday {
+                                            Circle().stroke(todayBorder(didWorkout: didWorkout), lineWidth: 2)
+                                        }
+                                    }
+                                )
+                        } else {
+                            Spacer().frame(width: 14, height: 14)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func dotFill(didWorkout: Bool, isToday: Bool, isFuture: Bool) -> Color {
+        if didWorkout && workedOutToday { return Color(hex: 0xFF10B981) }
+        if didWorkout { return .white }
+        if isToday { return Color(hex: 0xFF059669).opacity(0.6) }
+        if isFuture { return Color(hex: 0xFF059669).opacity(0.15) }
+        return Color(hex: 0xFF059669).opacity(0.35)
+    }
+    
+    private func todayBorder(didWorkout: Bool) -> Color {
+        (didWorkout || workedOutToday) ? darkGreen : .white
+    }
+    
+    private func loadHKWorkoutDays() async {
+        let manager = HealthKitManager.shared
+        let days = monthDays.filter { $0 <= today }
+        var found = Set<Date>()
+        await withTaskGroup(of: Date?.self) { group in
+            for day in days {
+                group.addTask {
+                    let sessions = await manager.fetchWorkouts(for: day)
+                    return sessions.isEmpty ? nil : day
+                }
+            }
+            for await day in group {
+                if let day { found.insert(day) }
+            }
+        }
+        hkWorkoutDays = found
     }
 }
 
