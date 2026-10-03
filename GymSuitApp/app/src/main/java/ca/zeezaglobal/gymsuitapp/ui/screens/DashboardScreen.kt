@@ -86,7 +86,7 @@ enum class DashboardTab(
     PLAN("Plan", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
     WORKOUTS("Workouts", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter),
     HOME("Home", Icons.Filled.Home, Icons.Outlined.Home),
-    ANALYTICS("Analytics", Icons.Filled.BarChart, Icons.Outlined.BarChart),
+    CHALLENGES("Challenges", Icons.Filled.Group, Icons.Outlined.Group),
     SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings);
 
     val icon: ImageVector get() = selectedIcon
@@ -576,6 +576,9 @@ fun DashboardScreen(
                     }
                     DashboardTab.WORKOUTS -> {
                         WorkoutsScreen(session = workoutSession)
+                    }
+                    DashboardTab.CHALLENGES -> {
+                        ChallengeScreen()
                     }
                     else -> {
                         // Blank Page Content for other non-Home tabs
