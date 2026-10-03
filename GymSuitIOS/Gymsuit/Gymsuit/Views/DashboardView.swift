@@ -4,7 +4,7 @@ enum DashboardTab: String, CaseIterable {
     case plan = "Plan"
     case workouts = "Workouts"
     case home = "Home"
-    case analytics = "Analytics"
+    case challenges = "Challenges"
     case settings = "Settings"
     
     var iconName: String {
@@ -12,7 +12,7 @@ enum DashboardTab: String, CaseIterable {
         case .plan: return "calendar"
         case .workouts: return "dumbbell.fill"
         case .home: return "house.fill"
-        case .analytics: return "chart.bar.xaxis"
+        case .challenges: return "person.3.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -125,6 +125,8 @@ struct DashboardView: View {
                 } else if selectedTab == .workouts {
                     WorkoutsView()
                         .environmentObject(workoutSession)
+                } else if selectedTab == .challenges {
+                    ChallengesView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
                 } else {
@@ -360,7 +362,7 @@ struct DashboardView: View {
             Text("\(tab.rawValue) Coming Soon")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
-            Text("GymSuit workout plans, schedules, and analytics module.")
+            Text("GymSuit workout plans and schedules module.")
                 .font(.system(size: 14))
                 .foregroundColor(AppColors.textSecondary)
             Spacer()
