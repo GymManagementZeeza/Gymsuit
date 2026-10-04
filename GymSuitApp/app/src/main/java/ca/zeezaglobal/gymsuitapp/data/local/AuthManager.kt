@@ -31,6 +31,8 @@ class AuthManager(context: Context) {
         private const val KEY_MEMBER_ID = "member_id"
         private const val KEY_GYM_ID = "gym_id"
         private const val KEY_GYM_NAME = "gym_name"
+
+        val unauthorizedEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     }
 
     fun saveSession(session: UserSession) {

@@ -84,14 +84,10 @@ enum class DashboardTab(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
-    PLAN("Plan", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
     WORKOUTS("Workouts", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter),
     HOME("Home", Icons.Filled.Home, Icons.Outlined.Home),
-<<<<<<< Updated upstream
     CHALLENGES("Challenges", Icons.Filled.Group, Icons.Outlined.Group),
-=======
     FOOD("Food", Icons.Filled.Restaurant, Icons.Outlined.Restaurant),
->>>>>>> Stashed changes
     SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings);
 
     val icon: ImageVector get() = selectedIcon
@@ -575,13 +571,11 @@ fun DashboardScreen(
                     DashboardTab.WORKOUTS -> {
                         WorkoutsScreen(session = workoutSession)
                     }
-<<<<<<< Updated upstream
                     DashboardTab.CHALLENGES -> {
                         ChallengeScreen()
-=======
+                    }
                     DashboardTab.FOOD -> {
                         FoodLogScreen()
->>>>>>> Stashed changes
                     }
                     else -> {
                         // Blank Page Content for other non-Home tabs
