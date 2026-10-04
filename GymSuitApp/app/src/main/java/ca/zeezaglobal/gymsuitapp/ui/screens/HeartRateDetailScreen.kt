@@ -424,26 +424,20 @@ private fun HrvScatterGraph(
         val minHrvRange = 30f
         val maxHrvRange = 130f
 
-        // Curated vertical bead clusters per column to reproduce the rich scatter pattern in the reference image
-        val simulatedScatterPatterns = listOf(
-            listOf(0.42f, 0.48f, 0.52f, 0.58f),                          // 12am
-            listOf(0.25f, 0.30f, 0.35f, 0.40f, 0.45f, 0.55f, 0.65f),     // 4am
-            listOf(0.38f, 0.44f, 0.49f, 0.52f, 0.60f),                   // 8am
-            listOf(0.32f, 0.38f, 0.42f, 0.47f, 0.53f, 0.58f),            // 12pm
-            listOf(0.18f, 0.23f, 0.28f, 0.34f, 0.42f, 0.52f, 0.60f, 0.72f), // 4pm (rich burst)
-            listOf(0.36f, 0.40f, 0.45f, 0.50f, 0.58f, 0.65f)             // 8pm
-        )
-
+        // Real values only: each column plots the samples recorded in that time bucket
         val beadRadius = 7.dp.toPx()
         val pillWidth = 14.dp.toPx()
 
         for (i in 0 until columnCount) {
             val cx = (i + 0.5f) * colWidth
-            val pattern = simulatedScatterPatterns.getOrElse(i) { listOf(0.4f, 0.5f, 0.6f) }
+            // Normalise real values into 0..1; columns without samples draw nothing
+            val pattern = buckets.getOrNull(i)?.samples.orEmpty()
+                .map { ((it - minHrvRange) / (maxHrvRange - minHrvRange)).coerceIn(0.02f, 0.98f) }
+            if (pattern.isEmpty()) continue
 
             // Group into continuous capsule pill or overlapping rounded beads
-            val minYNorm = pattern.minOrNull() ?: 0.4f
-            val maxYNorm = pattern.maxOrNull() ?: 0.6f
+            val minYNorm = pattern.min()
+            val maxYNorm = pattern.max()
 
             val topY = (1f - maxYNorm) * canvasHeight
             val botY = (1f - minYNorm) * canvasHeight
@@ -464,16 +458,6 @@ private fun HrvScatterGraph(
                     color = softRedMedium.copy(alpha = 0.85f),
                     radius = beadRadius,
                     center = Offset(cx, cy)
-                )
-            }
-
-            // Draw an isolated detached bead occasionally matching reference design
-            if (i == 1 || i == 3) {
-                val detachedY = (1f - (minYNorm - 0.12f)) * canvasHeight
-                drawCircle(
-                    color = softRedBase.copy(alpha = 0.7f),
-                    radius = beadRadius * 0.85f,
-                    center = Offset(cx, detachedY)
                 )
             }
         }

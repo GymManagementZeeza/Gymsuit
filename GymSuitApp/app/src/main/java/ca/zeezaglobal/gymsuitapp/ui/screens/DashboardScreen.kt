@@ -87,7 +87,11 @@ enum class DashboardTab(
     PLAN("Plan", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
     WORKOUTS("Workouts", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter),
     HOME("Home", Icons.Filled.Home, Icons.Outlined.Home),
+<<<<<<< Updated upstream
     CHALLENGES("Challenges", Icons.Filled.Group, Icons.Outlined.Group),
+=======
+    FOOD("Food", Icons.Filled.Restaurant, Icons.Outlined.Restaurant),
+>>>>>>> Stashed changes
     SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings);
 
     val icon: ImageVector get() = selectedIcon
@@ -106,7 +110,9 @@ fun DashboardScreen(
     onLogout: () -> Unit = {},
     onNavigateToSleepDetail: (LocalDate) -> Unit = {},
     onNavigateToHeartRateDetail: (LocalDate) -> Unit = {},
-    onNavigateToCaloriesDetail: (LocalDate) -> Unit = {}
+    onNavigateToCaloriesDetail: (LocalDate) -> Unit = {},
+    onNavigateToWeightDetail: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
     // Lives here so an active workout survives tab changes and locks navigation
@@ -250,8 +256,6 @@ fun DashboardScreen(
             isRefreshing = true
             coroutineScope.launch {
                 syncKey += 1
-                // Read and log live Health Connect data as JSON
-                healthConnectManager.logAllHealthDataAsJson()
                 viewModel.onDateSelected(days[selectedDayIndex].localDate, forceRefresh = true)
                 delay(1200)
                 isRefreshing = false
@@ -297,37 +301,12 @@ fun DashboardScreen(
                     ) {
                         PointsPill()
 
-                        // Material 3 Notification Bell with M3 Shape and Badge
-                        BadgedBox(
-                            badge = {
-                                Badge(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError,
-                                    modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "3",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        ) {
-                            FilledTonalIconButton(
-                                onClick = { /* Handle notification tap */ },
-                                shape = RoundedCornerShape(16.dp), // M3 Medium Shape token
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Notifications,
-                                    contentDescription = "Notifications",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                        // M3 filled tonal icon button (40dp container, 24dp icon, circular shape)
+                        FilledTonalIconButton(onClick = onNavigateToNotifications) {
+                            Icon(
+                                imageVector = Icons.Outlined.Notifications,
+                                contentDescription = "Notifications"
+                            )
                         }
                     }
                 }
@@ -550,7 +529,7 @@ fun DashboardScreen(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    HealthOverviewWidget(syncTrigger = syncKey)
+                                    HealthOverviewWidget(syncTrigger = syncKey, onClick = onNavigateToWeightDetail)
                                     CaloriesBurnedWidget(
                                         selectedDate = days[selectedDayIndex].localDate,
                                         syncTrigger = syncKey,
@@ -596,8 +575,13 @@ fun DashboardScreen(
                     DashboardTab.WORKOUTS -> {
                         WorkoutsScreen(session = workoutSession)
                     }
+<<<<<<< Updated upstream
                     DashboardTab.CHALLENGES -> {
                         ChallengeScreen()
+=======
+                    DashboardTab.FOOD -> {
+                        FoodLogScreen()
+>>>>>>> Stashed changes
                     }
                     else -> {
                         // Blank Page Content for other non-Home tabs
@@ -1032,7 +1016,8 @@ private fun WorkoutCardWidget(
 
 @Composable
 private fun HealthOverviewWidget(
-    syncTrigger: Int = 0
+    syncTrigger: Int = 0,
+    onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -1059,7 +1044,10 @@ private fun HealthOverviewWidget(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -1076,7 +1064,7 @@ private fun HealthOverviewWidget(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Health overview",
+                    text = "Weight",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF111827)
@@ -1481,11 +1469,19 @@ private fun HeartRateWidget(
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
     var hrData by remember {
-        mutableStateOf(healthConnectManager.defaultHeartRateSample(hasData = true))
+        mutableStateOf(healthConnectManager.defaultHeartRateSample(hasData = false))
     }
 
+    // Re-reads on pull-to-refresh. A failed read is retried and never replaces the last good data.
     LaunchedEffect(selectedDate, syncTrigger) {
-        hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
+        repeat(3) { attempt ->
+            val fresh = healthConnectManager.tryReadHeartRateDataForDate(selectedDate)
+            if (fresh != null) {
+                hrData = fresh
+                return@LaunchedEffect
+            }
+            delay(800)
+        }
     }
 
     Surface(

@@ -26,6 +26,11 @@ import ca.zeezaglobal.gymsuitapp.data.model.ProgressTotals
 import org.json.JSONObject
 import org.json.JSONArray
 
+data class WeightEntry(
+    val time: Instant,
+    val kg: Double
+)
+
 data class HealthWorkoutSession(
     val date: LocalDate,
     val title: String,
@@ -183,6 +188,12 @@ class HealthConnectManager(private val context: Context) {
         val client = healthConnectClient ?: return false
         val granted = client.permissionController.getGrantedPermissions()
         return granted.contains(HealthPermission.getReadPermission(WeightRecord::class))
+    }
+
+    suspend fun hasWeightWritePermission(): Boolean {
+        val client = healthConnectClient ?: return false
+        val granted = client.permissionController.getGrantedPermissions()
+        return granted.contains(HealthPermission.getWritePermission(WeightRecord::class))
     }
 
     suspend fun hasSleepPermission(): Boolean {
@@ -615,6 +626,45 @@ class HealthConnectManager(private val context: Context) {
         return HealthWorkoutSignals(sessions, sleep)
     }
 
+    /** Weight entries from the last [daysBack] days, oldest first. */
+    suspend fun readWeightHistory(daysBack: Long = 1500): List<WeightEntry> {
+        val client = healthConnectClient ?: return emptyList()
+        return try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = WeightRecord::class,
+                    timeRangeFilter = TimeRangeFilter.after(Instant.now().minus(daysBack, ChronoUnit.DAYS))
+                )
+            ).records
+                .map { WeightEntry(it.time, it.weight.inKilograms) }
+                .sortedBy { it.time }
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to read weight history", e)
+            emptyList()
+        }
+    }
+
+    /** Writes a manual weight entry at [time]. Returns true on success. */
+    suspend fun insertWeight(kg: Double, time: Instant = Instant.now()): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            client.insertRecords(
+                listOf(
+                    WeightRecord(
+                        time = time,
+                        zoneOffset = null,
+                        weight = androidx.health.connect.client.units.Mass.kilograms(kg),
+                        metadata = Metadata.manualEntry()
+                    )
+                )
+            )
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to write weight", e)
+            false
+        }
+    }
+
     /**
      * Reads the latest weight record in kilograms (recorded within the last 90 days).
      * Returns null if no record found, permission not granted, or error occurs.
@@ -828,8 +878,15 @@ class HealthConnectManager(private val context: Context) {
      * Reads heart rate records for [date] (local timezone).
      * Extracts all samples, finds min, max, latest bpm and formats time span and relative recency.
      */
-    suspend fun readHeartRateDataForDate(date: LocalDate): HeartRateSummaryData {
-        val client = healthConnectClient ?: return defaultHeartRateSample(hasData = true)
+    suspend fun readHeartRateDataForDate(date: LocalDate): HeartRateSummaryData =
+        tryReadHeartRateDataForDate(date) ?: defaultHeartRateSample(hasData = false)
+
+    /**
+     * Same as [readHeartRateDataForDate] but returns null when the read fails (e.g. Health Connect
+     * rate limiting), so callers can retry or keep the previous value instead of showing placeholders.
+     */
+    suspend fun tryReadHeartRateDataForDate(date: LocalDate): HeartRateSummaryData? {
+        val client = healthConnectClient ?: return defaultHeartRateSample(hasData = false)
         val zoneId = ZoneId.systemDefault()
         val startOfDay = date.atStartOfDay(zoneId).toInstant()
         val isToday = (date == LocalDate.now())
@@ -859,7 +916,7 @@ class HealthConnectManager(private val context: Context) {
 
             val samples = records.flatMap { it.samples }.sortedBy { it.time }
             if (samples.isEmpty()) {
-                return defaultHeartRateSample(hasData = true)
+                return defaultHeartRateSample(hasData = false)
             }
 
             val points = samples.map { HeartRatePoint(it.time, it.beatsPerMinute.toInt()) }
@@ -890,7 +947,7 @@ class HealthConnectManager(private val context: Context) {
             )
         } catch (e: Exception) {
             e.printStackTrace()
-            defaultHeartRateSample(hasData = true)
+            null
         }
     }
 
@@ -931,13 +988,12 @@ class HealthConnectManager(private val context: Context) {
                     derivedHrv
                 }
             } else {
-                // Natural baseline points for hours without explicit burst
-                listOf(78, 82, 85)
+                emptyList() // no recorded samples in this window: nothing is invented
             }
 
-            val minVal = hrvSamples.minOrNull() ?: 65
-            val maxVal = hrvSamples.maxOrNull() ?: 95
-            val avgVal = hrvSamples.average().toInt()
+            val minVal = hrvSamples.minOrNull() ?: 0
+            val maxVal = hrvSamples.maxOrNull() ?: 0
+            val avgVal = if (hrvSamples.isEmpty()) 0 else hrvSamples.average().toInt()
 
             HrvBucket(
                 hourLabel = label,
@@ -951,8 +1007,8 @@ class HealthConnectManager(private val context: Context) {
         }
 
         val allHrvs = buckets.flatMap { it.samples }
-        val avgHrv = if (allHrvs.isNotEmpty()) allHrvs.average().toInt() else 82
-        val latestHrv = allHrvs.lastOrNull() ?: 82
+        val avgHrv = if (allHrvs.isNotEmpty()) allHrvs.average().toInt() else 0
+        val latestHrv = allHrvs.lastOrNull() ?: 0
 
         val stressLevel = when {
             avgHrv >= 75 -> "Low"

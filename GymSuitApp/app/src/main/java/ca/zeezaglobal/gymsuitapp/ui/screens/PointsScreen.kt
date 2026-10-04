@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +31,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -104,26 +108,20 @@ fun PointsPill() {
         label = "pointsPop"
     )
 
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = Color.White,
-        border = BorderStroke(1.dp, PDivider),
-        shadowElevation = 2.dp,
+    // M3 filled tonal button with an icon, matching the 40dp height of the neighbouring icon button
+    FilledTonalButton(
+        onClick = { showPoints = true },
+        contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
         modifier = Modifier
+            .height(40.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .clickable { showPoints = true }
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(Icons.Filled.Star, contentDescription = null, tint = PointsGold, modifier = Modifier.size(18.dp))
-            Text("$animatedBalance", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = PInkPrimary)
-        }
+        Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("$animatedBalance", style = MaterialTheme.typography.labelLarge)
     }
 
     if (showPoints) {
