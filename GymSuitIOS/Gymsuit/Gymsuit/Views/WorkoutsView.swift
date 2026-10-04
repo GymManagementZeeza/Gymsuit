@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct WorkoutsView: View {
     // Session state is owned by DashboardView (the tab container) and injected

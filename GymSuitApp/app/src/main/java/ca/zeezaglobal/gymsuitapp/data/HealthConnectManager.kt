@@ -154,18 +154,25 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    // Comprehensive permissions covering all health & fitness categories
+    // Comprehensive permissions covering all health & fitness categories (read & write for sync)
     val permissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
+        HealthPermission.getWritePermission(WeightRecord::class),
         HealthPermission.getReadPermission(HeightRecord::class),
         HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getWritePermission(StepsRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getWritePermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+        HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getWritePermission(DistanceRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
-        HealthPermission.getReadPermission(SleepSessionRecord::class)
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getWritePermission(SleepSessionRecord::class)
     )
 
     fun isAvailable(): Boolean {
@@ -243,6 +250,105 @@ class HealthConnectManager(private val context: Context) {
             true
         } catch (e: Exception) {
             Log.e("HealthConnect", "Failed to write exercise session", e)
+            false
+        }
+    }
+
+    suspend fun insertSteps(steps: Long, startTime: Instant, endTime: Instant): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val record = StepsRecord(
+                count = steps,
+                startTime = startTime,
+                startZoneOffset = ZoneId.systemDefault().rules.getOffset(startTime),
+                endTime = endTime,
+                endZoneOffset = ZoneId.systemDefault().rules.getOffset(endTime),
+                metadata = Metadata.manualEntry()
+            )
+            client.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to insert steps", e)
+            false
+        }
+    }
+
+    suspend fun insertActiveCalories(kcal: Double, startTime: Instant, endTime: Instant): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val record = ActiveCaloriesBurnedRecord(
+                energy = androidx.health.connect.client.units.Energy.kilocalories(kcal),
+                startTime = startTime,
+                startZoneOffset = ZoneId.systemDefault().rules.getOffset(startTime),
+                endTime = endTime,
+                endZoneOffset = ZoneId.systemDefault().rules.getOffset(endTime),
+                metadata = Metadata.manualEntry()
+            )
+            client.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to insert active calories", e)
+            false
+        }
+    }
+
+    suspend fun insertDistance(meters: Double, startTime: Instant, endTime: Instant): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val record = DistanceRecord(
+                distance = androidx.health.connect.client.units.Length.meters(meters),
+                startTime = startTime,
+                startZoneOffset = ZoneId.systemDefault().rules.getOffset(startTime),
+                endTime = endTime,
+                endZoneOffset = ZoneId.systemDefault().rules.getOffset(endTime),
+                metadata = Metadata.manualEntry()
+            )
+            client.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to insert distance", e)
+            false
+        }
+    }
+
+    suspend fun insertHeartRate(bpm: Int, time: Instant): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val sample = HeartRateRecord.Sample(
+                time = time,
+                beatsPerMinute = bpm.toLong()
+            )
+            val record = HeartRateRecord(
+                startTime = time,
+                startZoneOffset = ZoneId.systemDefault().rules.getOffset(time),
+                endTime = time.plusSeconds(1),
+                endZoneOffset = ZoneId.systemDefault().rules.getOffset(time.plusSeconds(1)),
+                samples = listOf(sample),
+                metadata = Metadata.manualEntry()
+            )
+            client.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to insert heart rate", e)
+            false
+        }
+    }
+
+    suspend fun insertSleepSession(startTime: Instant, endTime: Instant, title: String = "Sleep"): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val record = SleepSessionRecord(
+                startTime = startTime,
+                startZoneOffset = ZoneId.systemDefault().rules.getOffset(startTime),
+                endTime = endTime,
+                endZoneOffset = ZoneId.systemDefault().rules.getOffset(endTime),
+                title = title,
+                metadata = Metadata.manualEntry()
+            )
+            client.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to insert sleep session", e)
             false
         }
     }

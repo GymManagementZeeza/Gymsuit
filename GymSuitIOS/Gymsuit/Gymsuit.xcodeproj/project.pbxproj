@@ -252,13 +252,13 @@
 				DEVELOPMENT_TEAM = 2G2B87NX43;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, and heart rate metrics.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, and heart rate metrics.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -287,13 +287,13 @@
 				DEVELOPMENT_TEAM = 2G2B87NX43;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, and heart rate metrics.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, and heart rate metrics.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

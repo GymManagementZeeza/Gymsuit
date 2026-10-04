@@ -77,6 +77,7 @@ struct ContentView: View {
                 // token expiry without forcing a re-login.
                 Task {
                     await authManager.refreshSession()
+                    _ = await HealthSyncManager.shared.sync()
                 }
             } else {
                 currentScreen = .onboarding
@@ -85,6 +86,9 @@ struct ContentView: View {
     }
     
     private func navigateAfterLogin() {
+        Task {
+            _ = await HealthSyncManager.shared.sync()
+        }
         if HealthKitManager.shared.isAuthorized {
             currentScreen = .dashboard
         } else {
