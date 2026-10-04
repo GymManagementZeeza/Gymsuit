@@ -78,6 +78,8 @@ public enum ExerciseMuscleGroups {
 
 public enum WorkoutSaveError: Error {
     case collectionFailed
+    case endCollectionFailed
+    case finishFailed
 }
 
 public struct WorkoutSet: Codable, Identifiable, Hashable {

@@ -73,6 +73,9 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf(initialScreen) }
 
                 androidx.compose.runtime.LaunchedEffect(Unit) {
+                    if (appComponent.authManager.isLoggedIn()) {
+                        appComponent.healthSyncManager.sync()
+                    }
                     ca.zeezaglobal.gymsuitapp.data.local.AuthManager.unauthorizedEvent.collect {
                         appComponent.authManager.clear()
                         currentScreen = AppScreen.LOGIN
@@ -81,6 +84,7 @@ class MainActivity : ComponentActivity() {
 
                 fun navigateAfterLogin() {
                     coroutineScope.launch {
+                        appComponent.healthSyncManager.sync()
                         val alreadyAccepted = healthConnectManager.isAvailable() &&
                                 healthConnectManager.hasAnyPermissions()
                         currentScreen = if (alreadyAccepted) {

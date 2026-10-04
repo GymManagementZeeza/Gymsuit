@@ -88,7 +88,9 @@ struct RegisterView: View {
                                 Text("First Name")
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
-                                TextField("Alex", text: $firstName)
+                                TextField("", text: $firstName, prompt: Text("Alex").foregroundColor(AppColors.textTertiary))
+                                    .foregroundColor(AppColors.textPrimary)
+                                    .tint(AppColors.primary)
                                     .padding()
                                     .background(Color.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -99,7 +101,9 @@ struct RegisterView: View {
                                 Text("Last Name")
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
-                                TextField("Smith", text: $lastName)
+                                TextField("", text: $lastName, prompt: Text("Smith").foregroundColor(AppColors.textTertiary))
+                                    .foregroundColor(AppColors.textPrimary)
+                                    .tint(AppColors.primary)
                                     .padding()
                                     .background(Color.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -112,7 +116,9 @@ struct RegisterView: View {
                             Text("Email Address")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
-                            TextField("alex@example.com", text: $email)
+                            TextField("", text: $email, prompt: Text("alex@example.com").foregroundColor(AppColors.textTertiary))
+                                .foregroundColor(AppColors.textPrimary)
+                                .tint(AppColors.primary)
                                 .autocapitalization(.none)
                                 .keyboardType(.emailAddress)
                                 .padding()
@@ -126,7 +132,9 @@ struct RegisterView: View {
                             Text("Phone Number")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
-                            TextField("+1 234 567 8900", text: $phone)
+                            TextField("", text: $phone, prompt: Text("+1 234 567 8900").foregroundColor(AppColors.textTertiary))
+                                .foregroundColor(AppColors.textPrimary)
+                                .tint(AppColors.primary)
                                 .keyboardType(.phonePad)
                                 .padding()
                                 .background(Color.white)
@@ -138,13 +146,13 @@ struct RegisterView: View {
                             Button(action: sendRegisterOtp) {
                                 HStack {
                                     if isLoading {
-                                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: isFormValid ? .white : AppColors.textTertiary))
                                     } else {
                                         Text("Continue & Get Code")
                                             .font(.system(size: 16, weight: .semibold))
                                     }
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(isFormValid ? .white : AppColors.textTertiary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
                                 .background(isFormValid ? AppColors.primary : AppColors.divider)
@@ -156,7 +164,9 @@ struct RegisterView: View {
                                 Text("6-Digit Code")
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
-                                TextField("123456", text: $otp)
+                                TextField("", text: $otp, prompt: Text("123456").foregroundColor(AppColors.textTertiary))
+                                    .foregroundColor(AppColors.textPrimary)
+                                    .tint(AppColors.primary)
                                     .keyboardType(.numberPad)
                                     .padding()
                                     .background(Color.white)
@@ -167,13 +177,13 @@ struct RegisterView: View {
                             Button(action: completeRegistration) {
                                 HStack {
                                     if isLoading {
-                                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: otp.count < 4 ? AppColors.textTertiary : .white))
                                     } else {
                                         Text("Complete Registration")
                                             .font(.system(size: 16, weight: .semibold))
                                     }
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(otp.count < 4 ? AppColors.textTertiary : .white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
                                 .background(otp.count < 4 ? AppColors.divider : AppColors.primary)

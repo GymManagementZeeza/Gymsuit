@@ -242,8 +242,9 @@ fun DashboardScreen(
         viewModel.onDateSelected(selectedLocalDate)
     }
 
-    // Log complete Health data as formatted JSON on screen load
+    // Log complete Health data as formatted JSON on screen load and sync with backend
     LaunchedEffect(Unit) {
+        appComponent.healthSyncManager.sync()
         healthConnectManager.logAllHealthDataAsJson()
     }
 
@@ -251,6 +252,7 @@ fun DashboardScreen(
         if (!isRefreshing) {
             isRefreshing = true
             coroutineScope.launch {
+                appComponent.healthSyncManager.sync()
                 syncKey += 1
                 viewModel.onDateSelected(days[selectedDayIndex].localDate, forceRefresh = true)
                 delay(1200)

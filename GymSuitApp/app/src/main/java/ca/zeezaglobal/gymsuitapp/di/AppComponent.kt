@@ -18,6 +18,10 @@ class AppComponent private constructor(private val appContext: Context) {
         HealthConnectManager(appContext)
     }
 
+    val healthSyncManager: ca.zeezaglobal.gymsuitapp.data.HealthSyncManager by lazy {
+        ca.zeezaglobal.gymsuitapp.data.HealthSyncManager(appContext)
+    }
+
     val authManager: ca.zeezaglobal.gymsuitapp.data.local.AuthManager by lazy {
         ca.zeezaglobal.gymsuitapp.data.local.AuthManager(appContext)
     }

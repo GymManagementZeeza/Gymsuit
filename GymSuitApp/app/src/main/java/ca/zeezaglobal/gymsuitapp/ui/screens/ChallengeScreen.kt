@@ -25,10 +25,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -400,13 +413,6 @@ private fun ChallengeSummaryCard(challenge: ChallengeSummary, onClick: () -> Uni
 // Create
 // ---------------------------------------------------------------------------
 
-private val MetricIcons: Map<ChallengeMetric, ImageVector> = mapOf(
-    ChallengeMetric.STEPS to Icons.Filled.DirectionsWalk,
-    ChallengeMetric.WORKOUTS to Icons.Filled.FitnessCenter,
-    ChallengeMetric.CALORIES to Icons.Filled.Whatshot,
-    ChallengeMetric.DISTANCE_KM to Icons.Filled.Route
-)
-
 @Composable
 private fun CreateChallengeContent(
     onBack: () -> Unit,
@@ -419,18 +425,22 @@ private fun CreateChallengeContent(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var metric by remember { mutableStateOf(ChallengeMetric.STEPS) }
-    var startDate by remember { mutableStateOf(LocalDate.now()) }
-    var endDate by remember { mutableStateOf(LocalDate.now().plusDays(7)) }
+    var startDate by remember { mutableStateOf<LocalDate?>(null) }
+    var endDate by remember { mutableStateOf<LocalDate?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
 
-    fun showDatePicker(initial: LocalDate, minToday: Boolean, onPicked: (LocalDate) -> Unit) {
+    fun showDatePicker(initial: LocalDate?, minToday: Boolean, onPicked: (LocalDate) -> Unit) {
+        val baseDate = initial ?: LocalDate.now()
         DatePickerDialog(
             context,
             { _, y, m, d -> onPicked(LocalDate.of(y, m + 1, d)) },
-            initial.year, initial.monthValue - 1, initial.dayOfMonth
+            baseDate.year, baseDate.monthValue - 1, baseDate.dayOfMonth
         ).apply {
-            if (minToday) datePicker.minDate = System.currentTimeMillis()
+            if (minToday) {
+                // Allow today or yesterday to prevent timezone boundary glitches
+                datePicker.minDate = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+            }
             show()
         }
     }
@@ -441,7 +451,15 @@ private fun CreateChallengeContent(
                 error = "Give your challenge a name"
                 return
             }
-            endDate.isBefore(startDate) -> {
+            startDate == null -> {
+                error = "Please select a start date"
+                return
+            }
+            endDate == null -> {
+                error = "Please select an end date"
+                return
+            }
+            endDate!!.isBefore(startDate) -> {
                 error = "End date can't be before the start date"
                 return
             }
@@ -453,8 +471,8 @@ private fun CreateChallengeContent(
                 name = name,
                 description = description,
                 metricType = metric.apiValue,
-                startDate = startDate.format(ApiDateFormat),
-                endDate = endDate.format(ApiDateFormat)
+                startDate = startDate!!.format(ApiDateFormat),
+                endDate = endDate!!.format(ApiDateFormat)
             ).onSuccess { detail ->
                 onCreated(detail.id)
             }.onFailure {
@@ -517,70 +535,61 @@ private fun CreateChallengeContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Metric selection using FilterChips
+        // Dates & Challenge Type Card
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
+                // Start Date & End Date Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    DateInputBox(
+                        label = "Start Date",
+                        date = startDate,
+                        onClick = { showDatePicker(startDate, minToday = true) { startDate = it } },
+                        modifier = Modifier.weight(1f)
+                    )
+                    DateInputBox(
+                        label = "End Date",
+                        date = endDate,
+                        onClick = { showDatePicker(endDate ?: startDate, minToday = true) { endDate = it } },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Challenge Type Section
                 Text(
-                    text = "Compete on",
-                    style = MaterialTheme.typography.titleSmall
+                    text = "Challenge Type",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChallengeMetric.entries.chunked(2).forEach { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            row.forEach { m ->
-                                FilterChip(
-                                    selected = metric == m,
-                                    onClick = { metric = m },
-                                    label = { Text(m.label) },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = MetricIcons[m] ?: Icons.Filled.FitnessCenter,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
-                        }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ChallengeMetric.entries.forEach { m ->
+                        ChallengeTypeCard(
+                            metric = m,
+                            isSelected = metric == m,
+                            onClick = { metric = m },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Date selection
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                DateRow(
-                    label = "Start date",
-                    date = startDate,
-                    onClick = { showDatePicker(startDate, minToday = true) { startDate = it } }
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-                DateRow(
-                    label = "End date",
-                    date = endDate,
-                    onClick = { showDatePicker(endDate, minToday = true) { endDate = it } }
-                )
             }
         }
 
@@ -616,22 +625,182 @@ private fun CreateChallengeContent(
 }
 
 @Composable
-private fun DateRow(label: String, date: LocalDate, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+private fun DateInputBox(
+    label: String,
+    date: LocalDate?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
-        FilledTonalButton(onClick = onClick) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
             Text(
-                text = date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
+                text = date?.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
+                    ?: "Select date",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (date != null) MaterialTheme.colorScheme.onSurface else Color(0xFF94A3B8)
             )
         }
+    }
+}
+
+@Composable
+private fun ChallengeTypeCard(
+    metric: ChallengeMetric,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = if (isSelected) Color(0xFF2563EB) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    val borderWidth = if (isSelected) 1.5.dp else 1.dp
+    val backgroundColor = if (isSelected) Color(0xFFEFF6FF) else MaterialTheme.colorScheme.surface
+    val contentColor = if (isSelected) Color(0xFF2563EB) else Color(0xFF475569)
+    val iconColor = if (isSelected) Color(0xFF2563EB) else Color(0xFF64748B)
+
+    Card(
+        onClick = onClick,
+        modifier = modifier.height(84.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = BorderStroke(borderWidth, borderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            ChallengeTypeIcon(
+                metric = metric,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = metric.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                color = contentColor,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChallengeTypeIcon(
+    metric: ChallengeMetric,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    when (metric) {
+        ChallengeMetric.STEPS -> {
+            StepsOutlineIcon(
+                tint = tint,
+                modifier = modifier
+            )
+        }
+        ChallengeMetric.WORKOUTS -> {
+            Icon(
+                imageVector = Icons.Outlined.FitnessCenter,
+                contentDescription = null,
+                tint = tint,
+                modifier = modifier.graphicsLayer { rotationZ = -45f }
+            )
+        }
+        ChallengeMetric.CALORIES -> {
+            Icon(
+                imageVector = Icons.Outlined.LocalFireDepartment,
+                contentDescription = null,
+                tint = tint,
+                modifier = modifier
+            )
+        }
+        ChallengeMetric.DISTANCE_KM -> {
+            Icon(
+                imageVector = Icons.Outlined.LocationOn,
+                contentDescription = null,
+                tint = tint,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+@Composable
+private fun StepsOutlineIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val strokeWidth = 1.75.dp.toPx()
+        val w = size.width
+        val h = size.height
+
+        // Left footprint outline
+        val leftPath = Path().apply {
+            moveTo(0.30f * w, 0.20f * h)
+            cubicTo(0.18f * w, 0.20f * h, 0.10f * w, 0.30f * h, 0.10f * w, 0.44f * h)
+            cubicTo(0.10f * w, 0.56f * h, 0.15f * w, 0.64f * h, 0.16f * w, 0.72f * h)
+            cubicTo(0.16f * w, 0.84f * h, 0.22f * w, 0.94f * h, 0.30f * w, 0.94f * h)
+            cubicTo(0.38f * w, 0.94f * h, 0.42f * w, 0.84f * h, 0.42f * w, 0.72f * h)
+            cubicTo(0.40f * w, 0.60f * h, 0.32f * w, 0.52f * h, 0.36f * w, 0.40f * h)
+            cubicTo(0.39f * w, 0.28f * h, 0.42f * w, 0.20f * h, 0.30f * w, 0.20f * h)
+            close()
+        }
+
+        // Right footprint outline (higher and offset right)
+        val rightPath = Path().apply {
+            moveTo(0.70f * w, 0.06f * h)
+            cubicTo(0.58f * w, 0.06f * h, 0.61f * w, 0.14f * h, 0.64f * w, 0.26f * h)
+            cubicTo(0.68f * w, 0.38f * h, 0.60f * w, 0.46f * h, 0.58f * w, 0.58f * h)
+            cubicTo(0.58f * w, 0.70f * h, 0.62f * w, 0.80f * h, 0.70f * w, 0.80f * h)
+            cubicTo(0.78f * w, 0.80f * h, 0.84f * w, 0.70f * h, 0.84f * w, 0.58f * h)
+            cubicTo(0.85f * w, 0.50f * h, 0.90f * w, 0.42f * h, 0.90f * w, 0.30f * h)
+            cubicTo(0.90f * w, 0.16f * h, 0.82f * w, 0.06f * h, 0.70f * w, 0.06f * h)
+            close()
+        }
+
+        drawPath(
+            path = leftPath,
+            color = tint,
+            style = Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
+            )
+        )
+        drawPath(
+            path = rightPath,
+            color = tint,
+            style = Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
+            )
+        )
     }
 }
 

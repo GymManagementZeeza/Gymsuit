@@ -43,11 +43,17 @@ public final class HealthKitManager: ObservableObject {
         return types
     }
     
-    // Health types to write (workout logging)
+    // Health types to write (bi-directional sync & workout logging)
     private var shareTypes: Set<HKSampleType> {
         var types: Set<HKSampleType> = []
         types.insert(HKObjectType.workoutType())
+        if let stepCount = HKObjectType.quantityType(forIdentifier: .stepCount) { types.insert(stepCount) }
         if let activeEnergy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) { types.insert(activeEnergy) }
+        if let basalEnergy = HKObjectType.quantityType(forIdentifier: .basalEnergyBurned) { types.insert(basalEnergy) }
+        if let distance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) { types.insert(distance) }
+        if let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate) { types.insert(heartRate) }
+        if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { types.insert(sleep) }
+        if let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass) { types.insert(bodyMass) }
         return types
     }
 
@@ -83,7 +89,7 @@ public final class HealthKitManager: ObservableObject {
         configuration.activityType = .traditionalStrengthTraining
         configuration.locationType = .indoor
 
-        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration)
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration, device: nil)
 
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -98,7 +104,7 @@ public final class HealthKitManager: ObservableObject {
                 }
             }
 
-            builder.addMetadata([
+            try await builder.addMetadata([
                 HKMetadataKeyWasUserEntered: true,
                 "ca.zeezaglobal.Gymsuit.exerciseName": exerciseName,
                 "ca.zeezaglobal.Gymsuit.setCount": setCount,
@@ -167,8 +173,8 @@ public final class HealthKitManager: ObservableObject {
     public func readWorkoutSignals() async -> HealthWorkoutSignals {
         guard isAvailable else { return HealthWorkoutSignals() }
         let sessions = await readRecentWorkoutSessions()
-        // fetchSleepSession(Date()) covers the night before the given date.
-        let lastSleepMinutes = await fetchSleepSession(Date()).map { Int($0.durationMinutes) }
+        // fetchSleepSession(for: Date()) covers the night before the given date.
+        let lastSleepMinutes = await fetchSleepSession(for: Date()).map { Int($0.durationMinutes) }
         return HealthWorkoutSignals(sessions: sessions, lastSleepMinutes: lastSleepMinutes)
     }
 
@@ -541,6 +547,195 @@ public final class HealthKitManager: ObservableObject {
         )
     }
     
+    // MARK: - HealthKit Write Operations (for incoming synced records)
+
+    public func writeSteps(count: Int64, start: Date, end: Date, externalId: String? = nil) async -> Bool {
+        guard isAvailable, let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return false }
+        let quantity = HKQuantity(unit: .count(), doubleValue: Double(count))
+        var metadata: [String: Any] = [
+            "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+            HKMetadataKeyWasUserEntered: false
+        ]
+        if let ext = externalId { metadata["ca.zeezaglobal.Gymsuit.externalId"] = ext }
+        let sample = HKQuantitySample(type: stepType, quantity: quantity, start: start, end: end, metadata: metadata)
+        do {
+            try await healthStore.save(sample)
+            return true
+        } catch {
+            print("Failed to write steps to HealthKit: \(error)")
+            return false
+        }
+    }
+
+    public func writeActiveCalories(kcal: Double, start: Date, end: Date, externalId: String? = nil) async -> Bool {
+        guard isAvailable, let calType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else { return false }
+        let quantity = HKQuantity(unit: .kilocalorie(), doubleValue: kcal)
+        var metadata: [String: Any] = [
+            "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+            HKMetadataKeyWasUserEntered: false
+        ]
+        if let ext = externalId { metadata["ca.zeezaglobal.Gymsuit.externalId"] = ext }
+        let sample = HKQuantitySample(type: calType, quantity: quantity, start: start, end: end, metadata: metadata)
+        do {
+            try await healthStore.save(sample)
+            return true
+        } catch {
+            print("Failed to write calories to HealthKit: \(error)")
+            return false
+        }
+    }
+
+    public func writeDistance(meters: Double, start: Date, end: Date, externalId: String? = nil) async -> Bool {
+        guard isAvailable, let distType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) else { return false }
+        let quantity = HKQuantity(unit: .meter(), doubleValue: meters)
+        var metadata: [String: Any] = [
+            "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+            HKMetadataKeyWasUserEntered: false
+        ]
+        if let ext = externalId { metadata["ca.zeezaglobal.Gymsuit.externalId"] = ext }
+        let sample = HKQuantitySample(type: distType, quantity: quantity, start: start, end: end, metadata: metadata)
+        do {
+            try await healthStore.save(sample)
+            return true
+        } catch {
+            print("Failed to write distance to HealthKit: \(error)")
+            return false
+        }
+    }
+
+    public func writeHeartRate(bpm: Int, date: Date, externalId: String? = nil) async -> Bool {
+        guard isAvailable, let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return false }
+        let quantity = HKQuantity(unit: HKUnit.count().unitDivided(by: .minute()), doubleValue: Double(bpm))
+        var metadata: [String: Any] = [
+            "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+            HKMetadataKeyWasUserEntered: false
+        ]
+        if let ext = externalId { metadata["ca.zeezaglobal.Gymsuit.externalId"] = ext }
+        let sample = HKQuantitySample(type: hrType, quantity: quantity, start: date, end: date, metadata: metadata)
+        do {
+            try await healthStore.save(sample)
+            return true
+        } catch {
+            print("Failed to write heart rate to HealthKit: \(error)")
+            return false
+        }
+    }
+
+    public func writeSleep(start: Date, end: Date, externalId: String? = nil) async -> Bool {
+        guard isAvailable, let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return false }
+        var metadata: [String: Any] = [
+            "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+            HKMetadataKeyWasUserEntered: false
+        ]
+        if let ext = externalId { metadata["ca.zeezaglobal.Gymsuit.externalId"] = ext }
+        let sample = HKCategorySample(type: sleepType, value: HKCategoryValueSleepAnalysis.asleepCore.rawValue, start: start, end: end, metadata: metadata)
+        do {
+            try await healthStore.save(sample)
+            return true
+        } catch {
+            print("Failed to write sleep to HealthKit: \(error)")
+            return false
+        }
+    }
+
+    public func writeWeight(kg: Double, date: Date) async -> Bool {
+        guard isAvailable, let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else { return false }
+        let quantity = HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: kg)
+        let metadata: [String: Any] = [
+            "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+            HKMetadataKeyWasUserEntered: false
+        ]
+        let sample = HKQuantitySample(type: weightType, quantity: quantity, start: date, end: date, metadata: metadata)
+        do {
+            try await healthStore.save(sample)
+            return true
+        } catch {
+            print("Failed to write weight to HealthKit: \(error)")
+            return false
+        }
+    }
+
+    public func writeSyncedWorkout(
+        title: String,
+        start: Date,
+        end: Date,
+        caloriesBurned: Double?,
+        setCount: Int?,
+        totalReps: Int?,
+        totalVolumeKg: Double?,
+        externalId: String
+    ) async -> Bool {
+        guard isAvailable else { return false }
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .traditionalStrengthTraining
+        configuration.locationType = .indoor
+
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration, device: nil)
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                builder.beginCollection(withStart: start) { success, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if !success {
+                        continuation.resume(throwing: WorkoutSaveError.collectionFailed)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+
+            var meta: [String: Any] = [
+                HKMetadataKeyWasUserEntered: false,
+                "ca.zeezaglobal.Gymsuit.syncedFromBackend": true,
+                "ca.zeezaglobal.Gymsuit.externalId": externalId,
+                "ca.zeezaglobal.Gymsuit.exerciseName": title
+            ]
+            if let sc = setCount { meta["ca.zeezaglobal.Gymsuit.setCount"] = sc }
+            if let tr = totalReps { meta["ca.zeezaglobal.Gymsuit.totalReps"] = tr }
+            if let tv = totalVolumeKg { meta["ca.zeezaglobal.Gymsuit.totalVolumeKg"] = tv }
+
+            try await builder.addMetadata(meta)
+
+            if let cal = caloriesBurned, cal > 0, let calType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
+                let sample = HKQuantitySample(type: calType, quantity: HKQuantity(unit: .kilocalorie(), doubleValue: cal), start: start, end: end)
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    builder.add([sample]) { success, error in
+                        if let error { continuation.resume(throwing: error) }
+                        else { continuation.resume() }
+                    }
+                }
+            }
+
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                builder.endCollection(withEnd: end) { success, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if !success {
+                        continuation.resume(throwing: WorkoutSaveError.endCollectionFailed)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+
+            let workout = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HKWorkout, Error>) in
+                builder.finishWorkout { workout, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if let workout {
+                        continuation.resume(returning: workout)
+                    } else {
+                        continuation.resume(throwing: WorkoutSaveError.finishFailed)
+                    }
+                }
+            }
+            return workout != nil
+        } catch {
+            print("Failed to save synced workout: \(error)")
+            return false
+        }
+    }
+
     // MARK: - Relative Time
 
     /// "Just now" / "N mins ago" / "MMM d, h:mm a" style relative time.

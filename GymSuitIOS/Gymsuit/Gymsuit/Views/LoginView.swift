@@ -97,7 +97,9 @@ struct LoginView: View {
                                 Image(systemName: "envelope")
                                     .foregroundColor(AppColors.textTertiary)
                                     .frame(width: 20)
-                                TextField("alex@example.com", text: $email)
+                                TextField("", text: $email, prompt: Text("alex@example.com").foregroundColor(AppColors.textTertiary))
+                                    .foregroundColor(AppColors.textPrimary)
+                                    .tint(AppColors.primary)
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
                                     .keyboardType(.emailAddress)
@@ -114,13 +116,13 @@ struct LoginView: View {
                                 HStack {
                                     if isLoading {
                                         ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .progressViewStyle(CircularProgressViewStyle(tint: email.isEmpty ? AppColors.textTertiary : .white))
                                     } else {
                                         Text("Send Verification Code")
                                             .font(.system(size: 16, weight: .semibold))
                                     }
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(email.isEmpty ? AppColors.textTertiary : .white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
                                 .background(email.isEmpty ? AppColors.divider : AppColors.primary)
@@ -138,7 +140,9 @@ struct LoginView: View {
                                     Image(systemName: "key")
                                         .foregroundColor(AppColors.textTertiary)
                                         .frame(width: 20)
-                                    TextField("123456", text: $otp)
+                                    TextField("", text: $otp, prompt: Text("123456").foregroundColor(AppColors.textTertiary))
+                                        .foregroundColor(AppColors.textPrimary)
+                                        .tint(AppColors.primary)
                                         .keyboardType(.numberPad)
                                 }
                                 .padding()
@@ -151,13 +155,13 @@ struct LoginView: View {
                                 HStack {
                                     if isLoading {
                                         ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .progressViewStyle(CircularProgressViewStyle(tint: otp.count < 4 ? AppColors.textTertiary : .white))
                                     } else {
                                         Text("Verify & Continue")
                                             .font(.system(size: 16, weight: .semibold))
                                     }
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(otp.count < 4 ? AppColors.textTertiary : .white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
                                 .background(otp.count < 4 ? AppColors.divider : AppColors.primary)

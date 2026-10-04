@@ -231,6 +231,7 @@ struct WorkoutLogView: View {
                     dismiss()
                 }
             }
+            _ = await HealthSyncManager.shared.sync()
         }
     }
 }

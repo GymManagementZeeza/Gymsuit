@@ -47,7 +47,7 @@ struct PointsView: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(AppColors.textSecondary)
                         }
-                        Text("Your \(pointsStore.balance) points can be redeemed for \(PointsConfig.formattedRupees(for: pointsStore.balance)} in real money.")
+                        Text("Your \(pointsStore.balance) points can be redeemed for \(PointsConfig.formattedRupees(for: pointsStore.balance)) in real money.")
                             .font(.system(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                         Button(action: {

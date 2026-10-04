@@ -64,6 +64,9 @@ public final class DashboardViewModel: ObservableObject {
         // 2. Fetch Day's Biometrics
         Task {
             self.isLoadingMetrics = true
+            if AuthManager.shared.isLoggedIn {
+                _ = await HealthSyncManager.shared.sync()
+            }
             async let s = healthKitManager.fetchSteps(for: date)
             async let c = healthKitManager.fetchCaloriesBreakdown(for: date)
             async let sl = healthKitManager.fetchSleepSession(for: date)

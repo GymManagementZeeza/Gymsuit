@@ -419,6 +419,7 @@ fun WorkoutsScreen(session: WorkoutSessionState = remember { WorkoutSessionState
                     totalVolumeKg = workout.totalVolumeKg
                 )
                 if (ok) loggedWorkouts = workoutStore.markSynced(workout.id)
+                ca.zeezaglobal.gymsuitapp.data.HealthSyncManager(context).sync()
             }
     }
 
