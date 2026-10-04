@@ -3,6 +3,7 @@ package com.zeezaglobal.gymmanagement.service;
 import com.zeezaglobal.gymmanagement.dto.DailyHealthSyncDto;
 import com.zeezaglobal.gymmanagement.dto.HealthSyncRequest;
 import com.zeezaglobal.gymmanagement.dto.HealthSyncResponse;
+import com.zeezaglobal.gymmanagement.dto.PointsSyncResponse;
 import com.zeezaglobal.gymmanagement.dto.WorkoutSyncDto;
 import com.zeezaglobal.gymmanagement.entity.DailyHealthRecord;
 import com.zeezaglobal.gymmanagement.entity.User;
@@ -32,6 +33,7 @@ public class HealthSyncService {
     private final WorkoutRecordRepository workoutRecordRepository;
     private final UserRepository userRepository;
     private final HealthReconciliationEngine reconciliationEngine;
+    private final PointsSyncService pointsSyncService;
 
     @Transactional
     public HealthSyncResponse sync(HealthSyncRequest request, UserPrincipal principal) {
@@ -279,10 +281,26 @@ public class HealthSyncService {
         List<DailyHealthSyncDto> remoteDailyDtos = remoteDaily.stream().map(this::toDto).toList();
         List<WorkoutSyncDto> remoteWorkoutDtos = remoteWorkouts.stream().map(this::toDto).toList();
 
-        log.info("Health sync for user {}: uploaded {} daily, {} workouts; returning {} daily, {} workouts",
-                user.getId(), uploadedDaily, uploadedWorkouts, remoteDailyDtos.size(), remoteWorkoutDtos.size());
+        // 4. Synchronize points between devices
+        PointsSyncResponse pointsResp;
+        if (request.pointsTransactions() != null && !request.pointsTransactions().isEmpty()) {
+            pointsResp = pointsSyncService.syncPoints(user, request.clientDevice() != null ? request.clientDevice() : "MOBILE_APP", request.pointsTransactions());
+        } else {
+            pointsResp = pointsSyncService.getPoints(user);
+        }
 
-        return new HealthSyncResponse(now, uploadedDaily, uploadedWorkouts, remoteDailyDtos, remoteWorkoutDtos);
+        log.info("Health sync for user {}: uploaded {} daily, {} workouts; returning {} daily, {} workouts, pointsBalance={}",
+                user.getId(), uploadedDaily, uploadedWorkouts, remoteDailyDtos.size(), remoteWorkoutDtos.size(), pointsResp.balance());
+
+        return new HealthSyncResponse(
+                now,
+                uploadedDaily,
+                uploadedWorkouts,
+                remoteDailyDtos,
+                remoteWorkoutDtos,
+                pointsResp.balance(),
+                pointsResp.transactions()
+        );
     }
 
     @Transactional(readOnly = true)

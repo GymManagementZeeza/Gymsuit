@@ -167,12 +167,25 @@ public final class HealthSyncManager: ObservableObject {
                 )
             }
 
-            // 3. Post to backend
+            // 3. Collect points history
+            let localPoints = PointsStore.shared.history.map { p in
+                PointsTransactionDto(
+                    id: p.id.uuidString,
+                    points: p.points,
+                    reason: p.reason,
+                    rupeeValue: p.rupeeValue,
+                    createdAt: isoFormatter.string(from: p.date),
+                    deviceId: "IOS_APP"
+                )
+            }
+
+            // 4. Post to backend
             let request = HealthSyncRequest(
                 lastSyncTime: lastSyncIso,
                 clientDevice: "IOS_APPLE_HEALTH",
                 dailyRecords: dailyDtos,
-                workouts: workoutDtos
+                workouts: workoutDtos,
+                pointsTransactions: localPoints
             )
 
             let response = try await api.sync(request: request)
@@ -311,6 +324,9 @@ public final class HealthSyncManager: ObservableObject {
                     )
                 }
             }
+
+            // 6. Ingest remote points balance & transactions
+            PointsStore.shared.mergeRemote(remoteBalance: response.pointsBalance, remoteTransactions: response.pointsTransactions)
 
             // Save new sync checkpoint
             let nowIso = isoFormatter.string(from: today)

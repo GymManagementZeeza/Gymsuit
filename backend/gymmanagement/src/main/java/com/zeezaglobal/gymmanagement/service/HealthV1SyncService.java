@@ -27,6 +27,7 @@ public class HealthV1SyncService {
     private final HealthUserSyncStateRepository userSyncStateRepository;
     private final DailyHealthRecordRepository dailyHealthRecordRepository;
     private final WorkoutRecordRepository workoutRecordRepository;
+    private final PointsSyncService pointsSyncService;
 
     @Transactional
     public HealthV1SyncResponse sync(HealthV1SyncRequest request, UserPrincipal principal) {
@@ -236,8 +237,16 @@ public class HealthV1SyncService {
                         w.getUpdatedAt()
                 )).toList();
 
-        log.info("Health V1 sync completed for user {} device {}: ingested raw {}, reconciled {}, returning {} canonicals, {} tombstones, serverVersion={}",
-                user.getId(), deviceId, uploadedCount, reconciled.size(), canonicalDtos.size(), tombstoneDtos.size(), currentVersion);
+        // 7. Synchronize points
+        PointsSyncResponse pointsResp;
+        if (request.pointsTransactions() != null && !request.pointsTransactions().isEmpty()) {
+            pointsResp = pointsSyncService.syncPoints(user, deviceId, request.pointsTransactions());
+        } else {
+            pointsResp = pointsSyncService.getPoints(user);
+        }
+
+        log.info("Health V1 sync completed for user {} device {}: ingested raw {}, reconciled {}, returning {} canonicals, {} tombstones, pointsBalance={}, serverVersion={}",
+                user.getId(), deviceId, uploadedCount, reconciled.size(), canonicalDtos.size(), tombstoneDtos.size(), pointsResp.balance(), currentVersion);
 
         return new HealthV1SyncResponse(
                 currentVersion,
@@ -247,7 +256,9 @@ public class HealthV1SyncService {
                 canonicalDtos,
                 tombstoneDtos,
                 dailyDtos,
-                workoutDtos
+                workoutDtos,
+                pointsResp.balance(),
+                pointsResp.transactions()
         );
     }
 }

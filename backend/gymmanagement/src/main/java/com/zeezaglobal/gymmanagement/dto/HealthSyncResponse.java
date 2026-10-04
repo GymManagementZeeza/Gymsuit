@@ -8,5 +8,12 @@ public record HealthSyncResponse(
         int uploadedDailyCount,
         int uploadedWorkoutCount,
         List<DailyHealthSyncDto> remoteDailyRecords,
-        List<WorkoutSyncDto> remoteWorkouts
-) {}
+        List<WorkoutSyncDto> remoteWorkouts,
+        Integer pointsBalance,
+        List<PointsTransactionDto> pointsTransactions
+) {
+    public HealthSyncResponse(LocalDateTime serverSyncTime, int uploadedDailyCount, int uploadedWorkoutCount,
+                              List<DailyHealthSyncDto> remoteDailyRecords, List<WorkoutSyncDto> remoteWorkouts) {
+        this(serverSyncTime, uploadedDailyCount, uploadedWorkoutCount, remoteDailyRecords, remoteWorkouts, null, null);
+    }
+}

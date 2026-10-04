@@ -8,5 +8,12 @@ public record HealthV1SyncRequest(
         List<HealthRawRecordDto> rawRecords,
         List<String> deletedRecordIds,
         List<DailyHealthSyncDto> dailyRecords,
-        List<WorkoutSyncDto> workouts
-) {}
+        List<WorkoutSyncDto> workouts,
+        List<PointsTransactionDto> pointsTransactions
+) {
+    public HealthV1SyncRequest(String deviceId, Long lastSyncVersion, List<HealthRawRecordDto> rawRecords,
+                               List<String> deletedRecordIds, List<DailyHealthSyncDto> dailyRecords,
+                               List<WorkoutSyncDto> workouts) {
+        this(deviceId, lastSyncVersion, rawRecords, deletedRecordIds, dailyRecords, workouts, null);
+    }
+}
