@@ -162,6 +162,11 @@ class ChallengeApi(context: Context) {
                 BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
             } ?: "HTTP $responseCode"
             Log.e(TAG, "<-- Error Response ($responseCode): $errorText")
+            
+            if (responseCode == 401) {
+                AuthManager.unauthorizedEvent.tryEmit(Unit)
+            }
+
             val message = try {
                 JSONObject(errorText).optString("message", errorText)
             } catch (e: Exception) {

@@ -203,6 +203,11 @@ class MobileAuthApi {
                 } ?: "HTTP $responseCode"
 
                 Log.e(TAG, "<-- Error Response ($responseCode): $errorText")
+                
+                if (responseCode == 401) {
+                    ca.zeezaglobal.gymsuitapp.data.local.AuthManager.unauthorizedEvent.tryEmit(Unit)
+                }
+
                 val message = try {
                     JSONObject(errorText).optString("message", errorText)
                 } catch (e: Exception) {

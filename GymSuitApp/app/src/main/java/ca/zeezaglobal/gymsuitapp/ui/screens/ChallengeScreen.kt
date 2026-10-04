@@ -5,8 +5,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,9 +26,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -35,11 +38,28 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Mail
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -56,10 +76,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
@@ -70,7 +90,6 @@ import ca.zeezaglobal.gymsuitapp.data.model.ChallengeSummary
 import ca.zeezaglobal.gymsuitapp.data.model.LeaderboardEntry
 import ca.zeezaglobal.gymsuitapp.data.model.formatMetricValue
 import ca.zeezaglobal.gymsuitapp.data.remote.ChallengeApi
-import ca.zeezaglobal.gymsuitapp.ui.theme.PoppinsFontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -155,182 +174,223 @@ private fun ChallengeListContent(
 
     LaunchedEffect(Unit) { load() }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 110.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Challenges",
-                        fontFamily = PoppinsFontFamily,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
-                    Text(
-                        text = "Compete with friends, stay consistent",
-                        fontSize = 13.sp,
-                        color = Color(0xFF6B7280)
-                    )
-                }
-                IconButton(onClick = { load() }) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = "Refresh",
-                        tint = Color(0xFF6B7280)
-                    )
-                }
-            }
-        }
-
-        item {
-            Button(
-                onClick = onCreate,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Create challenge", fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        item {
-            WhiteCard {
-                Text(
-                    text = "Join with invite code",
-                    fontFamily = PoppinsFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = Color(0xFF111827)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = joinCode,
-                        onValueChange = { joinCode = it; joinError = null },
-                        placeholder = { Text("Enter code") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { join() },
-                        enabled = !joinLoading,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Join")
-                    }
-                }
-                if (joinLoading) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                }
-                joinError?.let {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(text = it, color = Color(0xFFDC2626), fontSize = 12.sp)
-                }
-            }
-        }
-
-        error?.let {
-            item {
-                WhiteCard {
-                    Text(text = it, color = Color(0xFFDC2626), fontSize = 13.sp)
-                }
-            }
-        }
-
-        if (isLoading && challenges.isEmpty()) {
-            item {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-        }
-
-        if (!isLoading && challenges.isEmpty() && error == null) {
-            item {
-                WhiteCard {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column {
                         Text(
-                            text = "No challenges yet",
-                            fontFamily = PoppinsFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp,
-                            color = Color(0xFF111827)
+                            text = "Challenges",
+                            style = MaterialTheme.typography.headlineSmall
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Create one or join with an invite code to compete with friends.",
-                            fontSize = 13.sp,
-                            color = Color(0xFF6B7280)
+                            text = "Compete with friends, stay consistent",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    FilledTonalIconButton(onClick = { load() }) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh"
                         )
                     }
                 }
             }
+
+            // Join with invite code
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Join with invite code",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = joinCode,
+                                onValueChange = { joinCode = it; joinError = null },
+                                placeholder = { Text("Enter code") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            FilledTonalButton(
+                                onClick = { join() },
+                                enabled = !joinLoading
+                            ) {
+                                Text("Join")
+                            }
+                        }
+                        if (joinLoading) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        joinError?.let {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Error state
+            error?.let {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+
+            // Loading state
+            if (isLoading && challenges.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+
+            // Empty state
+            if (!isLoading && challenges.isEmpty() && error == null) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp, horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.EmojiEvents,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "No challenges yet",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Create one or join with an invite code to compete with friends.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Challenge list
+            items(challenges, key = { it.id }) { challenge ->
+                ChallengeSummaryCard(challenge = challenge, onClick = { onOpen(challenge.id) })
+            }
         }
 
-        items(challenges, key = { it.id }) { challenge ->
-            ChallengeSummaryCard(challenge = challenge, onClick = { onOpen(challenge.id) })
-        }
+        // FAB
+        ExtendedFloatingActionButton(
+            onClick = onCreate,
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = { Text("Create challenge") },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 100.dp, end = 4.dp)
+        )
     }
 }
 
 @Composable
 private fun ChallengeSummaryCard(challenge: ChallengeSummary, onClick: () -> Unit) {
-    WhiteCard(modifier = Modifier.clickable(onClick = onClick)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = challenge.name,
-                fontFamily = PoppinsFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                color = Color(0xFF111827),
-                modifier = Modifier.weight(1f)
-            )
-            StatusPill(challenge.status)
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = "${challenge.metric.label}  •  ${prettyDateRange(challenge.startDate, challenge.endDate)}",
-            fontSize = 13.sp,
-            color = Color(0xFF6B7280)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "${challenge.participantCount} participants",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF374151)
-            )
-            challenge.myRank?.let { rank ->
-                Spacer(modifier = Modifier.width(12.dp))
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "Your rank: #$rank",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                    text = challenge.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
                 )
+                StatusChip(challenge.status)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "${challenge.metric.label}  •  ${prettyDateRange(challenge.startDate, challenge.endDate)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Group,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${challenge.participantCount} participants",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                challenge.myRank?.let { rank ->
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Your rank: #$rank",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
@@ -408,58 +468,93 @@ private fun CreateChallengeContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 110.dp)
+            .padding(top = 20.dp, bottom = 120.dp)
     ) {
-        ScreenHeader(title = "Create challenge", onBack = onBack)
-        Spacer(modifier = Modifier.height(12.dp))
+        // Header
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Create challenge",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-        WhiteCard {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Challenge name") },
-                placeholder = { Text("e.g. October Step Battle") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description (optional)") },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2
-            )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Name & description
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Challenge name") },
+                    placeholder = { Text("e.g. October Step Battle") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (optional)") },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        WhiteCard {
-            Text(
-                text = "Compete on",
-                fontFamily = PoppinsFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFF111827)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChallengeMetric.entries.chunked(2).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        row.forEach { m ->
-                            MetricOption(
-                                metric = m,
-                                selected = metric == m,
-                                onSelect = { metric = m },
-                                modifier = Modifier.weight(1f)
-                            )
+        // Metric selection using FilterChips
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Compete on",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChallengeMetric.entries.chunked(2).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            row.forEach { m ->
+                                FilterChip(
+                                    selected = metric == m,
+                                    onClick = { metric = m },
+                                    label = { Text(m.label) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = MetricIcons[m] ?: Icons.Filled.FitnessCenter,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
                         }
-                        if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -467,80 +562,55 @@ private fun CreateChallengeContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        WhiteCard {
-            DateRow(
-                label = "Start date",
-                date = startDate,
-                onClick = { showDatePicker(startDate, minToday = true) { startDate = it } }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            DateRow(
-                label = "End date",
-                date = endDate,
-                onClick = { showDatePicker(endDate, minToday = true) { endDate = it } }
-            )
+        // Date selection
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                DateRow(
+                    label = "Start date",
+                    date = startDate,
+                    onClick = { showDatePicker(startDate, minToday = true) { startDate = it } }
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                DateRow(
+                    label = "End date",
+                    date = endDate,
+                    onClick = { showDatePicker(endDate, minToday = true) { endDate = it } }
+                )
+            }
         }
 
+        // Error
         error?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = it, color = Color(0xFFDC2626), fontSize = 13.sp)
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
+        // Create button
         Button(
             onClick = { create() },
             enabled = !creating,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             if (creating) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
-                Text("Create challenge", fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold)
+                Text("Create challenge")
             }
-        }
-    }
-}
-
-@Composable
-private fun MetricOption(
-    metric: ChallengeMetric,
-    selected: Boolean,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val primary = MaterialTheme.colorScheme.primary
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) primary.copy(alpha = 0.12f) else Color(0xFFF9FAFB),
-        border = BorderStroke(
-            1.5.dp,
-            if (selected) primary else Color(0xFFE5E7EB)
-        ),
-        modifier = modifier.clickable(onClick = onSelect)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = MetricIcons[metric] ?: Icons.Filled.FitnessCenter,
-                contentDescription = null,
-                tint = if (selected) primary else Color(0xFF6B7280),
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = metric.label,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                fontSize = 14.sp,
-                color = if (selected) Color(0xFF111827) else Color(0xFF4B5563)
-            )
         }
     }
 }
@@ -552,18 +622,14 @@ private fun DateRow(label: String, date: LocalDate, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 14.sp, color = Color(0xFF4B5563))
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFFF3F4F6),
-            modifier = Modifier.clickable(onClick = onClick)
-        ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        FilledTonalButton(onClick = onClick) {
             Text(
-                text = date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF111827),
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                text = date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
             )
         }
     }
@@ -674,19 +740,34 @@ private fun ChallengeDetailContent(
 
     LaunchedEffect(challengeId) { load(autoSync = true) }
 
+    // Leave confirmation dialog
     if (showLeaveConfirm) {
         AlertDialog(
             onDismissRequest = { showLeaveConfirm = false },
-            title = { Text("Leave challenge?", fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold) },
-            text = { Text("Your progress will be removed from the leaderboard.") },
+            title = {
+                Text(
+                    "Leave challenge?",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            text = {
+                Text(
+                    "Your progress will be removed from the leaderboard.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = { leave() },
-                    enabled = !leaving
-                ) { Text("Leave", color = Color(0xFFDC2626)) }
+                    enabled = !leaving,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text("Leave") }
             },
             dismissButton = {
-                TextButton(onClick = { showLeaveConfirm = false }) { Text("Cancel") }
+                OutlinedButton(onClick = { showLeaveConfirm = false }) { Text("Cancel") }
             }
         )
     }
@@ -695,22 +776,31 @@ private fun ChallengeDetailContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 110.dp)
+            .padding(top = 20.dp, bottom = 120.dp)
     ) {
-        ScreenHeader(
-            title = detail?.name ?: "Challenge",
-            onBack = onBack,
-            trailing = {
-                IconButton(onClick = { detail?.let { syncProgress(it) } }) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = "Sync progress",
-                        tint = Color(0xFF6B7280)
-                    )
-                }
+        // Header
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
             }
-        )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = detail?.name ?: "Challenge",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+            FilledTonalIconButton(onClick = { detail?.let { syncProgress(it) } }) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Sync progress"
+                )
+            }
+        }
 
+        // Loading state
         if (isLoading && detail == null) {
             Spacer(modifier = Modifier.height(40.dp))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -719,60 +809,91 @@ private fun ChallengeDetailContent(
             return@Column
         }
 
+        // Error state
         error?.let {
             Spacer(modifier = Modifier.height(12.dp))
-            WhiteCard { Text(text = it, color = Color(0xFFDC2626), fontSize = 13.sp) }
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
             return@Column
         }
 
         val d = detail ?: return@Column
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Status + meta
-        WhiteCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StatusPill(d.status)
+        // Status + meta card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    StatusChip(d.status)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Group,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${d.participantCount} participants",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "${d.participantCount} participants",
-                    fontSize = 13.sp,
-                    color = Color(0xFF6B7280)
+                    text = "${d.metric.label}  •  ${prettyDateRange(d.startDate, d.endDate)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                if (d.description.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = d.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                d.myRank?.let { rank ->
+                    Text(
+                        text = "Your rank: #$rank",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } ?: Text(
+                    text = "You're not ranked yet — sync your progress below",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "${d.metric.label}  •  ${prettyDateRange(d.startDate, d.endDate)}",
-                fontSize = 13.sp,
-                color = Color(0xFF6B7280)
-            )
-            if (d.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = d.description, fontSize = 14.sp, color = Color(0xFF374151))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            d.myRank?.let { rank ->
-                Text(
-                    text = "Your rank: #$rank",
-                    fontFamily = PoppinsFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } ?: Text(
-                text = "You're not ranked yet — sync your progress below",
-                fontSize = 13.sp,
-                color = Color(0xFF6B7280)
-            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Invite code
-        WhiteCard(
-            modifier = Modifier.clickable {
+        // Invite code card
+        ElevatedCard(
+            onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Challenge invite code", d.inviteCode))
                 copied = true
@@ -781,37 +902,39 @@ private fun ChallengeDetailContent(
                     delay(2000)
                     copied = false
                 }
-            }
+            },
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Invite code",
-                        fontSize = 12.sp,
-                        color = Color(0xFF6B7280)
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = d.inviteCode.ifBlank { "—" },
-                        fontSize = 26.sp,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 3.sp,
-                        fontFamily = PoppinsFontFamily,
-                        color = Color(0xFF111827)
+                        letterSpacing = 3.sp
                     )
                     Text(
                         text = if (copied) "Copied!" else "Tap to copy",
-                        fontSize = 12.sp,
-                        color = if (copied) Color(0xFF16A34A) else Color(0xFF9CA3AF)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (copied) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
                     contentDescription = "Copy invite code",
-                    tint = Color(0xFF9CA3AF)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -819,129 +942,183 @@ private fun ChallengeDetailContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Invite by email
-        WhiteCard {
-            Text(
-                text = "Invite by email",
-                fontFamily = PoppinsFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFF111827)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = inviteEmail,
-                    onValueChange = { inviteEmail = it; inviteMessage = null },
-                    placeholder = { Text("friend@example.com") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = { sendInvite() },
-                    enabled = !inviteSending,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Send")
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.Mail,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Invite by email",
+                        style = MaterialTheme.typography.titleSmall
+                    )
                 }
-            }
-            inviteMessage?.let {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = it,
-                    fontSize = 12.sp,
-                    color = if (inviteIsError) Color(0xFFDC2626) else Color(0xFF16A34A)
-                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = inviteEmail,
+                        onValueChange = { inviteEmail = it; inviteMessage = null },
+                        placeholder = { Text("friend@example.com") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilledTonalButton(
+                        onClick = { sendInvite() },
+                        enabled = !inviteSending
+                    ) {
+                        Text("Send")
+                    }
+                }
+                if (inviteSending) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                inviteMessage?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (inviteIsError) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Progress sync
-        WhiteCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Your progress",
-                        fontFamily = PoppinsFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = Color(0xFF111827)
-                    )
-                    Text(
-                        text = when {
-                            syncing -> "Syncing with Health Connect…"
-                            lastSynced != null -> lastSynced!!
-                            else -> "Not synced yet"
-                        },
-                        fontSize = 12.sp,
-                        color = Color(0xFF6B7280)
-                    )
-                }
-                OutlinedButton(
-                    onClick = { syncProgress(d) },
-                    enabled = !syncing,
-                    shape = RoundedCornerShape(12.dp)
+        // Progress sync card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Sync now")
-                }
-            }
-            if (syncing) {
-                Spacer(modifier = Modifier.height(8.dp))
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            }
-            syncError?.let {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = it, color = Color(0xFFDC2626), fontSize = 12.sp)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Leaderboard
-        WhiteCard {
-            Text(
-                text = "Leaderboard",
-                fontFamily = PoppinsFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFF111827)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            if (d.leaderboard.isEmpty()) {
-                Text(
-                    text = "No activity recorded yet — sync your progress to appear here.",
-                    fontSize = 13.sp,
-                    color = Color(0xFF6B7280)
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    d.leaderboard.forEach { entry ->
-                        LeaderboardRow(
-                            entry = entry,
-                            metric = d.metric,
-                            isMe = d.myRank != null && entry.rank == d.myRank
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.Sync,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Your progress",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = when {
+                                syncing -> "Syncing with Health Connect…"
+                                lastSynced != null -> lastSynced!!
+                                else -> "Not synced yet"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    FilledTonalButton(
+                        onClick = { syncProgress(d) },
+                        enabled = !syncing
+                    ) {
+                        Text("Sync now")
+                    }
+                }
+                if (syncing) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                syncError?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Leaderboard card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.EmojiEvents,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Leaderboard",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                if (d.leaderboard.isEmpty()) {
+                    Text(
+                        text = "No activity recorded yet — sync your progress to appear here.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column {
+                        d.leaderboard.forEachIndexed { index, entry ->
+                            if (index > 0) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                            }
+                            LeaderboardRow(
+                                entry = entry,
+                                metric = d.metric,
+                                isMe = d.myRank != null && entry.rank == d.myRank
+                            )
+                        }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        TextButton(
+        // Leave challenge button
+        OutlinedButton(
             onClick = { showLeaveConfirm = true },
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            ),
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
-            Text("Leave challenge", color = Color(0xFFDC2626), fontWeight = FontWeight.Medium)
+            Text("Leave challenge")
         }
     }
 }
@@ -952,119 +1129,70 @@ private fun LeaderboardRow(
     metric: ChallengeMetric,
     isMe: Boolean
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isMe) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(
-                    when (entry.rank) {
-                        1 -> Color(0xFFFEF3C7)
-                        2 -> Color(0xFFF3F4F6)
-                        3 -> Color(0xFFFFF7ED)
-                        else -> Color(0xFFF9FAFB)
-                    }
-                )
-        ) {
+    ListItem(
+        colors = ListItemDefaults.colors(
+            containerColor = if (isMe) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            else androidx.compose.ui.graphics.Color.Transparent
+        ),
+        leadingContent = {
+            Surface(
+                shape = CircleShape,
+                color = when (entry.rank) {
+                    1 -> MaterialTheme.colorScheme.tertiaryContainer
+                    2 -> MaterialTheme.colorScheme.surfaceContainerHighest
+                    3 -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "${entry.rank}",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        headlineContent = {
             Text(
-                text = "${entry.rank}",
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = Color(0xFF374151)
+                text = entry.displayName + if (isMe) " (you)" else "",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isMe) FontWeight.SemiBold else FontWeight.Normal
+            )
+        },
+        trailingContent = {
+            Text(
+                text = formatMetricValue(metric, entry.value),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = entry.displayName + if (isMe) " (you)" else "",
-            fontSize = 14.sp,
-            fontWeight = if (isMe) FontWeight.SemiBold else FontWeight.Normal,
-            color = Color(0xFF111827),
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = formatMetricValue(metric, entry.value),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF111827)
-        )
-    }
+    )
 }
 
 // ---------------------------------------------------------------------------
-// Shared bits
+// Shared components
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun WhiteCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        shadowElevation = 2.dp,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ScreenHeader(
-    title: String,
-    onBack: () -> Unit,
-    trailing: @Composable (() -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = Color(0xFF111827)
-            )
-        }
-        Text(
-            text = title,
-            fontFamily = PoppinsFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-            color = Color(0xFF111827),
-            modifier = Modifier.weight(1f)
-        )
-        trailing?.invoke()
-    }
-}
-
-@Composable
-private fun StatusPill(status: ChallengeStatus) {
-    val (bg, fg) = when (status) {
-        ChallengeStatus.ACTIVE -> Color(0xFFDCFCE7) to Color(0xFF16A34A)
-        ChallengeStatus.UPCOMING -> Color(0xFFFEF3C7) to Color(0xFFD97706)
-        ChallengeStatus.ENDED -> Color(0xFFF3F4F6) to Color(0xFF6B7280)
+private fun StatusChip(status: ChallengeStatus) {
+    val (containerColor, labelColor) = when (status) {
+        ChallengeStatus.ACTIVE -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        ChallengeStatus.UPCOMING -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        ChallengeStatus.ENDED -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
         shape = RoundedCornerShape(50),
-        color = bg
+        color = containerColor
     ) {
         Text(
             text = status.label,
-            fontSize = 11.sp,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = fg,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            color = labelColor,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
     }
 }
