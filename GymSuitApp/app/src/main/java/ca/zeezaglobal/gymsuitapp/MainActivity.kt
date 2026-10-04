@@ -28,10 +28,16 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.WeightDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.NotificationsScreen
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
+import ca.zeezaglobal.gymsuitapp.ui.components.CloudSyncIndicator
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -71,6 +77,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 var currentScreen by remember { mutableStateOf(initialScreen) }
+                val syncStatus by appComponent.healthSyncManager.syncStatus.collectAsState()
 
                 androidx.compose.runtime.LaunchedEffect(Unit) {
                     if (appComponent.authManager.isLoggedIn()) {
@@ -109,133 +116,143 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                AnimatedContent(
-                    targetState = currentScreen,
-                    transitionSpec = {
-                        if (targetState.ordinal > initialState.ordinal) {
-                            (slideInHorizontally { width -> width / 3 } + fadeIn(tween(300))) togetherWith
-                                    (slideOutHorizontally { width -> -width / 3 } + fadeOut(tween(200)))
-                        } else {
-                            (slideInHorizontally { width -> -width / 3 } + fadeIn(tween(300))) togetherWith
-                                    (slideOutHorizontally { width -> width / 3 } + fadeOut(tween(200)))
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AnimatedContent(
+                        targetState = currentScreen,
+                        transitionSpec = {
+                            if (targetState.ordinal > initialState.ordinal) {
+                                (slideInHorizontally { width -> width / 3 } + fadeIn(tween(300))) togetherWith
+                                        (slideOutHorizontally { width -> -width / 3 } + fadeOut(tween(200)))
+                            } else {
+                                (slideInHorizontally { width -> -width / 3 } + fadeIn(tween(300))) togetherWith
+                                        (slideOutHorizontally { width -> width / 3 } + fadeOut(tween(200)))
+                            }
+                        },
+                        label = "ScreenTransition"
+                    ) { screen ->
+                        when (screen) {
+                            AppScreen.ONBOARDING -> {
+                                OnboardingScreen(
+                                    onSkipClick = {
+                                        currentScreen = AppScreen.LOGIN
+                                    },
+                                    onContinueClick = {
+                                        currentScreen = AppScreen.LOGIN
+                                    }
+                                )
+                            }
+                            AppScreen.LOGIN -> {
+                                LoginScreen(
+                                    onBackClick = {
+                                        currentScreen = AppScreen.ONBOARDING
+                                    },
+                                    onNavigateToRegister = {
+                                        currentScreen = AppScreen.REGISTER
+                                    },
+                                    onLoginSuccess = {
+                                        navigateAfterLogin()
+                                    }
+                                )
+                            }
+                            AppScreen.REGISTER -> {
+                                RegisterScreen(
+                                    onBackClick = {
+                                        currentScreen = AppScreen.LOGIN
+                                    },
+                                    onNavigateToLogin = {
+                                        currentScreen = AppScreen.LOGIN
+                                    },
+                                    onRegisterSuccess = {
+                                        navigateAfterLogin()
+                                    }
+                                )
+                            }
+                            AppScreen.HEALTH_CONNECT_PERMISSION -> {
+                                HealthConnectPermissionScreen(
+                                    onContinue = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    },
+                                    onSkip = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
+                            AppScreen.DASHBOARD -> {
+                                DashboardScreen(
+                                    onNavigateBack = {
+                                        currentScreen = AppScreen.LOGIN
+                                    },
+                                    onLogout = {
+                                        appComponent.authManager.clear()
+                                        currentScreen = AppScreen.LOGIN
+                                    },
+                                    onNavigateToSleepDetail = { date ->
+                                        selectedSleepDate = date
+                                        currentScreen = AppScreen.SLEEP_DETAIL
+                                    },
+                                    onNavigateToHeartRateDetail = { date ->
+                                        selectedHeartRateDate = date
+                                        currentScreen = AppScreen.HEART_RATE_DETAIL
+                                    },
+                                    onNavigateToCaloriesDetail = { date ->
+                                        selectedCaloriesDate = date
+                                        currentScreen = AppScreen.CALORIES_DETAIL
+                                    },
+                                    onNavigateToWeightDetail = {
+                                        currentScreen = AppScreen.WEIGHT_DETAIL
+                                    },
+                                    onNavigateToNotifications = {
+                                        currentScreen = AppScreen.NOTIFICATIONS
+                                    }
+                                )
+                            }
+                            AppScreen.SLEEP_DETAIL -> {
+                                SleepDetailScreen(
+                                    date = selectedSleepDate,
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
+                            AppScreen.HEART_RATE_DETAIL -> {
+                                HeartRateDetailScreen(
+                                    date = selectedHeartRateDate,
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
+                            AppScreen.NOTIFICATIONS -> {
+                                NotificationsScreen(
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
+                            AppScreen.WEIGHT_DETAIL -> {
+                                WeightDetailScreen(
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
+                            AppScreen.CALORIES_DETAIL -> {
+                                CaloriesDetailScreen(
+                                    date = selectedCaloriesDate,
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
                         }
-                    },
-                    label = "ScreenTransition"
-                ) { screen ->
-                    when (screen) {
-                        AppScreen.ONBOARDING -> {
-                            OnboardingScreen(
-                                onSkipClick = {
-                                    currentScreen = AppScreen.LOGIN
-                                },
-                                onContinueClick = {
-                                    currentScreen = AppScreen.LOGIN
-                                }
-                            )
-                        }
-                        AppScreen.LOGIN -> {
-                            LoginScreen(
-                                onBackClick = {
-                                    currentScreen = AppScreen.ONBOARDING
-                                },
-                                onNavigateToRegister = {
-                                    currentScreen = AppScreen.REGISTER
-                                },
-                                onLoginSuccess = {
-                                    navigateAfterLogin()
-                                }
-                            )
-                        }
-                        AppScreen.REGISTER -> {
-                            RegisterScreen(
-                                onBackClick = {
-                                    currentScreen = AppScreen.LOGIN
-                                },
-                                onNavigateToLogin = {
-                                    currentScreen = AppScreen.LOGIN
-                                },
-                                onRegisterSuccess = {
-                                    navigateAfterLogin()
-                                }
-                            )
-                        }
-                        AppScreen.HEALTH_CONNECT_PERMISSION -> {
-                            HealthConnectPermissionScreen(
-                                onContinue = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                },
-                                onSkip = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                }
-                            )
-                        }
-                        AppScreen.DASHBOARD -> {
-                            DashboardScreen(
-                                onNavigateBack = {
-                                    currentScreen = AppScreen.LOGIN
-                                },
-                                onLogout = {
-                                    appComponent.authManager.clear()
-                                    currentScreen = AppScreen.LOGIN
-                                },
-                                onNavigateToSleepDetail = { date ->
-                                    selectedSleepDate = date
-                                    currentScreen = AppScreen.SLEEP_DETAIL
-                                },
-                                onNavigateToHeartRateDetail = { date ->
-                                    selectedHeartRateDate = date
-                                    currentScreen = AppScreen.HEART_RATE_DETAIL
-                                },
-                                onNavigateToCaloriesDetail = { date ->
-                                    selectedCaloriesDate = date
-                                    currentScreen = AppScreen.CALORIES_DETAIL
-                                },
-                                onNavigateToWeightDetail = {
-                                    currentScreen = AppScreen.WEIGHT_DETAIL
-                                },
-                                onNavigateToNotifications = {
-                                    currentScreen = AppScreen.NOTIFICATIONS
-                                }
-                            )
-                        }
-                        AppScreen.SLEEP_DETAIL -> {
-                            SleepDetailScreen(
-                                date = selectedSleepDate,
-                                onBackClick = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                }
-                            )
-                        }
-                        AppScreen.HEART_RATE_DETAIL -> {
-                            HeartRateDetailScreen(
-                                date = selectedHeartRateDate,
-                                onBackClick = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                }
-                            )
-                        }
-                        AppScreen.NOTIFICATIONS -> {
-                            NotificationsScreen(
-                                onBackClick = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                }
-                            )
-                        }
-                        AppScreen.WEIGHT_DETAIL -> {
-                            WeightDetailScreen(
-                                onBackClick = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                }
-                            )
-                        }
-                        AppScreen.CALORIES_DETAIL -> {
-                            CaloriesDetailScreen(
-                                date = selectedCaloriesDate,
-                                onBackClick = {
-                                    currentScreen = AppScreen.DASHBOARD
-                                }
-                            )
-                        }
+                    }
+
+                    // Cloud sync indicator overlay (Material 3 line loading bar on top + green sync message)
+                    if (currentScreen != AppScreen.ONBOARDING && currentScreen != AppScreen.LOGIN && currentScreen != AppScreen.REGISTER) {
+                        CloudSyncIndicator(
+                            syncStatus = syncStatus,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
                     }
                 }
             }

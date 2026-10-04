@@ -64,6 +64,16 @@ public final class WorkoutStore: ObservableObject {
         persistLog()
     }
 
+    public func upsertWorkout(_ workout: LoggedWorkout) {
+        if let idx = loggedWorkouts.firstIndex(where: { $0.id == workout.id }) {
+            loggedWorkouts[idx] = workout
+        } else {
+            loggedWorkouts.insert(workout, at: 0)
+        }
+        loggedWorkouts.sort { $0.date > $1.date }
+        persistLog()
+    }
+
     public func markSynced(id: UUID) {
         guard let index = loggedWorkouts.firstIndex(where: { $0.id == id }) else { return }
         loggedWorkouts[index].syncedToHealthKit = true

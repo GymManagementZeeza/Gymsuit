@@ -62,25 +62,27 @@ public final class DashboardViewModel: ObservableObject {
         }
         
         // 2. Fetch Day's Biometrics
+        refreshMetrics(for: date)
+    }
+    
+    public func refreshMetrics(for date: Date? = nil) {
+        let targetDate = date ?? selectedDate
         Task {
             self.isLoadingMetrics = true
-            if AuthManager.shared.isLoggedIn {
-                _ = await HealthSyncManager.shared.sync()
-            }
-            async let s = healthKitManager.fetchSteps(for: date)
-            async let c = healthKitManager.fetchCaloriesBreakdown(for: date)
-            async let sl = healthKitManager.fetchSleepSession(for: date)
-            async let hr = healthKitManager.fetchHeartRateSummary(for: date)
+            async let s = healthKitManager.fetchSteps(for: targetDate)
+            async let c = healthKitManager.fetchCaloriesBreakdown(for: targetDate)
+            async let sl = healthKitManager.fetchSleepSession(for: targetDate)
+            async let hr = healthKitManager.fetchHeartRateSummary(for: targetDate)
             
             let (steps, calories, sleep, heartRate) = await (s, c, sl, hr)
             self.stepsCount = steps
             // App-logged workouts not yet synced to HealthKit are invisible to it,
             // so add their estimate on top (~7.5 kcal/min, same as Android).
             let unsyncedKcal = WorkoutStore.shared.loggedWorkouts
-                .filter { !$0.syncedToHealthKit && Calendar.current.isDate($0.date, inSameDayAs: date) }
+                .filter { !$0.syncedToHealthKit && Calendar.current.isDate($0.date, inSameDayAs: targetDate) }
                 .reduce(0.0) { $0 + Double($1.durationMinutes) * 7.5 }
             let workoutKcal = calories.workoutKcal + unsyncedKcal
-            let totalKcal = calories.stepsKcal + workoutKcal
+            let totalKcal = max(calories.totalKcal, calories.stepsKcal + workoutKcal)
             self.caloriesBreakdown = CaloriesBreakdown(
                 totalKcal: totalKcal,
                 stepsKcal: calories.stepsKcal,

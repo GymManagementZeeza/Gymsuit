@@ -9,13 +9,27 @@ import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSet
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSyncDto
 import ca.zeezaglobal.gymsuitapp.data.remote.HealthSyncApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
+sealed class SyncStatus {
+    object Idle : SyncStatus()
+    object Syncing : SyncStatus()
+    data class Success(val message: String = "All data synced") : SyncStatus()
+    data class Error(val message: String) : SyncStatus()
+}
 
 class HealthSyncManager(private val context: Context) {
 
@@ -24,6 +38,11 @@ class HealthSyncManager(private val context: Context) {
     private val workoutStore = WorkoutStore(context.applicationContext)
     private val api = HealthSyncApi(context.applicationContext)
     private val prefs = context.getSharedPreferences("health_sync_prefs", Context.MODE_PRIVATE)
+
+    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
+
+    private var autoResetJob: Job? = null
 
     companion object {
         private const val TAG = "HealthSyncManager"
@@ -36,6 +55,12 @@ class HealthSyncManager(private val context: Context) {
         if (!authManager.isLoggedIn()) {
             return@withContext false
         }
+        if (_syncStatus.value is SyncStatus.Syncing) {
+            return@withContext true
+        }
+
+        _syncStatus.value = SyncStatus.Syncing
+        autoResetJob?.cancel()
 
         try {
             val lastSyncIso = prefs.getString(KEY_LAST_SYNC_ISO, null)
@@ -113,7 +138,7 @@ class HealthSyncManager(private val context: Context) {
 
             val result = api.sync(request)
             result.onSuccess { response ->
-                // 4. Ingest remote daily records from backend into Health Connect
+                // 4. Ingest remote daily records from backend into Health Connect (larger data wins)
                 for (remote in response.remoteDailyRecords) {
                     if (remote.sourceDevice != "ANDROID_HEALTH_CONNECT") {
                         try {
@@ -121,23 +146,48 @@ class HealthSyncManager(private val context: Context) {
                             val startOfDay = recordDate.atStartOfDay(ZoneId.systemDefault()).toInstant()
                             val endOfDay = recordDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
 
+                            val progress = healthConnectManager.readProgressTotals(recordDate, recordDate)
+                            val cal = healthConnectManager.readCaloriesBreakdownForDate(recordDate)
+                            val hr = healthConnectManager.tryReadHeartRateDataForDate(recordDate)
+                            val sleep = healthConnectManager.readDetailedSleepForDate(recordDate)
+
+                            // Prioritize device with larger data
                             remote.steps?.let { steps ->
-                                if (steps > 0) healthConnectManager.insertSteps(steps, startOfDay, endOfDay)
+                                if (steps > progress.steps) {
+                                    healthConnectManager.insertSteps(steps, startOfDay, endOfDay)
+                                }
                             }
-                            remote.activeCalories?.let { cal ->
-                                if (cal > 0) healthConnectManager.insertActiveCalories(cal, startOfDay, endOfDay)
+
+                            val localActiveCal = if (cal.hasData) (cal.workoutKcal + cal.moveKcal) else 0.0
+                            remote.activeCalories?.let { rCal ->
+                                if (rCal > localActiveCal) {
+                                    healthConnectManager.insertActiveCalories(rCal, startOfDay, endOfDay)
+                                }
                             }
+
+                            val localDistanceMeters = progress.distanceKm * 1000.0
                             remote.distanceMeters?.let { dist ->
-                                if (dist > 0) healthConnectManager.insertDistance(dist, startOfDay, endOfDay)
+                                if (dist > localDistanceMeters) {
+                                    healthConnectManager.insertDistance(dist, startOfDay, endOfDay)
+                                }
                             }
+
                             remote.latestHeartRateBpm?.let { bpm ->
-                                if (bpm > 0) healthConnectManager.insertHeartRate(bpm, endOfDay.minusSeconds(60))
+                                if (bpm > 0 && (hr == null || !hr.hasData || hr.latestBpm == 0)) {
+                                    healthConnectManager.insertHeartRate(bpm, endOfDay.minusSeconds(60))
+                                }
                             }
-                            if (!remote.sleepStartTime.isNullOrBlank() && !remote.sleepEndTime.isNullOrBlank()) {
+
+                            val localSleepMinutes = if (sleep?.hasData == true) sleep.totalSleepMinutes else 0
+                            val remoteSleepMinutes = remote.sleepDurationMinutes ?: 0
+                            if (remoteSleepMinutes > localSleepMinutes &&
+                                !remote.sleepStartTime.isNullOrBlank() &&
+                                !remote.sleepEndTime.isNullOrBlank()) {
                                 val sStart = Instant.parse(remote.sleepStartTime)
                                 val sEnd = Instant.parse(remote.sleepEndTime)
                                 healthConnectManager.insertSleepSession(sStart, sEnd)
                             }
+
                             remote.weightKg?.let { wt ->
                                 if (wt > 0) healthConnectManager.insertWeight(wt, endOfDay)
                             }
@@ -147,7 +197,7 @@ class HealthSyncManager(private val context: Context) {
                     }
                 }
 
-                // 5. Ingest remote workouts into Health Connect & WorkoutStore
+                // 5. Ingest remote workouts into Health Connect & WorkoutStore (larger data wins)
                 for (rw in response.remoteWorkouts) {
                     if (rw.sourceDevice != "ANDROID_HEALTH_CONNECT") {
                         try {
@@ -158,17 +208,41 @@ class HealthSyncManager(private val context: Context) {
                             val reps = rw.totalReps ?: 30
                             val volume = rw.totalVolumeKg ?: 0.0
 
-                            healthConnectManager.insertExerciseSession(
-                                exerciseName = rw.title,
-                                start = startInstant,
-                                end = endInstant,
-                                setCount = sets,
-                                totalReps = reps,
-                                totalVolumeKg = volume
-                            )
+                            // Calculate data volume score for remote workout
+                            val remoteScore = volume + (reps * 10.0) + (duration * 5.0)
 
-                            val exists = loggedWorkouts.any { it.id == rw.externalId }
-                            if (!exists) {
+                            // Check for overlapping local workout (same id or start time within 45 mins)
+                            val overlappingLocal = loggedWorkouts.firstOrNull { local ->
+                                local.id == rw.externalId ||
+                                Math.abs(local.timestampMillis - startInstant.toEpochMilli()) < 45 * 60 * 1000L
+                            }
+
+                            if (overlappingLocal != null) {
+                                val localReps = overlappingLocal.sets.sumOf { it.reps }
+                                val localVolume = overlappingLocal.sets.sumOf { it.reps * it.weightKg }
+                                val localScore = localVolume + (localReps * 10.0) + (overlappingLocal.durationMinutes * 5.0)
+
+                                // If local already has larger or equal data, keep local
+                                if (localScore >= remoteScore) {
+                                    continue
+                                }
+
+                                // Remote has larger data: update existing workout in WorkoutStore
+                                val updatedLogged = LoggedWorkout(
+                                    id = overlappingLocal.id,
+                                    exerciseId = rw.title.lowercase().replace(" ", "_"),
+                                    exerciseName = rw.title,
+                                    timestampMillis = startInstant.toEpochMilli(),
+                                    sets = List(sets) {
+                                        WorkoutSet(reps = reps / sets.coerceAtLeast(1), weightKg = volume / reps.coerceAtLeast(1))
+                                    },
+                                    durationMinutes = duration,
+                                    notes = "Updated from ${rw.sourceDevice ?: "iOS"} (richer data)",
+                                    syncedToHealth = true
+                                )
+                                workoutStore.upsertWorkout(updatedLogged)
+                            } else {
+                                // New workout from remote
                                 val newLogged = LoggedWorkout(
                                     id = rw.externalId,
                                     exerciseId = rw.title.lowercase().replace(" ", "_"),
@@ -181,8 +255,18 @@ class HealthSyncManager(private val context: Context) {
                                     notes = "Synced from ${rw.sourceDevice ?: "iOS"}",
                                     syncedToHealth = true
                                 )
-                                workoutStore.logWorkout(newLogged)
+                                workoutStore.upsertWorkout(newLogged)
                             }
+
+                            // Write to Health Connect
+                            healthConnectManager.insertExerciseSession(
+                                exerciseName = rw.title,
+                                start = startInstant,
+                                end = endInstant,
+                                setCount = sets,
+                                totalReps = reps,
+                                totalVolumeKg = volume
+                            )
                         } catch (e: Exception) {
                             Log.w(TAG, "Error writing remote workout", e)
                         }
@@ -192,14 +276,36 @@ class HealthSyncManager(private val context: Context) {
                 // Update sync checkpoint
                 prefs.edit().putString(KEY_LAST_SYNC_ISO, ISO_FORMATTER.format(Instant.now())).apply()
                 Log.i(TAG, "Sync complete: uploaded ${response.uploadedDailyCount} daily, ${response.uploadedWorkoutCount} workouts")
+
+                _syncStatus.value = SyncStatus.Success("All data synced")
+                autoResetJob = CoroutineScope(Dispatchers.Default).launch {
+                    delay(3500)
+                    if (_syncStatus.value is SyncStatus.Success) {
+                        _syncStatus.value = SyncStatus.Idle
+                    }
+                }
             }.onFailure { err ->
                 Log.e(TAG, "Sync failed: ${err.message}", err)
+                _syncStatus.value = SyncStatus.Error(err.message ?: "Sync failed")
+                autoResetJob = CoroutineScope(Dispatchers.Default).launch {
+                    delay(3500)
+                    if (_syncStatus.value is SyncStatus.Error) {
+                        _syncStatus.value = SyncStatus.Idle
+                    }
+                }
                 return@withContext false
             }
 
             true
         } catch (e: Exception) {
             Log.e(TAG, "HealthSyncManager exception: ${e.message}", e)
+            _syncStatus.value = SyncStatus.Error(e.message ?: "Sync failed")
+            autoResetJob = CoroutineScope(Dispatchers.Default).launch {
+                delay(3500)
+                if (_syncStatus.value is SyncStatus.Error) {
+                    _syncStatus.value = SyncStatus.Idle
+                }
+            }
             false
         }
     }

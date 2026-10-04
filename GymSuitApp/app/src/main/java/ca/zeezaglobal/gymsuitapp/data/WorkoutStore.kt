@@ -91,6 +91,19 @@ class WorkoutStore(private val context: Context) {
         return updated
     }
 
+    fun upsertWorkout(workout: LoggedWorkout): List<LoggedWorkout> {
+        val current = getLoggedWorkouts().toMutableList()
+        val idx = current.indexOfFirst { it.id == workout.id }
+        if (idx >= 0) {
+            current[idx] = workout
+        } else {
+            current.add(0, workout)
+        }
+        val updated = current.sortedByDescending { it.timestampMillis }
+        persist(updated)
+        return updated
+    }
+
     fun markSynced(id: String): List<LoggedWorkout> {
         val updated = getLoggedWorkouts().map {
             if (it.id == id) it.copy(syncedToHealth = true) else it

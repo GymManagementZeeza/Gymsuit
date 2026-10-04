@@ -14,7 +14,7 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
-class HealthSyncApi(context: Context) {
+class HealthSyncApi(private val context: Context) {
 
     private val authManager = AuthManager(context.applicationContext)
 
@@ -24,8 +24,44 @@ class HealthSyncApi(context: Context) {
         private const val TIMEOUT_MS = 20000
     }
 
+    suspend fun registerDevice(): Boolean = withContext(Dispatchers.IO) {
+        val token = authManager.getAccessToken() ?: return@withContext false
+        try {
+            val deviceId = try {
+                android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+            } catch (e: Exception) {
+                null
+            } ?: android.os.Build.SERIAL ?: "android-device"
+
+            val isWatch = context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_WATCH)
+            val appVer = try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            } catch (e: Exception) {
+                "1.0.0"
+            }
+
+            val payload = JSONObject().apply {
+                put("deviceId", deviceId)
+                put("platform", "ANDROID")
+                put("deviceType", if (isWatch) "WEARABLE" else "PHONE")
+                put("manufacturer", android.os.Build.MANUFACTURER)
+                put("model", android.os.Build.MODEL)
+                put("osVersion", android.os.Build.VERSION.RELEASE)
+                put("appVersion", appVer)
+                put("healthSource", "HEALTH_CONNECT")
+            }
+
+            postJson("https://api.gymsuit.app/api/v1/devices", payload)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Device registration caught: ${e.message}")
+            false
+        }
+    }
+
     suspend fun sync(request: HealthSyncRequest): Result<HealthSyncResponse> = withContext(Dispatchers.IO) {
         try {
+            registerDevice()
             val payload = request.toJsonObject()
             val responseJson = postJson(BASE_URL, payload)
             Result.success(HealthSyncResponse.fromJsonObject(responseJson))

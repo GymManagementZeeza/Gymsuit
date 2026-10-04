@@ -2,18 +2,68 @@ import Foundation
 import Combine
 import HealthKit
 
+public enum SyncStatus: Equatable {
+    case idle
+    case syncing
+    case success(message: String)
+    case error(message: String)
+}
+
 @MainActor
 public final class HealthSyncManager: ObservableObject {
     public static let shared = HealthSyncManager()
 
     @Published public private(set) var isSyncing: Bool = false
+    @Published public private(set) var syncStatus: SyncStatus = .idle
     @Published public private(set) var lastSyncDate: Date? = nil
     @Published public private(set) var lastSyncError: String? = nil
+
+    private var autoResetTask: Task<Void, Never>?
 
     private let healthKitManager = HealthKitManager.shared
     private let api = HealthSyncApi.shared
     private let defaults = UserDefaults.standard
     private let keyLastSync = "health_last_sync_iso"
+    private let keyCachedDailyRecords = "health_cached_daily_records"
+
+    @Published public private(set) var cachedDailyRecords: [String: DailyHealthSyncDto] = [:]
+
+    public func cachedRecord(for date: Date) -> DailyHealthSyncDto? {
+        let key = dateFormatter.string(from: date)
+        return cachedDailyRecords[key]
+    }
+
+    public func latestCachedHeartRate() -> (bpm: Int, dateStr: String)? {
+        let sortedKeys = cachedDailyRecords.keys.sorted(by: >)
+        for key in sortedKeys {
+            if let rec = cachedDailyRecords[key], let bpm = rec.latestHeartRateBpm, bpm > 0 {
+                return (bpm, key)
+            }
+        }
+        return nil
+    }
+
+    public static func parseDate(_ string: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        if let d = iso.date(from: string) { return d }
+        if let d = iso.date(from: string + "Z") { return d }
+
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        ]
+        for f in formats {
+            df.dateFormat = f
+            if let d = df.date(from: string) { return d }
+        }
+        return nil
+    }
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -28,6 +78,10 @@ public final class HealthSyncManager: ObservableObject {
         if let saved = defaults.string(forKey: keyLastSync), let d = isoFormatter.date(from: saved) {
             self.lastSyncDate = d
         }
+        if let data = defaults.data(forKey: keyCachedDailyRecords),
+           let decoded = try? JSONDecoder().decode([String: DailyHealthSyncDto].self, from: data) {
+            self.cachedDailyRecords = decoded
+        }
     }
 
     /// Performs a two-way synchronization:
@@ -41,7 +95,9 @@ public final class HealthSyncManager: ObservableObject {
         guard !isSyncing else { return false }
 
         isSyncing = true
+        syncStatus = .syncing
         lastSyncError = nil
+        autoResetTask?.cancel()
         defer { isSyncing = false }
 
         // Ensure HealthKit is authorized
@@ -66,7 +122,7 @@ public final class HealthSyncManager: ObservableObject {
                 let hr = await healthKitManager.fetchHeartRateSummary(for: targetDate)
                 let sleep = await healthKitManager.fetchSleepSession(for: targetDate)
 
-                let hasData = steps > 0 || calories.hasData || (distanceMeters != nil && distanceMeters! > 0) || hr != nil || sleep != nil
+                let hasData = steps > 0 || calories.hasData || (distanceMeters != nil && distanceMeters! > 0) || (hr?.hasData == true && (hr?.latestBpm ?? 0) > 0) || sleep != nil
                 if hasData {
                     var sleepStartIso: String? = nil
                     var sleepEndIso: String? = nil
@@ -81,10 +137,10 @@ public final class HealthSyncManager: ObservableObject {
                         activeCalories: calories.hasData && calories.workoutKcal + calories.moveKcal > 0 ? calories.workoutKcal + calories.moveKcal : nil,
                         totalCalories: calories.hasData && calories.totalKcal > 0 ? calories.totalKcal : nil,
                         distanceMeters: distanceMeters,
-                        latestHeartRateBpm: hr?.latestBpm,
+                        latestHeartRateBpm: (hr?.hasData == true && (hr?.latestBpm ?? 0) > 0) ? hr?.latestBpm : nil,
                         restingHeartRateBpm: nil,
-                        minHeartRateBpm: hr?.minBpm,
-                        maxHeartRateBpm: hr?.maxBpm,
+                        minHeartRateBpm: (hr?.hasData == true && (hr?.minBpm ?? 0) > 0) ? hr?.minBpm : nil,
+                        maxHeartRateBpm: (hr?.hasData == true && (hr?.maxBpm ?? 0) > 0) ? hr?.maxBpm : nil,
                         sleepDurationMinutes: sleep?.durationMinutes,
                         sleepStartTime: sleepStartIso,
                         sleepEndTime: sleepEndIso,
@@ -121,43 +177,126 @@ public final class HealthSyncManager: ObservableObject {
 
             let response = try await api.sync(request: request)
 
-            // 4. Ingest incoming remote daily records from backend into Apple Health
+            // 4. Ingest incoming remote daily records from backend into Apple Health (larger data wins)
             for remote in response.remoteDailyRecords {
-                // If the record came from another device (e.g. Android Health Connect), write it to Apple Health
-                if remote.sourceDevice != "IOS_APPLE_HEALTH" {
-                    guard let recordDate = dateFormatter.date(from: remote.recordDate) else { continue }
-                    let startOfDay = calendar.startOfDay(for: recordDate)
-                    let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? recordDate
+                self.cachedDailyRecords[remote.recordDate] = remote
 
-                    if let steps = remote.steps, steps > 0 {
-                        _ = await healthKitManager.writeSteps(count: steps, start: startOfDay, end: endOfDay, externalId: "sync_steps_\(remote.recordDate)")
-                    }
-                    if let calories = remote.activeCalories, calories > 0 {
-                        _ = await healthKitManager.writeActiveCalories(kcal: calories, start: startOfDay, end: endOfDay, externalId: "sync_cal_\(remote.recordDate)")
-                    }
-                    if let dist = remote.distanceMeters, dist > 0 {
-                        _ = await healthKitManager.writeDistance(meters: dist, start: startOfDay, end: endOfDay, externalId: "sync_dist_\(remote.recordDate)")
-                    }
-                    if let hr = remote.latestHeartRateBpm, hr > 0 {
+                guard let recordDate = dateFormatter.date(from: remote.recordDate) else { continue }
+                let startOfDay = calendar.startOfDay(for: recordDate)
+                let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? recordDate
+
+                // Query existing local values to ensure larger data wins
+                let localSteps = await healthKitManager.fetchSteps(for: recordDate)
+                let localCalories = await healthKitManager.fetchCaloriesBreakdown(for: recordDate)
+                let localDistance = await healthKitManager.fetchDistanceMeters(for: recordDate) ?? 0.0
+                let localSleep = await healthKitManager.fetchSleepSession(for: recordDate)
+                let localHr = await healthKitManager.fetchHeartRateSummary(for: recordDate)
+
+                let localHasAnyData = localSteps > 0 || localCalories.hasData || (localHr?.hasData ?? false) || localSleep != nil
+                if remote.sourceDevice == "IOS_APPLE_HEALTH" && localHasAnyData {
+                    continue
+                }
+
+                if let steps = remote.steps, steps > localSteps {
+                    _ = await healthKitManager.writeSteps(count: steps, start: startOfDay, end: endOfDay, externalId: "sync_steps_\(remote.recordDate)")
+                }
+
+                let localActiveKcal = (localCalories.hasData ? (localCalories.workoutKcal + localCalories.moveKcal) : 0.0)
+                if let calories = remote.activeCalories, calories > localActiveKcal {
+                    _ = await healthKitManager.writeActiveCalories(kcal: calories, start: startOfDay, end: endOfDay, externalId: "sync_cal_\(remote.recordDate)")
+                }
+
+                if let dist = remote.distanceMeters, dist > localDistance {
+                    _ = await healthKitManager.writeDistance(meters: dist, start: startOfDay, end: endOfDay, externalId: "sync_dist_\(remote.recordDate)")
+                }
+
+                if let hr = remote.latestHeartRateBpm, hr > 0 {
+                    if localHr == nil || !(localHr?.hasData ?? false) || (localHr?.latestBpm ?? 0) == 0 {
                         _ = await healthKitManager.writeHeartRate(bpm: hr, date: recordDate, externalId: "sync_hr_\(remote.recordDate)")
                     }
-                    if let sStart = remote.sleepStartTime, let sEnd = remote.sleepEndTime,
-                       let startDate = isoFormatter.date(from: sStart),
-                       let endDate = isoFormatter.date(from: sEnd) {
-                        _ = await healthKitManager.writeSleep(start: startDate, end: endDate, externalId: "sync_sleep_\(remote.recordDate)")
-                    }
-                    if let weight = remote.weightKg, weight > 0 {
-                        _ = await healthKitManager.writeWeight(kg: weight, date: recordDate)
-                    }
+                }
+
+                let localSleepMins = localSleep?.durationMinutes ?? 0
+                if let sStart = remote.sleepStartTime, let sEnd = remote.sleepEndTime,
+                   let startDate = HealthSyncManager.parseDate(sStart),
+                   let endDate = HealthSyncManager.parseDate(sEnd),
+                   let rSleepMins = remote.sleepDurationMinutes,
+                   rSleepMins > localSleepMins {
+                    _ = await healthKitManager.writeSleep(start: startDate, end: endDate, externalId: "sync_sleep_\(remote.recordDate)")
+                }
+
+                if let weight = remote.weightKg, weight > 0 {
+                    _ = await healthKitManager.writeWeight(kg: weight, date: recordDate)
                 }
             }
 
-            // 5. Ingest incoming remote workouts from backend into Apple Health and local store
+            if let encoded = try? JSONEncoder().encode(self.cachedDailyRecords) {
+                defaults.set(encoded, forKey: keyCachedDailyRecords)
+            }
+
+            // 5. Ingest incoming remote workouts from backend into Apple Health and local store (larger data wins)
             for rw in response.remoteWorkouts {
                 if rw.sourceDevice != "IOS_APPLE_HEALTH" {
-                    let start = isoFormatter.date(from: rw.startTime) ?? today
-                    let end = isoFormatter.date(from: rw.endTime) ?? today
+                    let start = HealthSyncManager.parseDate(rw.startTime) ?? today
+                    let end = HealthSyncManager.parseDate(rw.endTime) ?? today
                     let duration = rw.durationMinutes ?? max(1, Int(end.timeIntervalSince(start) / 60))
+                    let setCount = rw.setCount ?? 1
+                    let totalReps = rw.totalReps ?? 10
+                    let totalVolume = rw.totalVolumeKg ?? 0.0
+
+                    // Calculate remote data score
+                    let remoteScore = totalVolume + Double(totalReps * 10) + Double(duration * 5)
+
+                    // Check for overlapping local workout (same external ID or within 45 mins)
+                    let overlappingLocal = WorkoutStore.shared.loggedWorkouts.first { local in
+                        local.id.uuidString == rw.externalId ||
+                        abs(local.date.timeIntervalSince(start)) < 45 * 60
+                    }
+
+                    if let existing = overlappingLocal {
+                        let existingScore = existing.totalVolumeKg + Double(existing.totalReps * 10) + Double(existing.durationMinutes * 5)
+                        // If local has larger or equal data, keep local
+                        if existingScore >= remoteScore {
+                            continue
+                        }
+
+                        // Remote has larger data: update existing workout in WorkoutStore
+                        let updatedWorkout = LoggedWorkout(
+                            id: existing.id,
+                            exerciseId: rw.title.lowercased().replacingOccurrences(of: " ", with: "_"),
+                            exerciseName: rw.title,
+                            date: start,
+                            sets: (1...setCount).map { _ in
+                                WorkoutSet(
+                                    reps: totalReps / max(1, setCount),
+                                    weightKg: totalVolume / Double(max(1, totalReps))
+                                )
+                            },
+                            durationMinutes: duration,
+                            notes: "Updated from \(rw.sourceDevice ?? "Android") (richer data)",
+                            syncedToHealthKit: true
+                        )
+                        WorkoutStore.shared.upsertWorkout(updatedWorkout)
+                    } else {
+                        // Insert new workout
+                        let parsedUuid = UUID(uuidString: rw.externalId) ?? UUID()
+                        let newWorkout = LoggedWorkout(
+                            id: parsedUuid,
+                            exerciseId: rw.title.lowercased().replacingOccurrences(of: " ", with: "_"),
+                            exerciseName: rw.title,
+                            date: start,
+                            sets: (1...setCount).map { _ in
+                                WorkoutSet(
+                                    reps: totalReps / max(1, setCount),
+                                    weightKg: totalVolume / Double(max(1, totalReps))
+                                )
+                            },
+                            durationMinutes: duration,
+                            notes: "Synced from \(rw.sourceDevice ?? "Android")",
+                            syncedToHealthKit: true
+                        )
+                        WorkoutStore.shared.upsertWorkout(newWorkout)
+                    }
 
                     // Write to Apple Health
                     _ = await healthKitManager.writeSyncedWorkout(
@@ -165,33 +304,11 @@ public final class HealthSyncManager: ObservableObject {
                         start: start,
                         end: end,
                         caloriesBurned: rw.caloriesBurned,
-                        setCount: rw.setCount,
-                        totalReps: rw.totalReps,
-                        totalVolumeKg: rw.totalVolumeKg,
+                        setCount: setCount,
+                        totalReps: totalReps,
+                        totalVolumeKg: totalVolume,
                         externalId: rw.externalId
                     )
-
-                    // Write to local workout log if not present
-                    let exists = WorkoutStore.shared.loggedWorkouts.contains { $0.id.uuidString == rw.externalId }
-                    if !exists {
-                        let parsedUuid = UUID(uuidString: rw.externalId) ?? UUID()
-                        let newWorkout = LoggedWorkout(
-                            id: parsedUuid,
-                            exerciseId: rw.title.lowercased().replacingOccurrences(of: " ", with: "_"),
-                            exerciseName: rw.title,
-                            date: start,
-                            sets: (1...(rw.setCount ?? 1)).map { _ in
-                                WorkoutSet(
-                                    reps: rw.totalReps ?? 10,
-                                    weightKg: (rw.totalVolumeKg ?? 0) / Double(max(1, rw.totalReps ?? 10))
-                                )
-                            },
-                            durationMinutes: duration,
-                            notes: "Synced from \(rw.sourceDevice ?? "Android")",
-                            syncedToHealthKit: true
-                        )
-                        WorkoutStore.shared.logWorkout(newWorkout)
-                    }
                 }
             }
 
@@ -199,10 +316,24 @@ public final class HealthSyncManager: ObservableObject {
             let nowIso = isoFormatter.string(from: today)
             defaults.set(nowIso, forKey: keyLastSync)
             self.lastSyncDate = today
+            self.syncStatus = .success(message: "All data synced")
+            autoResetTask = Task {
+                try? await Task.sleep(nanoseconds: 3_500_000_000)
+                if !Task.isCancelled {
+                    self.syncStatus = .idle
+                }
+            }
             return true
         } catch {
             print("HealthSyncManager error: \(error.localizedDescription)")
             self.lastSyncError = error.localizedDescription
+            self.syncStatus = .error(message: error.localizedDescription)
+            autoResetTask = Task {
+                try? await Task.sleep(nanoseconds: 3_500_000_000)
+                if !Task.isCancelled {
+                    self.syncStatus = .idle
+                }
+            }
             return false
         }
     }
