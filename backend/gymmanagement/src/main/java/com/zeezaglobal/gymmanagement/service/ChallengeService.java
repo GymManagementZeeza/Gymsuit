@@ -73,7 +73,9 @@ public class ChallengeService {
         if (request.endDate().isBefore(request.startDate())) {
             throw new BadRequestException("End date cannot be before start date");
         }
-        if (request.startDate().isBefore(LocalDate.now())) {
+        // Allow the start date to be up to 1 day in the past to account for timezone differences
+        // between the mobile client and the server.
+        if (request.startDate().isBefore(LocalDate.now().minusDays(1))) {
             throw new BadRequestException("Start date cannot be in the past");
         }
 
