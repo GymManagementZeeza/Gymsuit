@@ -11,5 +11,6 @@ class GymSuitApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         appComponent = AppComponent.from(this)
+        ca.zeezaglobal.gymsuitapp.notifications.MealReminders.restore(this)
     }
 }

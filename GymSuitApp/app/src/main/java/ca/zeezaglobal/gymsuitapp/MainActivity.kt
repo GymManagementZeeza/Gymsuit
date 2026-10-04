@@ -24,6 +24,8 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.RegisterScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.SleepDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.HeartRateDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.CaloriesDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.WeightDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.NotificationsScreen
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
 
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,7 +43,9 @@ enum class AppScreen {
     DASHBOARD,
     SLEEP_DETAIL,
     HEART_RATE_DETAIL,
-    CALORIES_DETAIL
+    CALORIES_DETAIL,
+    WEIGHT_DETAIL,
+    NOTIFICATIONS
 }
 
 class MainActivity : ComponentActivity() {
@@ -83,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 // Back goes up one level instead of closing the app
                 BackHandler(
                     enabled = currentScreen in setOf(
-                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.CALORIES_DETAIL,
+                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.CALORIES_DETAIL, AppScreen.WEIGHT_DETAIL, AppScreen.NOTIFICATIONS,
                         AppScreen.REGISTER, AppScreen.LOGIN
                     )
                 ) {
@@ -174,6 +178,12 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToCaloriesDetail = { date ->
                                     selectedCaloriesDate = date
                                     currentScreen = AppScreen.CALORIES_DETAIL
+                                },
+                                onNavigateToWeightDetail = {
+                                    currentScreen = AppScreen.WEIGHT_DETAIL
+                                },
+                                onNavigateToNotifications = {
+                                    currentScreen = AppScreen.NOTIFICATIONS
                                 }
                             )
                         }
@@ -188,6 +198,20 @@ class MainActivity : ComponentActivity() {
                         AppScreen.HEART_RATE_DETAIL -> {
                             HeartRateDetailScreen(
                                 date = selectedHeartRateDate,
+                                onBackClick = {
+                                    currentScreen = AppScreen.DASHBOARD
+                                }
+                            )
+                        }
+                        AppScreen.NOTIFICATIONS -> {
+                            NotificationsScreen(
+                                onBackClick = {
+                                    currentScreen = AppScreen.DASHBOARD
+                                }
+                            )
+                        }
+                        AppScreen.WEIGHT_DETAIL -> {
+                            WeightDetailScreen(
                                 onBackClick = {
                                     currentScreen = AppScreen.DASHBOARD
                                 }
