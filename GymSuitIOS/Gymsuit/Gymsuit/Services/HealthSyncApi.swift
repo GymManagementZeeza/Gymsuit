@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 public final class HealthSyncApi {
     public static let shared = HealthSyncApi()
@@ -8,7 +9,39 @@ public final class HealthSyncApi {
 
     public init() {}
 
+    public func registerDevice() async {
+        guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return }
+        guard let url = URL(string: "https://api.gymsuit.app/api/v1/devices") else { return }
+
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        let systemVersion = UIDevice.current.systemVersion
+        let model = UIDevice.current.model
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+
+        let body: [String: Any] = [
+            "deviceId": deviceId,
+            "platform": "IOS",
+            "deviceType": "PHONE",
+            "manufacturer": "Apple",
+            "model": model,
+            "osVersion": systemVersion,
+            "appVersion": appVersion,
+            "healthSource": "HEALTH_KIT"
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 10.0
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
     public func sync(request: HealthSyncRequest) async throws -> HealthSyncResponse {
+        await registerDevice()
         guard let url = URL(string: "\(baseURL)/sync") else {
             throw URLError(.badURL)
         }

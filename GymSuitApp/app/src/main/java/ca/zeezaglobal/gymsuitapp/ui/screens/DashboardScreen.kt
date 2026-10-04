@@ -42,6 +42,7 @@ import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.CaloriesBreakdown
 import ca.zeezaglobal.gymsuitapp.data.SleepSessionData
 import ca.zeezaglobal.gymsuitapp.data.HeartRateSummaryData
+import ca.zeezaglobal.gymsuitapp.data.SyncStatus
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -219,6 +220,7 @@ fun DashboardScreen(
         appComponent.dashboardViewModelFactory.create(DashboardViewModel::class.java)
     }
     val aiSummaryState by viewModel.summaryState.collectAsState()
+    val syncStatus by appComponent.healthSyncManager.syncStatus.collectAsState()
 
     var userSession by remember { mutableStateOf(appComponent.authManager.getSession()) }
     var showNamePromptDialog by remember { mutableStateOf(false) }
@@ -292,15 +294,27 @@ fun DashboardScreen(
                             .border(1.5.dp, Color(0xFFE5E7EB), CircleShape)
                     )
 
-                    // Top Right Actions: Points Pill & Notification Bell
+                    // Top Right Actions: Points Pill, Cloud Sync & Notification Bell
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         PointsPill()
 
+                        // M3 cloud sync button
+                        FilledTonalIconButton(
+                            onClick = { triggerSync() },
+                            enabled = syncStatus !is SyncStatus.Syncing,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (syncStatus is SyncStatus.Syncing) Icons.Outlined.Sync else Icons.Outlined.CloudSync,
+                                contentDescription = "Sync to cloud"
+                            )
+                        }
+
                         // M3 filled tonal icon button (40dp container, 24dp icon, circular shape)
-                        FilledTonalIconButton(onClick = onNavigateToNotifications) {
+                        FilledTonalIconButton(onClick = onNavigateToNotifications, modifier = Modifier.size(40.dp)) {
                             Icon(
                                 imageVector = Icons.Outlined.Notifications,
                                 contentDescription = "Notifications"

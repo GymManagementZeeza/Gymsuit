@@ -33,6 +33,7 @@ struct DashboardView: View {
     
     @StateObject private var viewModel = DashboardViewModel()
     @ObservedObject private var authManager = AuthManager.shared
+    @ObservedObject private var syncManager = HealthSyncManager.shared
     @State private var selectedTab: DashboardTab = .home
     @State private var days: [DayItemModel] = []
     // Hoisted here so an active guided session survives tab switches and locks navigation.
@@ -56,19 +57,43 @@ struct DashboardView: View {
                     
                     Spacer()
                     
-                    PointsPill()
-                    
-                    Button(action: {
-                        guard !workoutSession.active else { return }
-                        selectedTab = .settings
-                    }) {
-                        Image("avatar_gaze_1")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 44, height: 44)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                            .shadow(color: Color.black.opacity(0.08), radius: 4, y: 2)
+                    HStack(spacing: 8) {
+                        PointsPill()
+                        
+                        // Cloud Sync Button
+                        Button(action: {
+                            guard !syncManager.isSyncing else { return }
+                            Task {
+                                let success = await syncManager.sync()
+                                if success {
+                                    viewModel.refreshMetrics(for: viewModel.selectedDate)
+                                }
+                            }
+                        }) {
+                            Image(systemName: syncManager.isSyncing ? "arrow.triangle.2.circlepath" : "icloud.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color(hex: 0xFF16A34A))
+                                .frame(width: 38, height: 38)
+                                .background(Color(hex: 0xFFF0FDF4))
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color(hex: 0xFFBBF7D0), lineWidth: 1))
+                                .rotationEffect(.degrees(syncManager.isSyncing ? 360 : 0))
+                                .animation(syncManager.isSyncing ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: syncManager.isSyncing)
+                        }
+                        .disabled(syncManager.isSyncing)
+                        
+                        Button(action: {
+                            guard !workoutSession.active else { return }
+                            selectedTab = .settings
+                        }) {
+                            Image("avatar_gaze_1")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 44, height: 44)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                .shadow(color: Color.black.opacity(0.08), radius: 4, y: 2)
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -111,6 +136,7 @@ struct DashboardView: View {
                     }
                     .onAppear {
                         generateDays()
+                        viewModel.onDateSelected(viewModel.selectedDate)
                         if let lastDay = days.last {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 proxy.scrollTo(lastDay.id, anchor: .trailing)
@@ -134,6 +160,11 @@ struct DashboardView: View {
                 }
             }
             .padding(.bottom, 74) // Space for bottom bar
+            .onChange(of: syncManager.syncStatus) { _, status in
+                if case .success = status {
+                    viewModel.refreshMetrics(for: viewModel.selectedDate)
+                }
+            }
             .onChange(of: workoutSession.active) { _, active in
                 // While a guided session runs, lock the user on the Workouts tab.
                 if active {
@@ -205,10 +236,18 @@ struct DashboardView: View {
                     Button(action: { onNavigateToHeartRateDetail(viewModel.selectedDate) }) {
                         MetricDashboardCard(
                             title: "Heart Rate",
-                            value: viewModel.heartRateSummary.map { "\($0.latestBpm)" } ?? (viewModel.isLoadingMetrics ? "…" : "—"),
+                            value: {
+                                if let h = viewModel.heartRateSummary, h.hasData {
+                                    return "\(h.latestBpm)"
+                                } else if viewModel.isLoadingMetrics {
+                                    return "…"
+                                } else {
+                                    return "—"
+                                }
+                            }(),
                             unit: "bpm",
                             subtitle: {
-                                if let h = viewModel.heartRateSummary {
+                                if let h = viewModel.heartRateSummary, h.hasData {
                                     let range = "\(h.minBpm) min • \(h.maxBpm) max"
                                     return h.relativeTime.isEmpty ? range : "\(h.relativeTime) • \(range)"
                                 } else {
