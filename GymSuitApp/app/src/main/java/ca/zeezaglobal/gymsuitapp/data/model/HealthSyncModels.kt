@@ -113,17 +113,52 @@ data class WorkoutSyncDto(
     }
 }
 
+data class PointsTransactionDto(
+    val id: String,
+    val points: Int,
+    val reason: String,
+    val rupeeValue: Double? = null,
+    val createdAt: String? = null,
+    val deviceId: String? = null
+) {
+    fun toJsonObject(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("points", points)
+        put("reason", reason)
+        rupeeValue?.let { put("rupeeValue", it) }
+        createdAt?.let { put("createdAt", it) }
+        deviceId?.let { put("deviceId", it) }
+    }
+
+    companion object {
+        fun fromJsonObject(json: JSONObject): PointsTransactionDto {
+            return PointsTransactionDto(
+                id = json.getString("id"),
+                points = json.getInt("points"),
+                reason = json.optString("reason", ""),
+                rupeeValue = if (json.has("rupeeValue") && !json.isNull("rupeeValue")) json.getDouble("rupeeValue") else null,
+                createdAt = if (json.has("createdAt") && !json.isNull("createdAt")) json.getString("createdAt") else null,
+                deviceId = if (json.has("deviceId") && !json.isNull("deviceId")) json.getString("deviceId") else null
+            )
+        }
+    }
+}
+
 data class HealthSyncRequest(
     val lastSyncTime: String?,
     val clientDevice: String = "ANDROID_HEALTH_CONNECT",
     val dailyRecords: List<DailyHealthSyncDto>,
-    val workouts: List<WorkoutSyncDto>
+    val workouts: List<WorkoutSyncDto>,
+    val pointsTransactions: List<PointsTransactionDto>? = null
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
         lastSyncTime?.let { put("lastSyncTime", it) }
         put("clientDevice", clientDevice)
         put("dailyRecords", JSONArray().apply { dailyRecords.forEach { put(it.toJsonObject()) } })
         put("workouts", JSONArray().apply { workouts.forEach { put(it.toJsonObject()) } })
+        pointsTransactions?.let { txs ->
+            put("pointsTransactions", JSONArray().apply { txs.forEach { put(it.toJsonObject()) } })
+        }
     }
 }
 
@@ -132,7 +167,9 @@ data class HealthSyncResponse(
     val uploadedDailyCount: Int,
     val uploadedWorkoutCount: Int,
     val remoteDailyRecords: List<DailyHealthSyncDto>,
-    val remoteWorkouts: List<WorkoutSyncDto>
+    val remoteWorkouts: List<WorkoutSyncDto>,
+    val pointsBalance: Int? = null,
+    val pointsTransactions: List<PointsTransactionDto>? = null
 ) {
     companion object {
         fun fromJsonObject(json: JSONObject): HealthSyncResponse {
@@ -150,12 +187,24 @@ data class HealthSyncResponse(
                 workoutList.add(WorkoutSyncDto.fromJsonObject(item))
             }
 
+            val pointsArr = json.optJSONArray("pointsTransactions")
+            val pointsList = if (pointsArr != null) {
+                val list = mutableListOf<PointsTransactionDto>()
+                for (i in 0 until pointsArr.length()) {
+                    val item = pointsArr.optJSONObject(i) ?: continue
+                    list.add(PointsTransactionDto.fromJsonObject(item))
+                }
+                list
+            } else null
+
             return HealthSyncResponse(
                 serverSyncTime = json.optString("serverSyncTime", ""),
                 uploadedDailyCount = json.optInt("uploadedDailyCount", 0),
                 uploadedWorkoutCount = json.optInt("uploadedWorkoutCount", 0),
                 remoteDailyRecords = dailyList,
-                remoteWorkouts = workoutList
+                remoteWorkouts = workoutList,
+                pointsBalance = if (json.has("pointsBalance") && !json.isNull("pointsBalance")) json.getInt("pointsBalance") else null,
+                pointsTransactions = pointsList
             )
         }
     }

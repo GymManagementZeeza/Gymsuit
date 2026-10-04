@@ -7,5 +7,11 @@ public record HealthSyncRequest(
         LocalDateTime lastSyncTime,
         String clientDevice, // "IOS_APPLE_HEALTH" or "ANDROID_HEALTH_CONNECT"
         List<DailyHealthSyncDto> dailyRecords,
-        List<WorkoutSyncDto> workouts
-) {}
+        List<WorkoutSyncDto> workouts,
+        List<PointsTransactionDto> pointsTransactions
+) {
+    public HealthSyncRequest(LocalDateTime lastSyncTime, String clientDevice,
+                             List<DailyHealthSyncDto> dailyRecords, List<WorkoutSyncDto> workouts) {
+        this(lastSyncTime, clientDevice, dailyRecords, workouts, null);
+    }
+}

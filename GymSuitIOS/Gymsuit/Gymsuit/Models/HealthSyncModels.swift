@@ -98,22 +98,43 @@ public struct WorkoutSyncDto: Codable {
     }
 }
 
+public struct PointsTransactionDto: Codable, Identifiable {
+    public let id: String
+    public let points: Int
+    public let reason: String
+    public let rupeeValue: Double?
+    public let createdAt: String?
+    public let deviceId: String?
+
+    public init(id: String, points: Int, reason: String, rupeeValue: Double? = nil, createdAt: String? = nil, deviceId: String? = nil) {
+        self.id = id
+        self.points = points
+        self.reason = reason
+        self.rupeeValue = rupeeValue
+        self.createdAt = createdAt
+        self.deviceId = deviceId
+    }
+}
+
 public struct HealthSyncRequest: Codable {
     public let lastSyncTime: String?
     public let clientDevice: String
     public let dailyRecords: [DailyHealthSyncDto]
     public let workouts: [WorkoutSyncDto]
+    public let pointsTransactions: [PointsTransactionDto]?
 
     public init(
         lastSyncTime: String?,
         clientDevice: String = "IOS_APPLE_HEALTH",
         dailyRecords: [DailyHealthSyncDto],
-        workouts: [WorkoutSyncDto]
+        workouts: [WorkoutSyncDto],
+        pointsTransactions: [PointsTransactionDto]? = nil
     ) {
         self.lastSyncTime = lastSyncTime
         self.clientDevice = clientDevice
         self.dailyRecords = dailyRecords
         self.workouts = workouts
+        self.pointsTransactions = pointsTransactions
     }
 }
 
@@ -123,4 +144,6 @@ public struct HealthSyncResponse: Codable {
     public let uploadedWorkoutCount: Int
     public let remoteDailyRecords: [DailyHealthSyncDto]
     public let remoteWorkouts: [WorkoutSyncDto]
+    public let pointsBalance: Int?
+    public let pointsTransactions: [PointsTransactionDto]?
 }

@@ -97,6 +97,49 @@ public final class PointsStore: ObservableObject {
         return rupees
     }
 
+    public func mergeRemote(remoteBalance: Int?, remoteTransactions: [PointsTransactionDto]?) {
+        guard remoteBalance != nil || remoteTransactions != nil else { return }
+
+        var currentMap: [String: PointsEntry] = [:]
+        for entry in history {
+            currentMap[entry.id.uuidString.lowercased()] = entry
+        }
+
+        let iso = ISO8601DateFormatter()
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+
+        if let remoteTxs = remoteTransactions {
+            for r in remoteTxs {
+                let key = r.id.lowercased()
+                if currentMap[key] == nil {
+                    let d: Date
+                    if let c = r.createdAt {
+                        d = iso.date(from: c) ?? df.date(from: c) ?? Date()
+                    } else {
+                        d = Date()
+                    }
+                    let newEntry = PointsEntry(
+                        id: UUID(uuidString: r.id) ?? UUID(),
+                        date: d,
+                        points: r.points,
+                        reason: r.reason,
+                        rupeeValue: r.rupeeValue
+                    )
+                    currentMap[key] = newEntry
+                }
+            }
+        }
+
+        let mergedList = Array(currentMap.values).sorted { $0.date > $1.date }
+        DispatchQueue.main.async {
+            self.history = mergedList
+            self.balance = remoteBalance ?? mergedList.reduce(0) { $0 + $1.points }
+            self.persist()
+        }
+    }
+
     // MARK: - Persistence
 
     private var fileURL: URL {

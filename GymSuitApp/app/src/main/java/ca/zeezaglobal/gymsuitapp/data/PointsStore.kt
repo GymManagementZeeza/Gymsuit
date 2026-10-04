@@ -89,6 +89,34 @@ object PointsStore {
         return rupees
     }
 
+    @Synchronized
+    fun mergeRemote(remoteBalance: Int?, remoteTransactions: List<ca.zeezaglobal.gymsuitapp.data.model.PointsTransactionDto>?) {
+        if (remoteTransactions == null && remoteBalance == null) return
+        val currentMap = _history.value.associateBy { it.id }.toMutableMap()
+        remoteTransactions?.forEach { r ->
+            if (!currentMap.containsKey(r.id)) {
+                val epoch = try {
+                    if (r.createdAt != null) {
+                        java.time.LocalDateTime.parse(r.createdAt).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    } else System.currentTimeMillis()
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
+                }
+                currentMap[r.id] = PointsEntry(
+                    id = r.id,
+                    timestampMillis = epoch,
+                    points = r.points,
+                    reason = r.reason,
+                    rupeeValue = r.rupeeValue
+                )
+            }
+        }
+        val mergedList = currentMap.values.sortedByDescending { it.timestampMillis }
+        _history.value = mergedList
+        _balance.value = remoteBalance ?: mergedList.sumOf { it.points }
+        persist()
+    }
+
     private fun load() {
         val file = pointsFile ?: return
         try {

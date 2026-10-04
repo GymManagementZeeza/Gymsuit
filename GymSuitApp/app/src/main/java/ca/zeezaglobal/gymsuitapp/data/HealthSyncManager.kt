@@ -128,12 +128,26 @@ class HealthSyncManager(private val context: Context) {
                 )
             }
 
-            // 3. Post to backend
+            // 3. Gather local points history
+            val localPoints = PointsStore.history.value.map { p ->
+                val iso = ISO_FORMATTER.format(Instant.ofEpochMilli(p.timestampMillis))
+                ca.zeezaglobal.gymsuitapp.data.model.PointsTransactionDto(
+                    id = p.id,
+                    points = p.points,
+                    reason = p.reason,
+                    rupeeValue = p.rupeeValue,
+                    createdAt = iso,
+                    deviceId = "ANDROID_APP"
+                )
+            }
+
+            // 4. Post to backend
             val request = HealthSyncRequest(
                 lastSyncTime = lastSyncIso,
                 clientDevice = "ANDROID_HEALTH_CONNECT",
                 dailyRecords = dailyDtos,
-                workouts = workoutDtos
+                workouts = workoutDtos,
+                pointsTransactions = localPoints
             )
 
             val result = api.sync(request)
@@ -272,6 +286,9 @@ class HealthSyncManager(private val context: Context) {
                         }
                     }
                 }
+
+                // 6. Ingest remote points balance & transactions
+                PointsStore.mergeRemote(response.pointsBalance, response.pointsTransactions)
 
                 // Update sync checkpoint
                 prefs.edit().putString(KEY_LAST_SYNC_ISO, ISO_FORMATTER.format(Instant.now())).apply()
