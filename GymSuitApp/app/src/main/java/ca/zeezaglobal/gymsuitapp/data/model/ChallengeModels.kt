@@ -83,10 +83,10 @@ fun parseLeaderboardEntry(json: JSONObject): LeaderboardEntry = LeaderboardEntry
 fun parseChallengeSummary(json: JSONObject): ChallengeSummary = ChallengeSummary(
     id = json.optId("id"),
     name = json.optString("name", "Challenge"),
-    metric = ChallengeMetric.fromApi(json.optString("metricType", null)),
+    metric = ChallengeMetric.fromApi(json.optString("metricType", "")),
     startDate = json.optString("startDate", ""),
     endDate = json.optString("endDate", ""),
-    status = ChallengeStatus.fromApi(json.optString("status", null)),
+    status = ChallengeStatus.fromApi(json.optString("status", "")),
     participantCount = json.optInt("participantCount", 0),
     myRank = json.optRank("myRank")
 )
@@ -104,10 +104,10 @@ fun parseChallengeDetail(json: JSONObject): ChallengeDetail {
         id = json.optId("id"),
         name = json.optString("name", "Challenge"),
         description = json.optString("description", ""),
-        metric = ChallengeMetric.fromApi(json.optString("metricType", null)),
+        metric = ChallengeMetric.fromApi(json.optString("metricType", "")),
         startDate = json.optString("startDate", ""),
         endDate = json.optString("endDate", ""),
-        status = ChallengeStatus.fromApi(json.optString("status", null)),
+        status = ChallengeStatus.fromApi(json.optString("status", "")),
         inviteCode = json.optString("inviteCode", ""),
         participantCount = json.optInt("participantCount", 0),
         myRank = json.optRank("myRank"),
