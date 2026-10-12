@@ -6,6 +6,8 @@ import com.zeezaglobal.gymmanagement.dto.ChallengeInviteRequest;
 import com.zeezaglobal.gymmanagement.dto.ChallengeJoinRequest;
 import com.zeezaglobal.gymmanagement.dto.ChallengeProgressRequest;
 import com.zeezaglobal.gymmanagement.dto.ChallengeSummaryDto;
+import com.zeezaglobal.gymmanagement.dto.DailyProgressRequest;
+import com.zeezaglobal.gymmanagement.dto.ParticipantDailySeriesDto;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import com.zeezaglobal.gymmanagement.security.UserPrincipal;
 import com.zeezaglobal.gymmanagement.service.ChallengeService;
@@ -72,6 +74,18 @@ public class ChallengeController {
                                                        @RequestBody ChallengeProgressRequest request) {
         String message = challengeService.submitProgress(id, request, currentUser());
         return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @PostMapping("/{id}/progress/daily")
+    public ResponseEntity<Map<String, String>> dailyProgress(@PathVariable Long id,
+                                                            @RequestBody DailyProgressRequest request) {
+        String message = challengeService.submitDailyProgress(id, request, currentUser());
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @GetMapping("/{id}/progress/daily")
+    public ResponseEntity<List<ParticipantDailySeriesDto>> dailyProgress(@PathVariable Long id) {
+        return ResponseEntity.ok(challengeService.getDailyProgress(id, currentUser()));
     }
 
     @PostMapping("/{id}/leave")
