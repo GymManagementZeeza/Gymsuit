@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -59,6 +60,47 @@ public class EmailService {
             log.info("Successfully sent email via Resend to {}", to);
         } catch (Exception e) {
             log.error("Failed to send email to {} via Resend API: {}", to, e.getMessage(), e);
+            throw new EmailDeliveryException("Failed to send email to " + to, e);
+        }
+    }
+
+    /**
+     * Sends an email with a single file attachment via Resend.
+     * Same failure semantics as {@link #sendEmail}: throws {@link EmailDeliveryException}
+     * on API failure, skips quietly when no API key is configured.
+     */
+    public void sendEmailWithAttachment(String to, String subject, String htmlContent,
+                                        String filename, byte[] fileBytes, String contentType) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            log.warn("RESEND_API_KEY is not set. Skipping email dispatch to {}. Content subject: {}", to, subject);
+            return;
+        }
+
+        try {
+            Map<String, Object> attachment = Map.of(
+                    "content", Base64.getEncoder().encodeToString(fileBytes),
+                    "filename", filename,
+                    "content_type", contentType
+            );
+            Map<String, Object> body = Map.of(
+                    "from", fromEmail,
+                    "to", List.of(to),
+                    "subject", subject,
+                    "html", htmlContent,
+                    "attachments", List.of(attachment)
+            );
+
+            restClient.post()
+                    .uri("/emails")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            log.info("Successfully sent email with attachment {} via Resend to {}", filename, to);
+        } catch (Exception e) {
+            log.error("Failed to send email with attachment to {} via Resend API: {}", to, e.getMessage(), e);
             throw new EmailDeliveryException("Failed to send email to " + to, e);
         }
     }
