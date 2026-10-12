@@ -70,9 +70,6 @@ export default function Footer() {
       <p className="container mt-2 text-[11px] text-paper/40">
         Version {BUILD_INFO.version} · Built {BUILD_INFO.builtAt}
       </p>
-      <p className="container mt-2 text-[11px] text-paper/40">
-        lekshmi will choose 4 diamond card
-      </p>
     </footer>
   );
 }
