@@ -80,12 +80,28 @@ class MainActivity : ComponentActivity() {
                 val syncStatus by appComponent.healthSyncManager.syncStatus.collectAsState()
 
                 androidx.compose.runtime.LaunchedEffect(Unit) {
-                    if (appComponent.authManager.isLoggedIn()) {
-                        appComponent.healthSyncManager.sync()
+                    val authManager = appComponent.authManager
+                    if (authManager.isLoggedIn()) {
+                        // Access tokens live 24h. If ours is stale (e.g. app opened
+                        // after days away), silently renew with the 30-day refresh
+                        // token instead of letting the first API call 401.
+                        // A failed refresh here is left alone (likely offline) —
+                        // the 401 path below sorts it out once we're back online.
+                        if (!authManager.isAccessTokenExpired() ||
+                            authManager.refreshSession(appComponent.mobileAuthApi::refreshToken)
+                        ) {
+                            appComponent.healthSyncManager.sync()
+                        }
                     }
                     ca.zeezaglobal.gymsuitapp.data.local.AuthManager.unauthorizedEvent.collect {
-                        appComponent.authManager.clear()
-                        currentScreen = AppScreen.LOGIN
+                        // A 401 mid-session (token expired between calls): try one
+                        // silent refresh before treating it as a real logout. We
+                        // just got an HTTP response, so we're online — a failed
+                        // refresh here means the session is genuinely dead.
+                        if (!authManager.refreshSession(appComponent.mobileAuthApi::refreshToken)) {
+                            authManager.clear()
+                            currentScreen = AppScreen.LOGIN
+                        }
                     }
                 }
 

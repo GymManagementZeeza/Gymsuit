@@ -2,6 +2,8 @@ package ca.zeezaglobal.gymsuitapp.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
+import org.json.JSONObject
 
 data class UserSession(
     val token: String,
@@ -56,6 +58,50 @@ class AuthManager(context: Context) {
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
     fun isLoggedIn(): Boolean = !getAccessToken().isNullOrBlank()
+
+    /**
+     * True when the stored access token is expired or will expire within
+     * [graceSeconds]. Reads only the JWT "exp" claim (no signature verification —
+     * this is a client-side freshness hint; the server remains authoritative).
+     * Returns false for tokens we cannot parse, so an unfamiliar token format
+     * never triggers a logout on its own — the 401 path still handles those.
+     */
+    fun isAccessTokenExpired(graceSeconds: Long = 300): Boolean {
+        val token = getAccessToken() ?: return true
+        return try {
+            val parts = token.split(".")
+            if (parts.size != 3) return false
+            val payload = String(
+                Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP),
+                Charsets.UTF_8
+            )
+            val exp = JSONObject(payload).optLong("exp", -1L)
+            if (exp <= 0L) return false
+            (System.currentTimeMillis() / 1000) + graceSeconds >= exp
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Silently renews the session with the stored refresh token. Rotation-safe:
+     * always reads the latest stored token, and [saveSession] persists the
+     * rotated token the server returns. Returns true when the session is usable
+     * afterwards. Never clears storage — the caller decides what a failed
+     * refresh means (e.g. offline vs. genuinely revoked).
+     */
+    suspend fun refreshSession(refresh: suspend (String) -> Result<UserSession>): Boolean {
+        val refreshToken = getRefreshToken()
+        if (refreshToken.isNullOrBlank()) return false
+        val session = try {
+            refresh(refreshToken).getOrNull()
+        } catch (e: Exception) {
+            null
+        } ?: return false
+        if (session.token.isBlank()) return false
+        saveSession(session)
+        return true
+    }
 
     fun getSession(): UserSession? {
         val token = getAccessToken() ?: return null
