@@ -443,6 +443,87 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
+     * Per-day totals for every day in [startDate, endDate] inclusive (local timezone).
+     * Used to sync a group challenge day-by-day so each participant's daily
+     * breakdown can be shown and graphed. Each record type is read once for the
+     * whole range and bucketed by day; days with no data get honest zeros.
+     * Calorie logic mirrors [readProgressTotals] per day.
+     */
+    suspend fun readDailyProgress(
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): List<ca.zeezaglobal.gymsuitapp.data.model.DailyProgress> {
+        val client = healthConnectClient ?: return emptyList()
+        val zoneId = ZoneId.systemDefault()
+        val range = TimeRangeFilter.between(
+            startDate.atStartOfDay(zoneId).toInstant(),
+            endDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+        )
+
+        val stepsByDay: Map<LocalDate, Long> = try {
+            client.readRecords(
+                ReadRecordsRequest(recordType = StepsRecord::class, timeRangeFilter = range)
+            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+                .mapValues { (_, records) -> records.sumOf { it.count } }
+        } catch (e: Exception) { emptyMap() }
+
+        val workoutsByDay: Map<LocalDate, Int> = try {
+            client.readRecords(
+                ReadRecordsRequest(recordType = ExerciseSessionRecord::class, timeRangeFilter = range)
+            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+                .mapValues { (_, records) -> records.size }
+        } catch (e: Exception) { emptyMap() }
+
+        val distanceByDay: Map<LocalDate, Double> = try {
+            client.readRecords(
+                ReadRecordsRequest(recordType = DistanceRecord::class, timeRangeFilter = range)
+            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+                .mapValues { (_, records) -> records.sumOf { it.distance.inKilometers } }
+        } catch (e: Exception) { emptyMap() }
+
+        val totalCaloriesByDay: Map<LocalDate, Double> = try {
+            client.readRecords(
+                ReadRecordsRequest(recordType = TotalCaloriesBurnedRecord::class, timeRangeFilter = range)
+            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+                .mapValues { (_, records) -> records.sumOf { it.energy.inKilocalories } }
+        } catch (e: Exception) { emptyMap() }
+
+        val activeCaloriesByDay: Map<LocalDate, Double> = try {
+            client.readRecords(
+                ReadRecordsRequest(recordType = ActiveCaloriesBurnedRecord::class, timeRangeFilter = range)
+            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+                .mapValues { (_, records) -> records.sumOf { it.energy.inKilocalories } }
+        } catch (e: Exception) { emptyMap() }
+
+        val days = mutableListOf<ca.zeezaglobal.gymsuitapp.data.model.DailyProgress>()
+        var day = startDate
+        var guard = 0
+        while (!day.isAfter(endDate) && guard < 366) {
+            val steps = stepsByDay[day] ?: 0L
+            val totalKcal = totalCaloriesByDay[day] ?: 0.0
+            val calories = when {
+                totalKcal > 0.0 -> totalKcal
+                (activeCaloriesByDay[day] ?: 0.0) > 0.0 -> activeCaloriesByDay[day]!!
+                else -> steps * 0.04
+            }
+            days.add(
+                ca.zeezaglobal.gymsuitapp.data.model.DailyProgress(
+                    date = day,
+                    totals = ProgressTotals(
+                        steps = steps,
+                        workouts = workoutsByDay[day] ?: 0,
+                        calories = calories,
+                        distanceKm = distanceByDay[day] ?: 0.0
+                    )
+                )
+            )
+            day = day.plusDays(1)
+            guard++
+        }
+        return days
+    }
+
+    /**
      * Sums steps, workout sessions, calories and distance over [startDate, endDate]
      * inclusive (local timezone). Used for group-challenge progress sync.
      * Calorie logic mirrors [readCaloriesForDate]: recorded totals first, then active

@@ -200,3 +200,36 @@ public struct ChallengeMessageResponse: Codable {
         self.message = message
     }
 }
+
+/// One day's value for a single participant, reported by that participant's device.
+public struct DailyProgressEntry: Codable {
+    public let date: String?
+    public let value: Double?
+
+    public init(date: String? = nil, value: Double? = nil) {
+        self.date = date
+        self.value = value
+    }
+}
+
+/// A participant's full daily series for a challenge.
+public struct ParticipantDailySeries: Codable {
+    public let userId: Int64?
+    public let displayName: String?
+    public let entries: [DailyProgressEntry]?
+
+    public init(userId: Int64? = nil, displayName: String? = nil, entries: [DailyProgressEntry]? = nil) {
+        self.userId = userId
+        self.displayName = displayName
+        self.entries = entries
+    }
+}
+
+/// POST /{id}/progress/daily body.
+public struct DailyProgressRequest: Encodable {
+    public let entries: [DailyProgressEntry]
+
+    public init(entries: [DailyProgressEntry]) {
+        self.entries = entries
+    }
+}

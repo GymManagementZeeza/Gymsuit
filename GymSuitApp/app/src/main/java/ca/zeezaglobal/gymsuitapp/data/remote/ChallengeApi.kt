@@ -5,9 +5,12 @@ import android.util.Log
 import ca.zeezaglobal.gymsuitapp.data.local.AuthManager
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeDetail
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeSummary
+import ca.zeezaglobal.gymsuitapp.data.model.DailyProgressEntry
+import ca.zeezaglobal.gymsuitapp.data.model.ParticipantDailySeries
 import ca.zeezaglobal.gymsuitapp.data.model.ProgressTotals
 import ca.zeezaglobal.gymsuitapp.data.model.parseChallengeDetail
 import ca.zeezaglobal.gymsuitapp.data.model.parseChallengeSummary
+import ca.zeezaglobal.gymsuitapp.data.model.parseParticipantDailySeries
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -122,6 +125,54 @@ class ChallengeApi(context: Context) {
             Result.failure(e)
         }
     }
+
+    /**
+     * POST /{id}/progress/daily — upserts this device's per-day values for the
+     * challenge window. The backend clamps entries to the challenge dates.
+     */
+    suspend fun postDailyProgress(
+        id: String,
+        entries: List<DailyProgressEntry>
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val array = JSONArray()
+            entries.forEach { entry ->
+                array.put(JSONObject().apply {
+                    put("date", entry.date)
+                    put("value", entry.value)
+                })
+            }
+            val payload = JSONObject().apply { put("entries", array) }
+            val responseJson = postJson("$BASE_URL/${URLEncoder.encode(id, "UTF-8")}/progress/daily", payload)
+            Result.success(responseJson.optString("message", "Daily progress synced"))
+        } catch (e: Exception) {
+            Log.e(TAG, "postDailyProgress failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * GET /{id}/progress/daily — every participant's daily series for the
+     * challenge. Returns a bare JSON array, wrapped as {"challenges": [...]}
+     * by the shared plumbing just like the list endpoint.
+     */
+    suspend fun getDailyProgress(id: String): Result<List<ParticipantDailySeries>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val responseJson = getJson("$BASE_URL/${URLEncoder.encode(id, "UTF-8")}/progress/daily")
+                val list = mutableListOf<ParticipantDailySeries>()
+                val array = responseJson.optJSONArray("challenges")
+                if (array != null) {
+                    for (i in 0 until array.length()) {
+                        array.optJSONObject(i)?.let { list.add(parseParticipantDailySeries(it)) }
+                    }
+                }
+                Result.success(list)
+            } catch (e: Exception) {
+                Log.e(TAG, "getDailyProgress failed: ${e.message}", e)
+                Result.failure(e)
+            }
+        }
 
     suspend fun leaveChallenge(id: String): Result<String> = withContext(Dispatchers.IO) {
         try {

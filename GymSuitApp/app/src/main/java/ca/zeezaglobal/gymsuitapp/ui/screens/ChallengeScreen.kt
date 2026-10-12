@@ -100,7 +100,9 @@ import ca.zeezaglobal.gymsuitapp.data.model.ChallengeDetail
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeMetric
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeStatus
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeSummary
+import ca.zeezaglobal.gymsuitapp.data.model.DailyProgressEntry
 import ca.zeezaglobal.gymsuitapp.data.model.LeaderboardEntry
+import ca.zeezaglobal.gymsuitapp.data.model.ParticipantDailySeries
 import ca.zeezaglobal.gymsuitapp.data.model.formatMetricValue
 import ca.zeezaglobal.gymsuitapp.data.remote.ChallengeApi
 import kotlinx.coroutines.delay
@@ -113,6 +115,15 @@ private sealed interface ChallengeRoute {
     data object List : ChallengeRoute
     data object Create : ChallengeRoute
     data class Detail(val id: String) : ChallengeRoute
+    data class ParticipantDetail(
+        val challengeId: String,
+        val userId: String,
+        val displayName: String,
+        val metric: ChallengeMetric,
+        val startDate: String,
+        val endDate: String,
+        val rank: Int
+    ) : ChallengeRoute
 }
 
 private val ApiDateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -131,7 +142,28 @@ fun ChallengeScreen() {
         )
         is ChallengeRoute.Detail -> ChallengeDetailContent(
             challengeId = r.id,
-            onBack = { route = ChallengeRoute.List }
+            onBack = { route = ChallengeRoute.List },
+            onOpenParticipant = { detail, entry ->
+                route = ChallengeRoute.ParticipantDetail(
+                    challengeId = r.id,
+                    userId = entry.userId,
+                    displayName = entry.displayName,
+                    metric = detail.metric,
+                    startDate = detail.startDate,
+                    endDate = detail.endDate,
+                    rank = entry.rank
+                )
+            }
+        )
+        is ChallengeRoute.ParticipantDetail -> ParticipantDetailContent(
+            challengeId = r.challengeId,
+            userId = r.userId,
+            displayName = r.displayName,
+            metric = r.metric,
+            startDate = r.startDate,
+            endDate = r.endDate,
+            rank = r.rank,
+            onBack = { route = ChallengeRoute.Detail(r.challengeId) }
         )
     }
 }
@@ -266,6 +298,12 @@ private fun ChallengeListContent(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Challenges are limited to 10 members.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -603,7 +641,16 @@ private fun CreateChallengeContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Challenges are limited to 10 members.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Create button
         Button(
@@ -811,7 +858,8 @@ private fun StepsOutlineIcon(
 @Composable
 private fun ChallengeDetailContent(
     challengeId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenParticipant: (ChallengeDetail, LeaderboardEntry) -> Unit
 ) {
     val context = LocalContext.current
     val api = remember { ChallengeApi(context) }
@@ -831,6 +879,15 @@ private fun ChallengeDetailContent(
     var copied by remember { mutableStateOf(false) }
     var showLeaveConfirm by remember { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
+    var dailySeries by remember { mutableStateOf<List<ParticipantDailySeries>?>(null) }
+
+    fun loadDaily() {
+        scope.launch {
+            api.getDailyProgress(challengeId)
+                .onSuccess { dailySeries = it }
+                .onFailure { /* graph stays hidden on failure */ }
+        }
+    }
 
     fun syncProgress(d: ChallengeDetail) {
         scope.launch {
@@ -844,6 +901,19 @@ private fun ChallengeDetailContent(
                     .onSuccess {
                         lastSynced = "Last synced just now"
                         api.getDetail(d.id).onSuccess { detail = it }
+                        // Best-effort: per-day values power the detail graphs.
+                        val daily = healthConnectManager.readDailyProgress(start, end)
+                        val entries = daily.map { day ->
+                            val value = when (d.metric) {
+                                ChallengeMetric.STEPS -> day.totals.steps.toDouble()
+                                ChallengeMetric.WORKOUTS -> day.totals.workouts.toDouble()
+                                ChallengeMetric.CALORIES -> day.totals.calories
+                                ChallengeMetric.DISTANCE_KM -> day.totals.distanceKm
+                            }
+                            DailyProgressEntry(date = day.date.format(ApiDateFormat), value = value)
+                        }
+                        api.postDailyProgress(d.id, entries)
+                            .onSuccess { loadDaily() }
                     }
                     .onFailure { syncError = it.message ?: "Couldn't sync progress" }
             } catch (e: Exception) {
@@ -861,6 +931,7 @@ private fun ChallengeDetailContent(
                 .onSuccess {
                     detail = it
                     isLoading = false
+                    loadDaily()
                     if (autoSync) syncProgress(it)
                 }
                 .onFailure {
@@ -1023,7 +1094,7 @@ private fun ChallengeDetailContent(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "${d.participantCount} participants",
+                            text = "${d.participantCount} / 10 participants",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -1232,6 +1303,61 @@ private fun ChallengeDetailContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Progress graph — cumulative lines for every participant
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Progress graph",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Cumulative ${d.metric.label.lowercase()} — all participants",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                val series = dailySeries
+                when {
+                    series == null -> {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
+                    series.isEmpty() || series.all { it.entries.isEmpty() } -> {
+                        Text(
+                            text = "No daily data yet — sync progress to draw the graph.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    else -> {
+                        ProgressLineChart(
+                            days = buildChallengeDayList(d.startDate, d.endDate),
+                            series = series,
+                            metric = d.metric,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(230.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // Leaderboard card
         Card(
             colors = CardDefaults.cardColors(
@@ -1253,6 +1379,12 @@ private fun ChallengeDetailContent(
                         style = MaterialTheme.typography.titleSmall
                     )
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Tap a person to see their daily breakdown",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (d.leaderboard.isEmpty()) {
                     Text(
@@ -1269,7 +1401,8 @@ private fun ChallengeDetailContent(
                             LeaderboardRow(
                                 entry = entry,
                                 metric = d.metric,
-                                isMe = d.myRank != null && entry.rank == d.myRank
+                                isMe = d.myRank != null && entry.rank == d.myRank,
+                                onClick = { onOpenParticipant(d, entry) }
                             )
                         }
                     }
@@ -1296,9 +1429,11 @@ private fun ChallengeDetailContent(
 private fun LeaderboardRow(
     entry: LeaderboardEntry,
     metric: ChallengeMetric,
-    isMe: Boolean
+    isMe: Boolean,
+    onClick: () -> Unit
 ) {
     ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
         colors = ListItemDefaults.colors(
             containerColor = if (isMe) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
             else androidx.compose.ui.graphics.Color.Transparent
@@ -1339,6 +1474,230 @@ private fun LeaderboardRow(
             )
         }
     )
+}
+
+// ---------------------------------------------------------------------------
+// Participant detail — per-day breakdown + daily chart
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ParticipantDetailContent(
+    challengeId: String,
+    userId: String,
+    displayName: String,
+    metric: ChallengeMetric,
+    startDate: String,
+    endDate: String,
+    rank: Int,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val api = remember { ChallengeApi(context) }
+    val scope = rememberCoroutineScope()
+
+    var series by remember { mutableStateOf<List<ParticipantDailySeries>?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun load() {
+        scope.launch {
+            isLoading = true
+            error = null
+            api.getDailyProgress(challengeId)
+                .onSuccess { series = it }
+                .onFailure { error = it.message ?: "Couldn't load daily progress" }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(challengeId, userId) { load() }
+
+    val days = remember(startDate, endDate) { buildChallengeDayList(startDate, endDate) }
+    val mySeries = series?.firstOrNull { it.userId == userId }
+    val values = days.map { day -> mySeries?.let { seriesValueOn(it, day.format(ApiDateFormat)) } ?: 0.0 }
+    val total = values.sum()
+    val hasAnyData = mySeries != null && mySeries.entries.isNotEmpty()
+    val dayLabelFmt = remember { DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(top = 20.dp, bottom = 120.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (isLoading && series == null) {
+            Spacer(modifier = Modifier.height(40.dp))
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            return@Column
+        }
+
+        error?.let {
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            return@Column
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Summary card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Rank #$rank",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = metric.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = formatMetricValue(metric, total),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "Total since ${prettyDateRange(startDate, endDate)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Daily chart card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Daily ${metric.label.lowercase()}",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Each day from the challenge start",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                if (!hasAnyData) {
+                    Text(
+                        text = "No synced data yet — days show 0 until this person syncs their progress.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    DailyBarChart(
+                        days = days,
+                        values = values,
+                        metric = metric,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Day-by-day list
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Day by day",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (days.isEmpty()) {
+                    Text(
+                        text = "No days to show.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column {
+                        days.forEachIndexed { index, day ->
+                            if (index > 0) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = day.format(dayLabelFmt),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = formatMetricValue(metric, values.getOrElse(index) { 0.0 }),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -67,6 +67,25 @@ data class ProgressTotals(
     val distanceKm: Double
 )
 
+/** One day's value for a single participant, reported by that participant's device. */
+data class DailyProgressEntry(
+    val date: String, // yyyy-MM-dd
+    val value: Double
+)
+
+/** A participant's full daily series for a challenge. */
+data class ParticipantDailySeries(
+    val userId: String,
+    val displayName: String,
+    val entries: List<DailyProgressEntry>
+)
+
+/** One day's totals; used when syncing the challenge window day by day. */
+data class DailyProgress(
+    val date: java.time.LocalDate,
+    val totals: ProgressTotals
+)
+
 private fun JSONObject.optId(key: String): String =
     if (isNull(key)) "" else opt(key)?.toString() ?: ""
 
@@ -79,6 +98,27 @@ fun parseLeaderboardEntry(json: JSONObject): LeaderboardEntry = LeaderboardEntry
     value = json.optDouble("value", 0.0),
     rank = json.optInt("rank", 0)
 )
+
+fun parseParticipantDailySeries(json: JSONObject): ParticipantDailySeries {
+    val entries = mutableListOf<DailyProgressEntry>()
+    val arr = json.optJSONArray("entries")
+    if (arr != null) {
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            entries.add(
+                DailyProgressEntry(
+                    date = obj.optString("date", ""),
+                    value = obj.optDouble("value", 0.0)
+                )
+            )
+        }
+    }
+    return ParticipantDailySeries(
+        userId = json.optId("userId"),
+        displayName = json.optString("displayName", "Member").ifBlank { "Member" },
+        entries = entries
+    )
+}
 
 fun parseChallengeSummary(json: JSONObject): ChallengeSummary = ChallengeSummary(
     id = json.optId("id"),
