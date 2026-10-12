@@ -6,8 +6,12 @@ import com.zeezaglobal.gymmanagement.dto.ChallengeInviteRequest;
 import com.zeezaglobal.gymmanagement.dto.ChallengeJoinRequest;
 import com.zeezaglobal.gymmanagement.dto.ChallengeProgressRequest;
 import com.zeezaglobal.gymmanagement.dto.ChallengeSummaryDto;
+import com.zeezaglobal.gymmanagement.dto.DailyProgressEntryDto;
+import com.zeezaglobal.gymmanagement.dto.DailyProgressRequest;
 import com.zeezaglobal.gymmanagement.dto.LeaderboardEntryDto;
+import com.zeezaglobal.gymmanagement.dto.ParticipantDailySeriesDto;
 import com.zeezaglobal.gymmanagement.entity.Challenge;
+import com.zeezaglobal.gymmanagement.entity.ChallengeDailyProgress;
 import com.zeezaglobal.gymmanagement.entity.ChallengeInvite;
 import com.zeezaglobal.gymmanagement.entity.ChallengeInviteStatus;
 import com.zeezaglobal.gymmanagement.entity.ChallengeMetric;
@@ -19,6 +23,7 @@ import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
 import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.ChallengeInviteRepository;
+import com.zeezaglobal.gymmanagement.repository.ChallengeDailyProgressRepository;
 import com.zeezaglobal.gymmanagement.repository.ChallengeParticipantRepository;
 import com.zeezaglobal.gymmanagement.repository.ChallengeRepository;
 import com.zeezaglobal.gymmanagement.repository.UserRepository;
@@ -49,11 +54,15 @@ public class ChallengeService {
     private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 6;
     private static final long INVITE_TTL_DAYS = 7;
+    /** Hard cap on members per challenge — enforced when anyone joins. */
+    public static final int MAX_PARTICIPANTS = 10;
+    private static final int MAX_DAILY_ENTRIES_PER_REQUEST = 400;
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final ChallengeRepository challengeRepository;
     private final ChallengeParticipantRepository participantRepository;
+    private final ChallengeDailyProgressRepository dailyProgressRepository;
     private final ChallengeInviteRepository inviteRepository;
     private final UserRepository userRepository;
     private final EventPublisher eventPublisher;
@@ -211,6 +220,69 @@ public class ChallengeService {
     }
 
     @Transactional
+    public String submitDailyProgress(Long challengeId, DailyProgressRequest request, UserPrincipal principal) {
+        Challenge challenge = getChallenge(challengeId);
+        Long userId = principal.getUserId();
+        requireParticipant(challengeId, userId);
+
+        List<DailyProgressEntryDto> entries = request.entries() == null ? List.of() : request.entries();
+        if (entries.size() > MAX_DAILY_ENTRIES_PER_REQUEST) {
+            throw new BadRequestException("Too many daily entries in one request");
+        }
+
+        int stored = 0;
+        for (DailyProgressEntryDto entry : entries) {
+            if (entry == null || entry.date() == null) {
+                continue;
+            }
+            // Only days inside the challenge window are stored.
+            if (entry.date().isBefore(challenge.getStartDate())
+                    || entry.date().isAfter(challenge.getEndDate())) {
+                continue;
+            }
+            double value = Math.max(0, entry.value());
+            ChallengeDailyProgress row = dailyProgressRepository
+                    .findByChallengeIdAndUserIdAndDate(challengeId, userId, entry.date())
+                    .orElseGet(() -> {
+                        ChallengeDailyProgress created = new ChallengeDailyProgress();
+                        created.setChallenge(challenge);
+                        created.setUser(getUser(principal));
+                        created.setDate(entry.date());
+                        return created;
+                    });
+            row.setValue(value);
+            row.setUpdatedAt(Instant.now());
+            dailyProgressRepository.save(row);
+            stored++;
+        }
+
+        log.info("User {} stored {} daily progress entries for challenge {}", userId, stored, challengeId);
+        return "Daily progress updated";
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParticipantDailySeriesDto> getDailyProgress(Long challengeId, UserPrincipal principal) {
+        Challenge challenge = getChallenge(challengeId);
+        Long userId = principal.getUserId();
+        requireParticipant(challengeId, userId);
+
+        List<ChallengeParticipant> participants = participantRepository.findByChallengeId(challenge.getId());
+        List<ParticipantDailySeriesDto> series = new ArrayList<>(participants.size());
+        for (ChallengeParticipant participant : participants) {
+            List<DailyProgressEntryDto> entries = dailyProgressRepository
+                    .findByChallengeIdAndUserIdOrderByDateAsc(challenge.getId(), participant.getUser().getId())
+                    .stream()
+                    .map(row -> new DailyProgressEntryDto(row.getDate(), row.getValue()))
+                    .toList();
+            series.add(new ParticipantDailySeriesDto(
+                    participant.getUser().getId(),
+                    displayName(participant.getUser()),
+                    entries));
+        }
+        return series;
+    }
+
+    @Transactional
     public String leaveChallenge(Long challengeId, UserPrincipal principal) {
         // 404 for an unknown challenge; leaving is otherwise idempotent.
         getChallenge(challengeId);
@@ -244,6 +316,11 @@ public class ChallengeService {
     private ChallengeParticipant joinChallengeInternal(Challenge challenge, User user) {
         return participantRepository.findByChallengeIdAndUserId(challenge.getId(), user.getId())
                 .orElseGet(() -> {
+                    long memberCount = participantRepository.countByChallengeId(challenge.getId());
+                    if (memberCount >= MAX_PARTICIPANTS) {
+                        throw new BadRequestException(
+                                "This challenge is full — max " + MAX_PARTICIPANTS + " members");
+                    }
                     ChallengeParticipant participant = new ChallengeParticipant();
                     participant.setChallenge(challenge);
                     participant.setUser(user);
