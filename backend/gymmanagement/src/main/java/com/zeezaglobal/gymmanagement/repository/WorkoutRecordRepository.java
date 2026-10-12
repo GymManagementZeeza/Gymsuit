@@ -21,4 +21,8 @@ public interface WorkoutRecordRepository extends JpaRepository<WorkoutRecord, Lo
     List<WorkoutRecord> findUpdatedSince(@Param("userId") Long userId, @Param("since") LocalDateTime since);
 
     List<WorkoutRecord> findByUserIdOrderByStartTimeDesc(Long userId);
+
+    /** Ids of users with any workouts starting in the window — the health report audience. */
+    @Query("SELECT DISTINCT w.user.id FROM WorkoutRecord w WHERE w.startTime BETWEEN :start AND :end")
+    List<Long> findUserIdsWithWorkouts(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
