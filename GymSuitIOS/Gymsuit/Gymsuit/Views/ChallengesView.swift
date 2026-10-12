@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Charts
 import Combine
 
 // MARK: - Date helpers
@@ -41,10 +42,13 @@ private struct ChallengeProgress {
     var distanceKm: Double = 0
 }
 
-/// Sums real HealthKit totals for every day in [startDate, endDate] (inclusive).
+/// Per-day real HealthKit totals for every day in [startDate, endDate] (inclusive).
 /// Returns nil when the dates can't be parsed. Never fabricates values —
 /// days with no recorded data contribute zero.
-private func computeChallengeProgress(startDate: String, endDate: String) async -> ChallengeProgress? {
+private func computeDailyChallengeProgress(
+    startDate: String,
+    endDate: String
+) async -> [(date: Date, progress: ChallengeProgress)]? {
     guard
         let start = challengeApiDateFormatter.date(from: startDate),
         let end = challengeApiDateFormatter.date(from: endDate)
@@ -53,23 +57,42 @@ private func computeChallengeProgress(startDate: String, endDate: String) async 
     let calendar = Calendar.current
     var day = calendar.startOfDay(for: start)
     let lastDay = calendar.startOfDay(for: end)
-    guard day <= lastDay else { return ChallengeProgress() }
+    guard day <= lastDay else { return [] }
 
-    var progress = ChallengeProgress()
+    var days: [(date: Date, progress: ChallengeProgress)] = []
     var dayCount = 0
     while day <= lastDay && dayCount < 366 {
-        progress.steps += await HealthKitManager.shared.fetchSteps(for: day)
+        var progress = ChallengeProgress()
+        progress.steps = await HealthKitManager.shared.fetchSteps(for: day)
         let workouts = await HealthKitManager.shared.fetchWorkouts(for: day)
-        progress.workouts += workouts.count
+        progress.workouts = workouts.count
         let breakdown = await HealthKitManager.shared.fetchCaloriesBreakdown(for: day)
-        progress.calories += breakdown.totalKcal
-        progress.distanceKm += (await HealthKitManager.shared.fetchDistanceMeters(for: day) ?? 0) / 1000.0
+        progress.calories = breakdown.totalKcal
+        progress.distanceKm = (await HealthKitManager.shared.fetchDistanceMeters(for: day) ?? 0) / 1000.0
+        days.append((date: day, progress: progress))
 
         guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
         day = next
         dayCount += 1
     }
-    return progress
+    return days
+}
+
+/// Sums real HealthKit totals for every day in [startDate, endDate] (inclusive).
+/// Returns nil when the dates can't be parsed. Never fabricates values —
+/// days with no recorded data contribute zero.
+private func computeChallengeProgress(startDate: String, endDate: String) async -> ChallengeProgress? {
+    guard let days = await computeDailyChallengeProgress(startDate: startDate, endDate: endDate) else {
+        return nil
+    }
+    var total = ChallengeProgress()
+    for day in days {
+        total.steps += day.progress.steps
+        total.workouts += day.progress.workouts
+        total.calories += day.progress.calories
+        total.distanceKm += day.progress.distanceKm
+    }
+    return total
 }
 
 // MARK: - List view model
@@ -118,10 +141,21 @@ final class ChallengesViewModel: ObservableObject {
 
 // MARK: - Challenges list
 
+/// Navigation target for one participant's detail screen.
+private struct ParticipantRoute: Hashable {
+    let challengeId: Int64
+    let userId: Int64
+    let displayName: String
+    let metricRaw: String
+    let startDate: String
+    let endDate: String
+    let rank: Int
+}
+
 struct ChallengesView: View {
     @StateObject private var viewModel = ChallengesViewModel()
     @State private var showingCreate = false
-    @State private var navigationPath: [Int64] = []
+    @State private var navigationPath: [AnyHashable] = []
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -183,6 +217,9 @@ struct ChallengesView: View {
                     Task { await viewModel.load() }
                 }
             }
+            .navigationDestination(for: ParticipantRoute.self) { route in
+                ParticipantDetailView(route: route)
+            }
             .task {
                 await viewModel.load()
             }
@@ -233,6 +270,9 @@ struct ChallengesView: View {
                     .font(.system(size: 13))
                     .foregroundColor(AppColors.danger)
             }
+            Text("Challenges are limited to 10 members.")
+                .font(.system(size: 13))
+                .foregroundColor(AppColors.textSecondary)
         }
         .padding(16)
         .background(Color.white)
@@ -376,6 +416,12 @@ private struct CreateChallengeSheet: View {
                     DatePicker("Ends", selection: $endDate, displayedComponents: .date)
                 }
 
+                Section {
+                    Text("Challenges are limited to 10 members.")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppColors.textSecondary)
+                }
+
                 if let errorMessage = errorMessage {
                     Section {
                         Text(errorMessage)
@@ -468,6 +514,7 @@ final class ChallengeDetailViewModel: ObservableObject {
     @Published var showingLeaveConfirm = false
     @Published var isLeaving = false
     @Published var codeCopied = false
+    @Published var dailySeries: [ParticipantDailySeries]? = nil
 
     private let challengeId: Int64
 
@@ -480,10 +527,20 @@ final class ChallengeDetailViewModel: ObservableObject {
         errorMessage = nil
         do {
             detail = try await ChallengeApi.shared.fetchDetail(id: challengeId)
+            await loadDailyProgress()
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    /// Every participant's daily series. Best-effort — the graph hides on failure.
+    func loadDailyProgress() async {
+        do {
+            dailySeries = try await ChallengeApi.shared.fetchDailyProgress(challengeId: challengeId)
+        } catch {
+            // Leave the previous value (or nil) in place.
+        }
     }
 
     /// Sums real HealthKit totals over the challenge window and posts them.
@@ -523,6 +580,25 @@ final class ChallengeDetailViewModel: ObservableObject {
                 calories: progress.calories,
                 distanceKm: progress.distanceKm
             )
+            // Best-effort: per-day values power the detail graphs.
+            if let daily = await computeDailyChallengeProgress(startDate: startRaw, endDate: endRaw) {
+                let metric = detail.metric
+                let entries = daily.map { day -> DailyProgressEntry in
+                    let value: Double
+                    switch metric {
+                    case .steps: value = Double(day.progress.steps)
+                    case .workouts: value = Double(day.progress.workouts)
+                    case .calories: value = day.progress.calories
+                    case .distanceKm: value = day.progress.distanceKm
+                    }
+                    return DailyProgressEntry(
+                        date: challengeApiDateFormatter.string(from: day.date),
+                        value: value
+                    )
+                }
+                try? await ChallengeApi.shared.postDailyProgress(challengeId: challengeId, entries: entries)
+                await loadDailyProgress()
+            }
             syncState = .synced(Date())
             await load()
         } catch {
@@ -596,6 +672,7 @@ private struct ChallengeDetailView: View {
                     headerCard(detail: detail)
                     syncCard
                     inviteCard(detail: detail)
+                    progressGraphCard(detail: detail)
                     leaderboardCard(detail: detail)
                     leaveButton
                 } else if let error = viewModel.errorMessage {
@@ -661,7 +738,7 @@ private struct ChallengeDetailView: View {
                     .foregroundColor(AppColors.textSecondary)
             }
             HStack(spacing: 16) {
-                Label("\(detail.participantCount ?? 0) participants", systemImage: "person.2.fill")
+                Label("\(detail.participantCount ?? 0) / 10 participants", systemImage: "person.2.fill")
                     .font(.system(size: 13))
                     .foregroundColor(AppColors.textSecondary)
                 if let rank = detail.myRank, rank > 0 {
@@ -802,6 +879,43 @@ private struct ChallengeDetailView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
     }
 
+    // MARK: Progress graph
+
+    private func progressGraphCard(detail: ChallengeDetail) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Progress graph")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppColors.textPrimary)
+            Text("Cumulative \(detail.metric.unitLabel) — all participants")
+                .font(.system(size: 13))
+                .foregroundColor(AppColors.textSecondary)
+
+            if let series = viewModel.dailySeries {
+                let days = challengeDayList(startDate: detail.startDate, endDate: detail.endDate)
+                if series.isEmpty || series.allSatisfy({ ($0.entries ?? []).isEmpty }) || days.isEmpty {
+                    Text("No daily data yet — sync progress to draw the graph.")
+                        .font(.system(size: 14))
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.vertical, 8)
+                } else {
+                    ParticipantProgressChart(days: days, series: series, metric: detail.metric)
+                        .frame(height: 240)
+                }
+            } else {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .padding(.vertical, 12)
+                    Spacer()
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+    }
+
     // MARK: Leaderboard
 
     private func leaderboardCard(detail: ChallengeDetail) -> some View {
@@ -809,6 +923,9 @@ private struct ChallengeDetailView: View {
             Text("Leaderboard")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(AppColors.textPrimary)
+            Text("Tap a person to see their daily breakdown")
+                .font(.system(size: 13))
+                .foregroundColor(AppColors.textSecondary)
 
             let entries = (detail.leaderboard ?? []).sorted {
                 ($0.rank ?? Int.max) < ($1.rank ?? Int.max)
@@ -820,7 +937,18 @@ private struct ChallengeDetailView: View {
                     .padding(.vertical, 8)
             } else {
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
-                    leaderboardRow(entry: entry, index: index, metric: detail.metric)
+                    NavigationLink(value: ParticipantRoute(
+                        challengeId: detail.challengeId ?? -1,
+                        userId: entry.userId ?? -1,
+                        displayName: entry.displayName ?? "Member",
+                        metricRaw: detail.metricType ?? "STEPS",
+                        startDate: detail.startDate ?? "",
+                        endDate: detail.endDate ?? "",
+                        rank: entry.rank ?? (index + 1)
+                    )) {
+                        leaderboardRow(entry: entry, index: index, metric: detail.metric)
+                    }
+                    .buttonStyle(.plain)
                     if index < entries.count - 1 {
                         Divider()
                     }
@@ -889,5 +1017,302 @@ private struct ChallengeDetailView: View {
             .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
         }
         .disabled(viewModel.isLeaving)
+    }
+}
+
+// MARK: - Daily progress helpers
+
+/// Days from the challenge start through today (or the end date, whichever is first).
+private func challengeDayList(startDate: String?, endDate: String?) -> [Date] {
+    guard
+        let startRaw = startDate,
+        let endRaw = endDate,
+        let start = challengeApiDateFormatter.date(from: startRaw),
+        let end = challengeApiDateFormatter.date(from: endRaw)
+    else { return [] }
+    let calendar = Calendar.current
+    let startDay = calendar.startOfDay(for: start)
+    let endDay = calendar.startOfDay(for: end)
+    let today = calendar.startOfDay(for: Date())
+    let last = min(endDay, today)
+    guard startDay <= last else { return [] }
+    var days: [Date] = []
+    var day = startDay
+    var guardCount = 0
+    while day <= last && guardCount < 366 {
+        days.append(day)
+        guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+        day = next
+        guardCount += 1
+    }
+    return days
+}
+
+private func dailyValue(for series: ParticipantDailySeries, on dayKey: String) -> Double {
+    return series.entries?.first(where: { $0.date == dayKey })?.value ?? 0
+}
+
+// MARK: - All-participants progress chart
+
+private struct CumulativePoint: Identifiable {
+    let id = UUID()
+    let dayIndex: Int
+    let cumulative: Double
+}
+
+private struct ParticipantLine: Identifiable {
+    let id = UUID()
+    let displayName: String
+    let points: [CumulativePoint]
+}
+
+/// Cumulative line chart of every participant's progress over the challenge days.
+private struct ParticipantProgressChart: View {
+    let days: [Date]
+    let series: [ParticipantDailySeries]
+    let metric: ChallengeMetricType
+
+    private var lines: [ParticipantLine] {
+        series.map { s in
+            var running = 0.0
+            let points = days.enumerated().map { index, day -> CumulativePoint in
+                let key = challengeApiDateFormatter.string(from: day)
+                running += dailyValue(for: s, on: key)
+                return CumulativePoint(dayIndex: index, cumulative: running)
+            }
+            return ParticipantLine(displayName: s.displayName ?? "Member", points: points)
+        }
+    }
+
+    private func dayLabel(for index: Int) -> String {
+        guard days.indices.contains(index) else { return "" }
+        return challengeDisplayDateFormatter.string(from: days[index])
+    }
+
+    var body: some View {
+        let lines = lines
+        Chart {
+            ForEach(lines) { line in
+                ForEach(line.points) { point in
+                    LineMark(
+                        x: .value("Day", point.dayIndex),
+                        y: .value(metric.displayName, point.cumulative)
+                    )
+                    .foregroundStyle(by: .value("Person", line.displayName))
+                    .symbol(Circle().strokeBorder(lineWidth: 1.5))
+                    .symbolSize(16)
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: max(1, days.count / 4))) { value in
+                if let index = value.as(Int.self) {
+                    AxisValueLabel {
+                        Text(dayLabel(for: index))
+                            .font(.system(size: 10))
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                }
+                AxisGridLine()
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text(metric.formatValue(v))
+                            .font(.system(size: 10))
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                }
+            }
+        }
+        .chartLegend(position: .bottom, spacing: 12)
+    }
+}
+
+// MARK: - Participant detail
+
+private struct ParticipantDetailView: View {
+    let route: ParticipantRoute
+
+    @State private var series: [ParticipantDailySeries]? = nil
+    @State private var isLoading = true
+    @State private var errorMessage: String? = nil
+
+    private var metric: ChallengeMetricType {
+        ChallengeMetricType.from(rawValue: route.metricRaw)
+    }
+
+    private var days: [Date] {
+        challengeDayList(startDate: route.startDate, endDate: route.endDate)
+    }
+
+    private var mySeries: ParticipantDailySeries? {
+        series?.first(where: { $0.userId == route.userId })
+    }
+
+    private var values: [Double] {
+        days.map { day in
+            guard let mySeries = mySeries else { return 0 }
+            return dailyValue(for: mySeries, on: challengeApiDateFormatter.string(from: day))
+        }
+    }
+
+    private var total: Double { values.reduce(0, +) }
+    private var hasAnyData: Bool { !(mySeries?.entries ?? []).isEmpty }
+
+    private func dayLabel(_ day: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter.string(from: day)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                if isLoading && series == nil {
+                    ProgressView("Loading…")
+                        .padding(.top, 40)
+                } else if let error = errorMessage, series == nil {
+                    Text(error)
+                        .foregroundColor(AppColors.danger)
+                        .padding(.top, 40)
+                } else {
+                    summaryCard
+                    dailyChartCard
+                    dayByDayCard
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+        .navigationTitle(route.displayName)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    private func load() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            series = try await ChallengeApi.shared.fetchDailyProgress(challengeId: route.challengeId)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private var summaryCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Rank #\(route.rank)")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppColors.textSecondary)
+                Spacer()
+                Text(metric.displayName)
+                    .font(.system(size: 13))
+                    .foregroundColor(AppColors.textSecondary)
+            }
+            Text("\(metric.formatValue(total)) \(metric.unitLabel)")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(AppColors.textPrimary)
+            Text("Total since \(challengeDateRangeText(startDate: route.startDate, endDate: route.endDate))")
+                .font(.system(size: 13))
+                .foregroundColor(AppColors.textSecondary)
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+    }
+
+    private var dailyChartCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Daily \(metric.unitLabel)")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppColors.textPrimary)
+            Text("Each day from the challenge start")
+                .font(.system(size: 13))
+                .foregroundColor(AppColors.textSecondary)
+
+            if !hasAnyData {
+                Text("No synced data yet — days show 0 until this person syncs their progress.")
+                    .font(.system(size: 14))
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.vertical, 8)
+            } else {
+                Chart {
+                    ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                        BarMark(
+                            x: .value("Day", challengeDisplayDateFormatter.string(from: day)),
+                            y: .value(metric.displayName, values[index])
+                        )
+                        .foregroundStyle(AppColors.primary)
+                        .cornerRadius(4)
+                    }
+                }
+                .frame(height: 220)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: max(1, days.count / 7))) { _ in
+                        AxisGridLine()
+                        AxisTick()
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let v = value.as(Double.self) {
+                                Text(metric.formatValue(v))
+                                    .font(.system(size: 10))
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+    }
+
+    private var dayByDayCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Day by day")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppColors.textPrimary)
+            if days.isEmpty {
+                Text("No days to show.")
+                    .font(.system(size: 14))
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                    HStack {
+                        Text(dayLabel(day))
+                            .font(.system(size: 14))
+                            .foregroundColor(AppColors.textSecondary)
+                        Spacer()
+                        Text("\(metric.formatValue(values[index])) \(metric.unitLabel)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(AppColors.textPrimary)
+                    }
+                    .padding(.vertical, 4)
+                    if index < days.count - 1 {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
     }
 }
