@@ -84,6 +84,25 @@ public final class ChallengeApi {
         return response.message ?? "Progress synced"
     }
 
+    /// POST /{id}/progress/daily — upsert this device's per-day values for the
+    /// challenge window. The backend clamps entries to the challenge dates.
+    public func postDailyProgress(challengeId: Int64, entries: [DailyProgressEntry]) async throws -> String {
+        let payload: [String: Any] = [
+            "entries": entries.map { entry in
+                ["date": entry.date ?? "", "value": entry.value ?? 0.0]
+            }
+        ]
+        let data = try await request(method: "POST", urlString: "\(baseURL)/\(challengeId)/progress/daily", payload: payload)
+        let response = try decode(ChallengeMessageResponse.self, from: data)
+        return response.message ?? "Daily progress synced"
+    }
+
+    /// GET /{id}/progress/daily — every participant's daily series for the challenge.
+    public func fetchDailyProgress(challengeId: Int64) async throws -> [ParticipantDailySeries] {
+        let data = try await request(method: "GET", urlString: "\(baseURL)/\(challengeId)/progress/daily", payload: nil)
+        return try decode([ParticipantDailySeries].self, from: data)
+    }
+
     /// POST /{id}/leave — leave the challenge.
     public func leaveChallenge(id: Int64) async throws -> String {
         let data = try await request(method: "POST", urlString: "\(baseURL)/\(id)/leave", payload: nil)
