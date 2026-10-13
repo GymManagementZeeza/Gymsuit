@@ -67,6 +67,7 @@ public class HealthReportService {
             double totalDistanceKm,
             Double avgSleepMinutes,
             Integer avgRestingHr,
+            Double avgWeightKg,
             List<DailyHealthRecord> dailyRecords,
             List<WorkoutRecord> workouts,
             List<ExerciseSummary> exercises) {
@@ -117,6 +118,8 @@ public class HealthReportService {
         int sleepCount = 0;
         long restingHrSum = 0;
         int restingHrCount = 0;
+        double weightSum = 0;
+        int weightCount = 0;
         int daysWithSteps = 0;
         for (DailyHealthRecord r : daily) {
             if (r.getSteps() != null && r.getSteps() > 0) {
@@ -135,6 +138,10 @@ public class HealthReportService {
                 restingHrSum += r.getRestingHeartRateBpm();
                 restingHrCount++;
             }
+            if (r.getWeightKg() != null && r.getWeightKg() > 0) {
+                weightSum += r.getWeightKg();
+                weightCount++;
+            }
         }
 
         return new ReportData(
@@ -145,6 +152,7 @@ public class HealthReportService {
                 totalActiveCalories, totalDistanceKm,
                 sleepCount > 0 ? (double) sleepSum / sleepCount : null,
                 restingHrCount > 0 ? (int) Math.round((double) restingHrSum / restingHrCount) : null,
+                weightCount > 0 ? weightSum / weightCount : null,
                 daily, workouts, exercises);
     }
 
@@ -172,15 +180,16 @@ public class HealthReportService {
     }
 
     // ------------------------------------------------------------------
-    // Email
+    // Email — colorful Fitbit-style report (table layout + inline styles
+    // so it renders in every mail client; emoji icons need no assets).
     // ------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public void sendReportEmail(User user, ReportData data) {
+    public void sendReportEmail(User user, ReportData data, ReportData previous) {
         String name = displayName(user);
         String period = periodLabel(data.start(), data.end());
         String subject = "Your GymSuit health report — " + period;
-        String html = buildEmailHtml(name, period, data);
+        String html = buildEmailHtml(name, period, data, previous);
         String filename = "GymSuit-Health-Report-" + data.end() + ".pdf";
         try {
             byte[] pdf = renderPdf(name, period, data);
@@ -191,53 +200,200 @@ public class HealthReportService {
         }
     }
 
-    private String buildEmailHtml(String name, String period, ReportData d) {
-        StringBuilder rows = new StringBuilder();
-        statRow(rows, "Workouts", d.totalWorkouts() + " sessions");
-        statRow(rows, "Gym frequency", d.daysTrained() + " of " + daysInWindow(d) + " days");
-        statRow(rows, "Total volume", fmt1(d.totalVolumeKg()) + " kg");
-        statRow(rows, "Steps", fmtInt(d.totalSteps()) + " total · " + fmtInt(Math.round(d.avgSteps())) + " avg/day");
-        statRow(rows, "Active calories", fmt1(d.totalActiveCalories()) + " kcal");
-        statRow(rows, "Distance", fmt1(d.totalDistanceKm()) + " km");
-        if (d.avgSleepMinutes() != null) {
-            statRow(rows, "Avg sleep", fmtDuration(d.avgSleepMinutes().longValue()));
-        }
-        if (d.avgRestingHr() != null) {
-            statRow(rows, "Avg resting HR", d.avgRestingHr() + " bpm");
+    private String buildEmailHtml(String name, String period, ReportData d, ReportData p) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#202124;\">");
+
+        // Header
+        sb.append("<h2 style=\"font-size:24px;margin:0 0 4px;\">Hi, ").append(escape(name)).append("! 👋</h2>");
+        sb.append("<p style=\"font-size:14px;color:#5f6368;margin:0 0 16px;\">Here are your stats for ")
+                .append(escape(period)).append("</p>");
+
+        // Day strip
+        sb.append(dayStrip(d));
+
+        // Hero card — total steps
+        long bestSteps = bestDaySteps(d);
+        sb.append("<div style=\"background:#f1f5fb;border-radius:24px;padding:32px 16px;text-align:center;margin:16px 0;\">");
+        sb.append("<div style=\"font-size:48px;line-height:1;\">👟</div>");
+        sb.append("<div style=\"font-size:44px;font-weight:800;margin:8px 0 0;\">").append(fmtInt(d.totalSteps())).append("</div>");
+        sb.append("<div style=\"font-size:18px;color:#5f6368;\">total steps</div>");
+        sb.append("<div style=\"margin-top:16px;\">");
+        sb.append(pill("⭐ Best day · " + fmtInt(bestSteps), "up")).append(" ");
+        sb.append(pill("👟 Avg " + fmtInt(Math.round(d.avgSteps())) + " steps/day", "same")).append(" ");
+        long stepDiff = d.totalSteps() - (p != null ? p.totalSteps() : 0);
+        sb.append(deltaPill(fmtInt(Math.abs(stepDiff)), stepDiff, false));
+        sb.append("</div></div>");
+
+        // Stat card grid (3 columns)
+        sb.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">");
+        gridRow(sb,
+                statCard("🏋️", fmtInt(d.totalWorkouts()), "workout sessions",
+                        p != null ? deltaSessions(d.totalWorkouts() - p.totalWorkouts()) : null),
+                statCard("📅", d.daysTrained() + " of " + daysInWindow(d), "days trained", null),
+                statCard("🔥", fmt1(d.totalActiveCalories()), "active calories",
+                        p != null ? deltaPill(fmt1(Math.abs(d.totalActiveCalories() - p.totalActiveCalories())),
+                                d.totalActiveCalories() - p.totalActiveCalories(), false) : null));
+        gridRow(sb,
+                statCard("📍", fmt1(d.totalDistanceKm()), "total kilometers",
+                        p != null ? deltaPill(fmt1(Math.abs(d.totalDistanceKm() - p.totalDistanceKm())) + " km",
+                                d.totalDistanceKm() - p.totalDistanceKm(), false) : null),
+                d.avgSleepMinutes() != null
+                        ? statCard("💤", fmtDuration(d.avgSleepMinutes().longValue()), "avg. sleep",
+                                p != null && p.avgSleepMinutes() != null
+                                        ? deltaPill(fmtDuration((long) Math.abs(d.avgSleepMinutes() - p.avgSleepMinutes())),
+                                                d.avgSleepMinutes() - p.avgSleepMinutes(), false) : null)
+                        : statCard("💤", "–", "avg. sleep", null),
+                d.avgRestingHr() != null
+                        ? statCard("❤️", d.avgRestingHr() + " bpm", "avg. resting heart rate",
+                                p != null && p.avgRestingHr() != null
+                                        ? deltaPill(Math.abs(d.avgRestingHr() - p.avgRestingHr()) + " bpm",
+                                                (double) (d.avgRestingHr() - p.avgRestingHr()), true) : null)
+                        : statCard("❤️", "–", "avg. resting heart rate", null));
+        gridRow(sb,
+                d.avgWeightKg() != null
+                        ? statCard("⚖️", fmt1(d.avgWeightKg()) + " kg", "avg. weight",
+                                p != null && p.avgWeightKg() != null
+                                        ? weightPill(d.avgWeightKg() - p.avgWeightKg()) : null)
+                        : statCard("⚖️", "–", "avg. weight", null),
+                statCard("💪", fmt1(d.totalVolumeKg()) + " kg", "total volume lifted",
+                        p != null ? deltaPill(fmt1(Math.abs(d.totalVolumeKg() - p.totalVolumeKg())) + " kg",
+                                d.totalVolumeKg() - p.totalVolumeKg(), false) : null),
+                statCard("⏱️", fmtInt(d.workoutMinutes()), "workout minutes",
+                        p != null ? deltaSessions(d.workoutMinutes() - p.workoutMinutes()) : null));
+        sb.append("</table>");
+
+        // Top exercises
+        sb.append("<h3 style=\"font-size:18px;margin:24px 0 8px;\">🏆 Top exercises</h3>");
+        if (d.exercises().isEmpty()) {
+            sb.append("<p style=\"font-size:14px;color:#5f6368;\">No workouts logged in this period — open the GymSuit app and log a session to see it here.</p>");
+        } else {
+            sb.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"font-size:14px;\">");
+            int shown = 0;
+            for (ExerciseSummary e : d.exercises()) {
+                if (shown++ >= 5) break;
+                sb.append("<tr><td style=\"padding:8px;border-bottom:1px solid #eee;\">💪 ")
+                        .append(escape(e.title())).append("</td>")
+                        .append("<td style=\"padding:8px;border-bottom:1px solid #eee;text-align:right;color:#5f6368;\">")
+                        .append(e.sessions()).append(" sessions</td>")
+                        .append("<td style=\"padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;\">")
+                        .append(fmt1(e.volumeKg())).append(" kg</td></tr>");
+            }
+            sb.append("</table>");
         }
 
-        StringBuilder exRows = new StringBuilder();
-        int shown = 0;
-        for (ExerciseSummary e : d.exercises()) {
-            if (shown++ >= 5) break;
-            exRows.append("<tr><td style=\"padding:6px 8px;border-bottom:1px solid #eee;\">")
-                    .append(escape(e.title())).append("</td>")
-                    .append("<td style=\"padding:6px 8px;border-bottom:1px solid #eee;text-align:right;\">")
-                    .append(e.sessions()).append(" sessions</td>")
-                    .append("<td style=\"padding:6px 8px;border-bottom:1px solid #eee;text-align:right;\">")
-                    .append(fmt1(e.volumeKg())).append(" kg</td></tr>");
-        }
-        String exerciseTable = exRows.length() > 0
-                ? "<h3>Top exercises</h3><table style=\"width:100%;border-collapse:collapse;font-size:14px;\">" + exRows + "</table>"
-                : "<p>No workouts logged in this period — open the GymSuit app and log a session to see it here.</p>";
-
-        return "<div style=\"font-family:Arial,sans-serif;padding:20px;color:#333;max-width:600px;\">"
-                + "<h2>Your GymSuit health report</h2>"
-                + "<p>Hi " + escape(name) + ", here is your activity for <b>" + escape(period) + "</b>, "
-                + "based on the health data synced from your phone.</p>"
-                + "<table style=\"width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;\">" + rows + "</table>"
-                + exerciseTable
-                + "<p>The attached PDF has the full day-by-day breakdown of every metric and workout.</p>"
-                + "<hr style=\"border:none;border-top:1px solid #eee;margin:20px 0;\"/>"
-                + "<p style=\"font-size:12px;color:#777;\">Sent from GymSuit. Keep moving!</p>"
-                + "</div>";
+        sb.append("<p style=\"font-size:14px;color:#5f6368;margin-top:20px;\">📎 The attached PDF has the full day-by-day breakdown of every metric and workout.</p>");
+        sb.append("<hr style=\"border:none;border-top:1px solid #eee;margin:20px 0;\"/>");
+        sb.append("<p style=\"font-size:12px;color:#999;\">Sent from GymSuit 💙 Keep moving!</p>");
+        sb.append("</div>");
+        return sb.toString();
     }
 
-    private void statRow(StringBuilder sb, String label, String value) {
-        sb.append("<tr><td style=\"padding:6px 8px;border-bottom:1px solid #eee;color:#666;\">")
-                .append(escape(label)).append("</td>")
-                .append("<td style=\"padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;\">")
-                .append(escape(value)).append("</td></tr>");
+    /** 7-day strip with per-day steps; the best day is highlighted. */
+    private String dayStrip(ReportData d) {
+        Map<LocalDate, Long> stepsByDay = new LinkedHashMap<>();
+        for (DailyHealthRecord r : d.dailyRecords()) {
+            if (r.getSteps() != null) stepsByDay.put(r.getRecordDate(), r.getSteps());
+        }
+        LocalDate best = null;
+        long bestSteps = -1;
+        for (Map.Entry<LocalDate, Long> e : stepsByDay.entrySet()) {
+            if (e.getValue() > bestSteps) {
+                bestSteps = e.getValue();
+                best = e.getKey();
+            }
+        }
+        DateTimeFormatter dow = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH);
+        StringBuilder sb = new StringBuilder();
+        sb.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin:8px 0 4px;\"><tr>");
+        LocalDate day = d.start();
+        while (!day.isAfter(d.end())) {
+            Long steps = stepsByDay.get(day);
+            boolean isBest = best != null && best.equals(day) && bestSteps > 0;
+            sb.append("<td style=\"text-align:center;padding:4px;vertical-align:top;\">");
+            if (isBest) {
+                sb.append("<div style=\"background:#e6f4ea;border-radius:14px;padding:8px 2px;\">");
+                sb.append("<div style=\"font-size:11px;font-weight:bold;\">⭐ Best day!</div>");
+            } else {
+                sb.append("<div style=\"padding:8px 2px;\">");
+            }
+            sb.append("<div style=\"font-size:12px;font-weight:bold;color:#202124;\">").append(day.format(dow)).append("</div>");
+            sb.append("<div style=\"font-size:20px;margin:4px 0;\">👟</div>");
+            sb.append("<div style=\"font-size:11px;color:#5f6368;\">")
+                    .append(steps != null && steps > 0 ? fmtInt(steps) : "–").append("</div>");
+            sb.append("</div></td>");
+            day = day.plusDays(1);
+        }
+        sb.append("</tr></table>");
+        return sb.toString();
+    }
+
+    private long bestDaySteps(ReportData d) {
+        long best = 0;
+        for (DailyHealthRecord r : d.dailyRecords()) {
+            if (r.getSteps() != null && r.getSteps() > best) best = r.getSteps();
+        }
+        return best;
+    }
+
+    private void gridRow(StringBuilder sb, String c1, String c2, String c3) {
+        sb.append("<tr>").append(c1).append(c2).append(c3).append("</tr>");
+    }
+
+    private String statCard(String icon, String value, String label, String pillHtml) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<td width=\"33%\" style=\"padding:6px;vertical-align:top;\">");
+        sb.append("<div style=\"background:#f1f5fb;border-radius:16px;padding:18px 6px;text-align:center;\">");
+        sb.append("<div style=\"font-size:32px;line-height:1;\">").append(icon).append("</div>");
+        sb.append("<div style=\"font-size:22px;font-weight:800;color:#202124;margin:8px 0 2px;\">")
+                .append(escape(value)).append("</div>");
+        sb.append("<div style=\"font-size:13px;color:#5f6368;\">").append(escape(label)).append("</div>");
+        if (pillHtml != null) {
+            sb.append("<div style=\"margin-top:10px;\">").append(pillHtml).append("</div>");
+        }
+        sb.append("</div></td>");
+        return sb.toString();
+    }
+
+    private String pill(String text, String kind) {
+        String bg;
+        String fg;
+        switch (kind) {
+            case "up": bg = "#e6f4ea"; fg = "#137333"; break;
+            case "down": bg = "#fef7e0"; fg = "#b06000"; break;
+            default: bg = "#e8f0fe"; fg = "#1a73e8"; break;
+        }
+        return "<span style=\"display:inline-block;background:" + bg + ";color:" + fg
+                + ";border-radius:999px;padding:5px 12px;font-size:12px;font-weight:bold;white-space:nowrap;\">"
+                + escape(text) + "</span>";
+    }
+
+    /**
+     * Week-over-week delta pill. {@code magnitude} is preformatted (e.g. "1,620" or "2.0 km").
+     * {@code lowerIsGood} flips the color when a decrease is the healthy direction (resting HR).
+     */
+    private String deltaPill(String magnitude, double diff, boolean lowerIsGood) {
+        if (Math.abs(diff) < 0.0005) {
+            return pill("same as previous week", "same");
+        }
+        boolean good = lowerIsGood ? diff < 0 : diff > 0;
+        String arrow = diff > 0 ? "↑" : "↓";
+        String word = diff > 0 ? "more" : "lower";
+        return pill(arrow + " " + magnitude + " " + word + " than last week", good ? "up" : "down");
+    }
+
+    private String deltaSessions(int diff) {
+        if (diff == 0) return pill("same as previous week", "same");
+        boolean good = diff > 0;
+        return pill((diff > 0 ? "↑ " : "↓ ") + Math.abs(diff) + (diff > 0 ? " more" : " fewer") + " than last week",
+                good ? "up" : "down");
+    }
+
+    /** Weight deltas stay neutral blue — direction isn't judged. */
+    private String weightPill(double diff) {
+        if (Math.abs(diff) < 0.0005) return pill("same as previous week", "same");
+        String arrow = diff > 0 ? "↑" : "↓";
+        return pill(arrow + " " + fmt1(Math.abs(diff)) + " kg vs last week", "same");
     }
 
     // ------------------------------------------------------------------
