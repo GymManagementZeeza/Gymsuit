@@ -54,6 +54,9 @@ public class HealthReportTask {
         int days = Math.max(1, lookbackDays);
         LocalDate end = LocalDate.now().minusDays(1);
         LocalDate start = end.minusDays(days - 1);
+        // Previous window of the same length, for week-over-week delta pills.
+        LocalDate prevEnd = start.minusDays(1);
+        LocalDate prevStart = prevEnd.minusDays(days - 1);
 
         Set<Long> userIds = new HashSet<>(dailyRepo.findUserIdsWithRecords(start, end));
         userIds.addAll(workoutRepo.findUserIdsWithWorkouts(
@@ -71,7 +74,8 @@ public class HealthReportTask {
                     continue;
                 }
                 ReportData data = reportService.buildReport(user, start, end);
-                reportService.sendReportEmail(user, data);
+                ReportData previous = reportService.buildReport(user, prevStart, prevEnd);
+                reportService.sendReportEmail(user, data, previous);
                 sent++;
             } catch (Exception e) {
                 failed++;
