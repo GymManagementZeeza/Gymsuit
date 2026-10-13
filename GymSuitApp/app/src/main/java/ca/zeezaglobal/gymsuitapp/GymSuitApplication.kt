@@ -1,6 +1,7 @@
 package ca.zeezaglobal.gymsuitapp
 
 import android.app.Application
+import ca.zeezaglobal.gymsuitapp.data.BackgroundHealthSync
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 
 class GymSuitApplication : Application() {
@@ -12,5 +13,7 @@ class GymSuitApplication : Application() {
         super.onCreate()
         appComponent = AppComponent.from(this)
         ca.zeezaglobal.gymsuitapp.notifications.MealReminders.restore(this)
+        // Periodic background health sync (WorkManager; no-op when logged out).
+        BackgroundHealthSync.schedule(this)
     }
 }
