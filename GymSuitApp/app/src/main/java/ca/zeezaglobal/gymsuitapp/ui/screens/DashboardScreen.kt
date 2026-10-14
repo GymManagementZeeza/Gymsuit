@@ -42,7 +42,6 @@ import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.CaloriesBreakdown
 import ca.zeezaglobal.gymsuitapp.data.SleepSessionData
 import ca.zeezaglobal.gymsuitapp.data.HeartRateSummaryData
-import ca.zeezaglobal.gymsuitapp.data.SyncStatus
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -55,7 +54,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -85,10 +83,10 @@ enum class DashboardTab(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
+    PLAN("Plan", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
     WORKOUTS("Workouts", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter),
     HOME("Home", Icons.Filled.Home, Icons.Outlined.Home),
     CHALLENGES("Challenges", Icons.Filled.Group, Icons.Outlined.Group),
-    FOOD("Food", Icons.Filled.Restaurant, Icons.Outlined.Restaurant),
     SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings);
 
     val icon: ImageVector get() = selectedIcon
@@ -107,9 +105,7 @@ fun DashboardScreen(
     onLogout: () -> Unit = {},
     onNavigateToSleepDetail: (LocalDate) -> Unit = {},
     onNavigateToHeartRateDetail: (LocalDate) -> Unit = {},
-    onNavigateToCaloriesDetail: (LocalDate) -> Unit = {},
-    onNavigateToWeightDetail: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {}
+    onNavigateToCaloriesDetail: (LocalDate) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
     // Lives here so an active workout survives tab changes and locks navigation
@@ -122,12 +118,8 @@ fun DashboardScreen(
         selectedTab = DashboardTab.HOME
     }
 
-    // Dynamically generate 30 days ending with Today (last index = 29 = Today).
-    // NOTE: `today` is deliberately NOT remembered. A remembered LocalDate.now()
-    // freezes "today" for the whole composition lifetime, so if the app stays alive
-    // across midnight every widget keeps showing yesterday's data (and refresh just
-    // re-reads the same stale date). Recomputing each composition is cheap.
-    val today = LocalDate.now()
+    // Dynamically generate 30 days ending with Today (last index = 29 = Today)
+    val today = remember { LocalDate.now() }
     val days = remember(today) {
         val dayNameFormatter = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
         (29 downTo 0).map { daysAgo ->
@@ -141,21 +133,7 @@ fun DashboardScreen(
     }
 
     // Default to Today (last index in the 30-day window)
-    var selectedDayIndex by remember { mutableIntStateOf(days.lastIndex) }
-
-    // Midnight rollover: `days` is rebuilt when `today` changes. If the user was
-    // viewing the latest day, follow to the new today; if they had navigated to a
-    // specific past date, keep that calendar date pinned by shifting the index.
-    val lastSeenToday = remember { mutableStateOf(today) }
-    if (lastSeenToday.value != today) {
-        val elapsedDays = ChronoUnit.DAYS.between(lastSeenToday.value, today).toInt().coerceAtLeast(1)
-        selectedDayIndex = if (selectedDayIndex >= days.lastIndex) {
-            days.lastIndex
-        } else {
-            (selectedDayIndex - elapsedDays).coerceIn(0, days.lastIndex)
-        }
-        lastSeenToday.value = today
-    }
+    var selectedDayIndex by remember { mutableIntStateOf(29) }
 
     val allGreetingTexts = remember {
         listOf(
@@ -171,23 +149,6 @@ fun DashboardScreen(
             "Consistency is Key!"
         )
     }
-
-    // Curated DiceBear Gaze avatars pool
-    val gazeAvatars = remember {
-        listOf(
-            R.drawable.avatar_gaze_1,
-            R.drawable.avatar_gaze_2,
-            R.drawable.avatar_gaze_3,
-            R.drawable.avatar_gaze_4,
-            R.drawable.avatar_gaze_5,
-            R.drawable.avatar_gaze_6,
-            R.drawable.avatar_gaze_7,
-            R.drawable.avatar_gaze_8
-        )
-    }
-
-    // Pick a random avatar on each new app launch / open
-    val userAvatarResId = remember { gazeAvatars.random() }
 
     // Pick 2 random distinct greeting texts per app load / open
     val sessionGreetingTexts = remember {
@@ -220,9 +181,11 @@ fun DashboardScreen(
         appComponent.dashboardViewModelFactory.create(DashboardViewModel::class.java)
     }
     val aiSummaryState by viewModel.summaryState.collectAsState()
-    val syncStatus by appComponent.healthSyncManager.syncStatus.collectAsState()
 
     var userSession by remember { mutableStateOf(appComponent.authManager.getSession()) }
+
+    // Stable avatar for this member: same face on every launch and every screen.
+    val userAvatarResId = MemberAvatar.forMember(userSession?.memberId, userSession?.email)
     var showNamePromptDialog by remember { mutableStateOf(false) }
     var isSavingName by remember { mutableStateOf(false) }
     var nameErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -244,9 +207,8 @@ fun DashboardScreen(
         viewModel.onDateSelected(selectedLocalDate)
     }
 
-    // Log complete Health data as formatted JSON on screen load and sync with backend
+    // Log complete Health data as formatted JSON on screen load
     LaunchedEffect(Unit) {
-        appComponent.healthSyncManager.sync()
         healthConnectManager.logAllHealthDataAsJson()
     }
 
@@ -254,8 +216,9 @@ fun DashboardScreen(
         if (!isRefreshing) {
             isRefreshing = true
             coroutineScope.launch {
-                appComponent.healthSyncManager.sync()
                 syncKey += 1
+                // Read and log live Health Connect data as JSON
+                healthConnectManager.logAllHealthDataAsJson()
                 viewModel.onDateSelected(days[selectedDayIndex].localDate, forceRefresh = true)
                 delay(1200)
                 isRefreshing = false
@@ -294,31 +257,44 @@ fun DashboardScreen(
                             .border(1.5.dp, Color(0xFFE5E7EB), CircleShape)
                     )
 
-                    // Top Right Actions: Points Pill, Cloud Sync & Notification Bell
+                    // Top Right Actions: Points Pill & Notification Bell
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         PointsPill()
 
-                        // M3 cloud sync button
-                        FilledTonalIconButton(
-                            onClick = { triggerSync() },
-                            enabled = syncStatus !is SyncStatus.Syncing,
-                            modifier = Modifier.size(40.dp)
+                        // Material 3 Notification Bell with M3 Shape and Badge
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError,
+                                    modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "3",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         ) {
-                            Icon(
-                                imageVector = if (syncStatus is SyncStatus.Syncing) Icons.Outlined.Sync else Icons.Outlined.CloudSync,
-                                contentDescription = "Sync to cloud"
-                            )
-                        }
-
-                        // M3 filled tonal icon button (40dp container, 24dp icon, circular shape)
-                        FilledTonalIconButton(onClick = onNavigateToNotifications, modifier = Modifier.size(40.dp)) {
-                            Icon(
-                                imageVector = Icons.Outlined.Notifications,
-                                contentDescription = "Notifications"
-                            )
+                            FilledTonalIconButton(
+                                onClick = { /* Handle notification tap */ },
+                                shape = RoundedCornerShape(16.dp), // M3 Medium Shape token
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -541,7 +517,7 @@ fun DashboardScreen(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    HealthOverviewWidget(syncTrigger = syncKey, onClick = onNavigateToWeightDetail)
+                                    HealthOverviewWidget(syncTrigger = syncKey)
                                     CaloriesBurnedWidget(
                                         selectedDate = days[selectedDayIndex].localDate,
                                         syncTrigger = syncKey,
@@ -589,9 +565,6 @@ fun DashboardScreen(
                     }
                     DashboardTab.CHALLENGES -> {
                         ChallengeScreen()
-                    }
-                    DashboardTab.FOOD -> {
-                        FoodLogScreen()
                     }
                     else -> {
                         // Blank Page Content for other non-Home tabs
@@ -839,9 +812,7 @@ private fun WorkoutCardWidget(
 ) {
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
-    // Not remembered: recompute every composition so a midnight rollover while the
-    // app is alive updates the month label and current-month dates.
-    val today = LocalDate.now()
+    val today = remember { LocalDate.now() }
     val currentYearMonth = remember(today) { YearMonth.from(today) }
     val daysInCurrentMonth = remember(currentYearMonth) { currentYearMonth.lengthOfMonth() }
     val monthName = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault())) }
@@ -1026,8 +997,7 @@ private fun WorkoutCardWidget(
 
 @Composable
 private fun HealthOverviewWidget(
-    syncTrigger: Int = 0,
-    onClick: () -> Unit = {}
+    syncTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -1054,10 +1024,7 @@ private fun HealthOverviewWidget(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .clickable { onClick() }
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -1074,7 +1041,7 @@ private fun HealthOverviewWidget(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Weight",
+                    text = "Health overview",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF111827)
@@ -1479,19 +1446,11 @@ private fun HeartRateWidget(
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
     var hrData by remember {
-        mutableStateOf(healthConnectManager.defaultHeartRateSample(hasData = false))
+        mutableStateOf(healthConnectManager.defaultHeartRateSample(hasData = true))
     }
 
-    // Re-reads on pull-to-refresh. A failed read is retried and never replaces the last good data.
     LaunchedEffect(selectedDate, syncTrigger) {
-        repeat(3) { attempt ->
-            val fresh = healthConnectManager.tryReadHeartRateDataForDate(selectedDate)
-            if (fresh != null) {
-                hrData = fresh
-                return@LaunchedEffect
-            }
-            delay(800)
-        }
+        hrData = healthConnectManager.readHeartRateDataForDate(selectedDate)
     }
 
     Surface(
@@ -2029,9 +1988,7 @@ private fun AiSummaryCardWidget(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Not remembered: recompute every composition so the "Today" tag stays correct
-    // when the app is alive across midnight.
-    val today = LocalDate.now()
+    val today = remember { LocalDate.now() }
     val isToday = (selectedDate == today)
     val dateTag = if (isToday) "Today" else selectedDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
 

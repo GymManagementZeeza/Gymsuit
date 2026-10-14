@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.BatteryFull
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.FitnessCenter
@@ -328,6 +329,8 @@ fun CaloriesDetailScreen(
 private fun CaloriesDetailTopBar(
     onBackClick: () -> Unit
 ) {
+    // Stable avatar for this member — matches the dashboard header.
+    val userAvatarResId = rememberMemberAvatar()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -336,7 +339,7 @@ private fun CaloriesDetailTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: Back button
+        // Left: Back button with battery indicator matching reference
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -359,6 +362,31 @@ private fun CaloriesDetailTopBar(
                     )
                 }
             }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+                shadowElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.BatteryFull,
+                        contentDescription = "Battery",
+                        tint = Color(0xFF1E293B),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "96%",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                }
+            }
         }
 
         // Center: "Calories" Title
@@ -378,7 +406,7 @@ private fun CaloriesDetailTopBar(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.avatar_gaze_1),
+                painter = painterResource(id = userAvatarResId),
                 contentDescription = "User Avatar",
                 modifier = Modifier.size(38.dp)
             )
