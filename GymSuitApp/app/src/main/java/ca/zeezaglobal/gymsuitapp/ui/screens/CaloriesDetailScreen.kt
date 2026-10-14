@@ -328,6 +328,8 @@ fun CaloriesDetailScreen(
 private fun CaloriesDetailTopBar(
     onBackClick: () -> Unit
 ) {
+    // Stable avatar for this member — matches the dashboard header.
+    val userAvatarResId = rememberMemberAvatar()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -378,7 +380,7 @@ private fun CaloriesDetailTopBar(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.avatar_gaze_1),
+                painter = painterResource(id = userAvatarResId),
                 contentDescription = "User Avatar",
                 modifier = Modifier.size(38.dp)
             )
