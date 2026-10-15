@@ -412,9 +412,17 @@ fun SetBySetLogPage(
             )
         }
 
-        exercise.gifUrl?.let { url ->
+        val gifUrl = exercise.gifUrl
+        if (gifUrl != null) {
             GifWebView(
-                url = url,
+                url = gifUrl,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(16.dp))
+            )
+        } else {
+            NoGifPlaceholder(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp)
