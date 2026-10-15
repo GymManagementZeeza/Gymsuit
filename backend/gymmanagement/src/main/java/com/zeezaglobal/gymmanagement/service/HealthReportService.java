@@ -5,6 +5,8 @@ import com.zeezaglobal.gymmanagement.entity.User;
 import com.zeezaglobal.gymmanagement.entity.WorkoutRecord;
 import com.zeezaglobal.gymmanagement.repository.DailyHealthRecordRepository;
 import com.zeezaglobal.gymmanagement.repository.WorkoutRecordRepository;
+import javax.imageio.ImageIO;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -15,7 +17,11 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -46,6 +52,11 @@ public class HealthReportService {
     private final DailyHealthRecordRepository dailyRepo;
     private final WorkoutRecordRepository workoutRepo;
     private final EmailService emailService;
+
+    /** Daily step goal the email progress rings measure against (no per-user goal exists yet). */
+    private static final long DAILY_STEP_GOAL = 10_000L;
+    /** Resend content-id for the hero ring image. */
+    private static final String HERO_RING_CID = "steps-ring-hero";
 
     /** Aggregated report content for one user and one date window. */
     public record ExerciseSummary(String title, int sessions, int sets, long reps, double volumeKg) {
@@ -181,7 +192,9 @@ public class HealthReportService {
 
     // ------------------------------------------------------------------
     // Email — colorful Fitbit-style report (table layout + inline styles
-    // so it renders in every mail client; emoji icons need no assets).
+    // so it renders in every mail client; step rings are inline PNGs via
+    // Resend content-ids — CSS conic-gradient / SVG arcs are stripped by
+    // Gmail, so raster rings are the only arcs that render there).
     // ------------------------------------------------------------------
 
     @Transactional(readOnly = true)
@@ -193,7 +206,9 @@ public class HealthReportService {
         String filename = "GymSuit-Health-Report-" + data.end() + ".pdf";
         try {
             byte[] pdf = renderPdf(name, period, data);
-            emailService.sendEmailWithAttachment(user.getEmail(), subject, html, filename, pdf, "application/pdf");
+            Map<String, byte[]> inlineImages = stepRingImages(data);
+            emailService.sendEmailWithInlineImagesAndAttachment(
+                    user.getEmail(), subject, html, inlineImages, filename, pdf, "application/pdf");
             log.info("Sent health report to user {} ({} bytes pdf)", user.getId(), pdf.length);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to render health report PDF for user " + user.getId(), e);
@@ -215,12 +230,16 @@ public class HealthReportService {
         // Hero card — total steps
         long bestSteps = bestDaySteps(d);
         sb.append("<div style=\"background:#f1f5fb;border-radius:24px;padding:32px 16px;text-align:center;margin:16px 0;\">");
-        sb.append("<div style=\"font-size:48px;line-height:1;\">👟</div>");
+        int heroPct = (int) Math.round(clampedFraction(d.totalSteps(),
+                (long) daysInWindow(d) * DAILY_STEP_GOAL) * 100);
+        sb.append("<img src=\"cid:").append(HERO_RING_CID)
+                .append("\" width=\"120\" height=\"120\" alt=\"")
+                .append(heroPct).append("% of weekly step goal\" style=\"display:block;margin:0 auto;\"/>");
         sb.append("<div style=\"font-size:44px;font-weight:800;margin:8px 0 0;\">").append(fmtInt(d.totalSteps())).append("</div>");
         sb.append("<div style=\"font-size:18px;color:#5f6368;\">total steps</div>");
         sb.append("<div style=\"margin-top:16px;\">");
         sb.append(pill("⭐ Best day · " + fmtInt(bestSteps), "up")).append(" ");
-        sb.append(pill("👟 Avg " + fmtInt(Math.round(d.avgSteps())) + " steps/day", "same")).append(" ");
+        sb.append(pill("Avg " + fmtInt(Math.round(d.avgSteps())) + " steps/day", "same")).append(" ");
         long stepDiff = d.totalSteps() - (p != null ? p.totalSteps() : 0);
         sb.append(deltaPill(fmtInt(Math.abs(stepDiff)), stepDiff, false));
         sb.append("</div></div>");
@@ -291,10 +310,7 @@ public class HealthReportService {
 
     /** 7-day strip with per-day steps; the best day is highlighted. */
     private String dayStrip(ReportData d) {
-        Map<LocalDate, Long> stepsByDay = new LinkedHashMap<>();
-        for (DailyHealthRecord r : d.dailyRecords()) {
-            if (r.getSteps() != null) stepsByDay.put(r.getRecordDate(), r.getSteps());
-        }
+        Map<LocalDate, Long> stepsByDay = stepsByDay(d);
         LocalDate best = null;
         long bestSteps = -1;
         for (Map.Entry<LocalDate, Long> e : stepsByDay.entrySet()) {
@@ -307,6 +323,7 @@ public class HealthReportService {
         StringBuilder sb = new StringBuilder();
         sb.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin:8px 0 4px;\"><tr>");
         LocalDate day = d.start();
+        int dayIndex = 0;
         while (!day.isAfter(d.end())) {
             Long steps = stepsByDay.get(day);
             boolean isBest = best != null && best.equals(day) && bestSteps > 0;
@@ -318,14 +335,79 @@ public class HealthReportService {
                 sb.append("<div style=\"padding:8px 2px;\">");
             }
             sb.append("<div style=\"font-size:12px;font-weight:bold;color:#202124;\">").append(day.format(dow)).append("</div>");
-            sb.append("<div style=\"font-size:20px;margin:4px 0;\">👟</div>");
+            int dayPct = (int) Math.round(clampedFraction(
+                    steps != null ? steps : 0, DAILY_STEP_GOAL) * 100);
+            sb.append("<img src=\"cid:").append(dayRingCid(dayIndex))
+                    .append("\" width=\"40\" height=\"40\" alt=\"")
+                    .append(dayPct).append("% of daily step goal\" style=\"display:block;margin:4px auto;\"/>");
             sb.append("<div style=\"font-size:11px;color:#5f6368;\">")
                     .append(steps != null && steps > 0 ? fmtInt(steps) : "–").append("</div>");
             sb.append("</div></td>");
             day = day.plusDays(1);
+            dayIndex++;
         }
         sb.append("</tr></table>");
         return sb.toString();
+    }
+
+    /** Steps per day, keyed by date. Shared by the day strip and the ring images. */
+    private Map<LocalDate, Long> stepsByDay(ReportData d) {
+        Map<LocalDate, Long> stepsByDay = new LinkedHashMap<>();
+        for (DailyHealthRecord r : d.dailyRecords()) {
+            if (r.getSteps() != null) stepsByDay.put(r.getRecordDate(), r.getSteps());
+        }
+        return stepsByDay;
+    }
+
+    /** Fraction of a step goal, clamped to 0..1 (rings cap at a full circle). */
+    private double clampedFraction(long steps, long goal) {
+        if (goal <= 0) return 0.0;
+        return Math.max(0.0, Math.min(1.0, (double) steps / goal));
+    }
+
+    private String dayRingCid(int dayIndex) {
+        return "steps-ring-day-" + dayIndex;
+    }
+
+    /** Hero + per-day step rings as PNG bytes, keyed by their Resend content-id. */
+    private Map<String, byte[]> stepRingImages(ReportData d) throws IOException {
+        Map<String, byte[]> images = new LinkedHashMap<>();
+        images.put(HERO_RING_CID, ringPng(120,
+                clampedFraction(d.totalSteps(), (long) daysInWindow(d) * DAILY_STEP_GOAL), 12));
+        Map<LocalDate, Long> stepsByDay = stepsByDay(d);
+        LocalDate day = d.start();
+        int dayIndex = 0;
+        while (!day.isAfter(d.end())) {
+            Long steps = stepsByDay.get(day);
+            images.put(dayRingCid(dayIndex),
+                    ringPng(40, clampedFraction(steps != null ? steps : 0, DAILY_STEP_GOAL), 5));
+            day = day.plusDays(1);
+            dayIndex++;
+        }
+        return images;
+    }
+
+    /**
+     * A round progress ring as a transparent PNG: light track circle with a
+     * green arc from the top, clockwise, {@code fraction} of a full circle.
+     */
+    private byte[] ringPng(int size, double fraction, int stroke) throws IOException {
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int inset = stroke / 2 + 2;
+        int diameter = size - 2 * inset;
+        g.setStroke(new BasicStroke(stroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(new Color(0xE2E8F0));
+        g.drawArc(inset, inset, diameter, diameter, 0, 360);
+        if (fraction > 0) {
+            g.setColor(new Color(0x22C55E));
+            g.drawArc(inset, inset, diameter, diameter, 90, -(int) Math.round(fraction * 360));
+        }
+        g.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(img, "png", out);
+        return out.toByteArray();
     }
 
     private long bestDaySteps(ReportData d) {
