@@ -172,23 +172,6 @@ fun DashboardScreen(
         )
     }
 
-    // Curated DiceBear Gaze avatars pool
-    val gazeAvatars = remember {
-        listOf(
-            R.drawable.avatar_gaze_1,
-            R.drawable.avatar_gaze_2,
-            R.drawable.avatar_gaze_3,
-            R.drawable.avatar_gaze_4,
-            R.drawable.avatar_gaze_5,
-            R.drawable.avatar_gaze_6,
-            R.drawable.avatar_gaze_7,
-            R.drawable.avatar_gaze_8
-        )
-    }
-
-    // Pick a random avatar on each new app launch / open
-    val userAvatarResId = remember { gazeAvatars.random() }
-
     // Pick 2 random distinct greeting texts per app load / open
     val sessionGreetingTexts = remember {
         allGreetingTexts.shuffled().take(2)
@@ -223,6 +206,9 @@ fun DashboardScreen(
     val syncStatus by appComponent.healthSyncManager.syncStatus.collectAsState()
 
     var userSession by remember { mutableStateOf(appComponent.authManager.getSession()) }
+
+    // Stable avatar for this member: same face on every launch and every screen.
+    val userAvatarResId = MemberAvatar.forMember(userSession?.memberId, userSession?.email)
     var showNamePromptDialog by remember { mutableStateOf(false) }
     var isSavingName by remember { mutableStateOf(false) }
     var nameErrorMessage by remember { mutableStateOf<String?>(null) }

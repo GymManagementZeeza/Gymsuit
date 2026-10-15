@@ -213,6 +213,8 @@ fun SleepDetailScreen(
 private fun SleepDetailTopBar(
     onBackClick: () -> Unit
 ) {
+    // Stable avatar for this member — matches the dashboard header.
+    val userAvatarResId = rememberMemberAvatar()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -263,7 +265,7 @@ private fun SleepDetailTopBar(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.avatar_gaze_1),
+                painter = painterResource(id = userAvatarResId),
                 contentDescription = "User Avatar",
                 modifier = Modifier.size(38.dp)
             )
