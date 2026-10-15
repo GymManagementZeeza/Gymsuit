@@ -73,6 +73,16 @@ def health():
     return {"status": "ok", "classes": classes}
 
 
+@app.post("/reload")
+def reload():
+    """Reload the model from disk (called after retrain without service restart)."""
+    global _model, _classes
+    _model = None
+    _classes = None
+    _, classes = load_model()
+    return {"status": "reloaded", "classes": classes}
+
+
 @app.post("/predict")
 async def predict(image: UploadFile = File(...)):
     model, classes = load_model()

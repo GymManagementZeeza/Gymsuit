@@ -75,24 +75,31 @@ class ImageFolderDataset(Dataset):
         return self.transform(img), label
 
 
+IGNORED_DIRS = {"model", "__pycache__", "build", "dist", "venv", ".venv"}
+
+
 def collect_samples(data_dir: Path):
-    """Return (classes, samples) where classes are sorted subfolder names."""
-    classes = sorted(
-        p.name for p in data_dir.iterdir()
-        if p.is_dir() and not p.name.startswith((".", "_"))
+    """Return (classes, samples) where classes are sorted subfolder names containing images."""
+    candidates = sorted(
+        p for p in data_dir.iterdir()
+        if p.is_dir() and not p.name.startswith((".", "_")) and p.name not in IGNORED_DIRS
     )
-    if len(classes) < 2:
-        sys.exit(f"Need at least 2 class folders in {data_dir}, found: {classes}")
+    classes = []
     samples = []
-    for idx, cls in enumerate(classes):
+    for p in candidates:
         files = sorted(
-            p for p in (data_dir / cls).iterdir()
-            if p.suffix.lower() in IMG_EXTS and p.is_file()
+            f for f in p.iterdir()
+            if f.suffix.lower() in IMG_EXTS and f.is_file()
         )
         if not files:
-            print(f"WARNING: class '{cls}' has no images, skipping.")
+            print(f"WARNING: class folder '{p.name}' has no valid images, skipping.")
             continue
+        idx = len(classes)
+        classes.append(p.name)
         samples.extend((f, idx) for f in files)
+
+    if len(classes) < 2:
+        sys.exit(f"Need at least 2 class folders with images in {data_dir}, found: {classes}")
     if not samples:
         sys.exit(f"No images found under {data_dir}")
     return classes, samples

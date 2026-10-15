@@ -23,12 +23,40 @@ For production, replace them with your own photos — aim for 50–100 varied
 shots per dish (different plates, lighting, angles). With only 2 images per
 class, predictions will be unreliable.
 
+## Adding New Images & Dishes
+
+- **To add images to existing dishes:** Drop new `.jpg`, `.png`, or `.webp` photos into the dish folder (e.g. `dosa/`, `beeffry/`).
+- **To add a new dish:** Create a new folder (e.g. `biryani/` or `chicken_curry/` using lowercase and underscores) and add images inside it.
+- Aim for 50–100 varied photos per dish for production accuracy.
+
+## Automated Daily Retraining (Midnight Service)
+
+The server runs an automated retraining job every night at midnight via systemd timer:
+
+```bash
+# Run manually anytime
+python daily_retrain.py --epochs 25
+
+# Check status of the midnight timer
+systemctl status gymsuit-food-retrain.timer
+
+# View logs of the daily retraining job
+journalctl -u gymsuit-food-retrain.service -e
+```
+
+When new images or folders are added, the nightly job:
+1. Automatically scans all dish folders.
+2. Trains MobileNetV2 with data augmentation.
+3. Atomically updates `model/food_model.pt` and `model/labels.json`.
+4. Hot-reloads the running inference server (`POST /reload`) with zero downtime.
+5. Appends metrics to `model/training_history.jsonl`.
+
 ## Step 1 — Train (run manually)
 
 ```bash
 cd FoodImageTraining
 pip install -r requirements.txt
-python train.py            # or: python train.py --epochs 25
+python train.py            # or: python daily_retrain.py --epochs 25
 ```
 
 Output: `model/food_model.pt` (weights + class names) and `model/labels.json`.
@@ -45,6 +73,7 @@ uvicorn inference_server:app --host 0.0.0.0 --port 8001
 ```
 
 - `GET /health` → `{"status": "ok", "classes": [...]}`
+- `POST /reload` → reloads model from disk with zero downtime
 - `POST /predict` → multipart form, field `image`, returns
   `{"dish": "dosa", "confidence": 0.93, "probabilities": {...}}`
 
