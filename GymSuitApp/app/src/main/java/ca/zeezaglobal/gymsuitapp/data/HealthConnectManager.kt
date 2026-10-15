@@ -223,6 +223,13 @@ class HealthConnectManager(private val context: Context) {
         return granted.contains(HealthPermission.getWritePermission(ExerciseSessionRecord::class))
     }
 
+    /** True when Health Connect has granted the WRITE permission for [recordType]. */
+    suspend fun hasWritePermission(recordType: KClass<out Record>): Boolean {
+        val client = healthConnectClient ?: return false
+        val granted = client.permissionController.getGrantedPermissions()
+        return granted.contains(HealthPermission.getWritePermission(recordType))
+    }
+
     /**
      * Writes a strength-training session to Health Connect with the logged
      * details (exercise name, sets, reps, volume) in the notes/title. Only
@@ -237,6 +244,10 @@ class HealthConnectManager(private val context: Context) {
         totalVolumeKg: Double
     ): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(ExerciseSessionRecord::class)) {
+            Log.d("HealthConnect", "Skipping exercise session insert: WRITE_EXERCISE not granted")
+            return false
+        }
         return try {
             val record = ExerciseSessionRecord(
                 startTime = start,
@@ -258,6 +269,10 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun insertSteps(steps: Long, startTime: Instant, endTime: Instant): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(StepsRecord::class)) {
+            Log.d("HealthConnect", "Skipping steps insert: WRITE_STEPS not granted")
+            return false
+        }
         return try {
             val record = StepsRecord(
                 count = steps,
@@ -277,6 +292,10 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun insertActiveCalories(kcal: Double, startTime: Instant, endTime: Instant): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(ActiveCaloriesBurnedRecord::class)) {
+            Log.d("HealthConnect", "Skipping active calories insert: WRITE_ACTIVE_CALORIES_BURNED not granted")
+            return false
+        }
         return try {
             val record = ActiveCaloriesBurnedRecord(
                 energy = androidx.health.connect.client.units.Energy.kilocalories(kcal),
@@ -296,6 +315,10 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun insertDistance(meters: Double, startTime: Instant, endTime: Instant): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(DistanceRecord::class)) {
+            Log.d("HealthConnect", "Skipping distance insert: WRITE_DISTANCE not granted")
+            return false
+        }
         return try {
             val record = DistanceRecord(
                 distance = androidx.health.connect.client.units.Length.meters(meters),
@@ -315,6 +338,10 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun insertHeartRate(bpm: Int, time: Instant): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(HeartRateRecord::class)) {
+            Log.d("HealthConnect", "Skipping heart rate insert: WRITE_HEART_RATE not granted")
+            return false
+        }
         return try {
             val sample = HeartRateRecord.Sample(
                 time = time,
@@ -338,6 +365,10 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun insertSleepSession(startTime: Instant, endTime: Instant, title: String = "Sleep"): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(SleepSessionRecord::class)) {
+            Log.d("HealthConnect", "Skipping sleep session insert: WRITE_SLEEP not granted")
+            return false
+        }
         return try {
             val record = SleepSessionRecord(
                 startTime = startTime,
@@ -472,6 +503,25 @@ class HealthConnectManager(private val context: Context) {
             pageToken = response.pageToken
         } while (pageToken != null)
         return records
+    }
+
+    /**
+     * Sum of ActiveCaloriesBurnedRecord energy for [date] (local timezone).
+     * Used by the cross-device write-back so the inserted gap is measured
+     * against everything Health Connect already holds for the day — not
+     * just session-overlapping calories.
+     */
+    suspend fun readActiveCaloriesSumForDate(date: LocalDate): Double {
+        val client = healthConnectClient ?: return 0.0
+        val zoneId = ZoneId.systemDefault()
+        val range = TimeRangeFilter.between(
+            date.atStartOfDay(zoneId).toInstant(),
+            date.plusDays(1).atStartOfDay(zoneId).toInstant()
+        )
+        return try {
+            readAllRecords(client, ActiveCaloriesBurnedRecord::class, range)
+                .sumOf { it.energy.inKilocalories }
+        } catch (e: Exception) { 0.0 }
     }
 
     /**
@@ -846,6 +896,10 @@ class HealthConnectManager(private val context: Context) {
     /** Writes a manual weight entry at [time]. Returns true on success. */
     suspend fun insertWeight(kg: Double, time: Instant = Instant.now()): Boolean {
         val client = healthConnectClient ?: return false
+        if (!hasWritePermission(WeightRecord::class)) {
+            Log.d("HealthConnect", "Skipping weight insert: WRITE_WEIGHT not granted")
+            return false
+        }
         return try {
             client.insertRecords(
                 listOf(
