@@ -1,6 +1,17 @@
 package ca.zeezaglobal.gymsuitapp.data
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -16,7 +27,10 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import kotlin.coroutines.resume
 import kotlin.reflect.KClass
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -145,6 +159,13 @@ data class DetailedHrvData(
     val buckets: List<HrvBucket>,
     val hasData: Boolean
 )
+
+/** SharedPreferences keys for the pedometer baseline (see [HealthConnectManager.pedometerStepsForToday]). */
+private const val PEDOMETER_PREFS = "gymsuit_pedometer"
+private const val PEDOMETER_KEY_DATE = "last_date"
+private const val PEDOMETER_KEY_COUNTER = "last_counter"
+private const val PEDOMETER_KEY_ACCUMULATED = "accumulated"
+private const val PEDOMETER_READ_TIMEOUT_MS = 2000L
 
 class HealthConnectManager(private val context: Context) {
 
@@ -524,6 +545,87 @@ class HealthConnectManager(private val context: Context) {
         } catch (e: Exception) { 0.0 }
     }
 
+    // ------------------------------------------------------------------
+    // On-device pedometer (no watch / no step-source app needed)
+    // ------------------------------------------------------------------
+
+    /**
+     * Steps counted by the phone's own hardware step counter — no watch and
+     * no step-source app (Samsung Health / Google Fit) needed.
+     *
+     * TYPE_STEP_COUNTER is cumulative since last reboot with no per-day
+     * history, so (date, counter, accumulated) state is persisted and
+     * deltas are accumulated across reads. A reboot (counter drops) adds
+     * the post-reboot count. If the phone booted today, the counter is
+     * all from today and is used whole; otherwise the first read of a day
+     * only establishes the baseline and returns 0. Only today can be
+     * measured — past days cannot be reconstructed. Returns 0 when the
+     * sensor or ACTIVITY_RECOGNITION is unavailable.
+     */
+    suspend fun pedometerStepsForToday(): Long {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+            return 0L
+        }
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return 0L
+        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return 0L
+        val current = awaitStepCounterValue(sensorManager, sensor)?.toLong() ?: return 0L
+
+        val prefs = context.getSharedPreferences(PEDOMETER_PREFS, Context.MODE_PRIVATE)
+        val today = LocalDate.now()
+        val todayKey = today.toString()
+        val zoneId = ZoneId.systemDefault()
+        val bootTimeMillis = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        val bootedToday = bootTimeMillis >= today.atStartOfDay(zoneId).toInstant().toEpochMilli()
+
+        val lastDate = prefs.getString(PEDOMETER_KEY_DATE, null)
+        var accumulated = prefs.getLong(PEDOMETER_KEY_ACCUMULATED, 0L)
+        val lastCounter = prefs.getLong(PEDOMETER_KEY_COUNTER, -1L)
+        if (lastDate != todayKey || lastCounter < 0L) {
+            // New day (or first ever read): counter is all-today only when
+            // the phone booted today; otherwise just establish the baseline.
+            accumulated = if (bootedToday) current else 0L
+        } else if (current >= lastCounter) {
+            accumulated += current - lastCounter
+        } else {
+            // Counter dropped: the phone rebooted; count post-reboot steps.
+            accumulated += current
+        }
+        prefs.edit()
+            .putString(PEDOMETER_KEY_DATE, todayKey)
+            .putLong(PEDOMETER_KEY_COUNTER, current)
+            .putLong(PEDOMETER_KEY_ACCUMULATED, accumulated)
+            .apply()
+        return accumulated
+    }
+
+    /**
+     * One-shot read of the step counter: registering a listener delivers
+     * the current value. Null when nothing arrives within the timeout.
+     */
+    private suspend fun awaitStepCounterValue(sensorManager: SensorManager, sensor: Sensor): Float? {
+        return try {
+            withTimeoutOrNull(PEDOMETER_READ_TIMEOUT_MS) {
+                suspendCancellableCoroutine { cont ->
+                    val listener = object : SensorEventListener {
+                        override fun onSensorChanged(event: SensorEvent) {
+                            sensorManager.unregisterListener(this)
+                            if (cont.isActive) cont.resume(event.values[0])
+                        }
+                        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+                    }
+                    // Main-looper handler: this also runs from background sync
+                    // threads (no Looper), where the no-Handler overload throws.
+                    sensorManager.registerListener(
+                        listener, sensor, SensorManager.SENSOR_DELAY_NORMAL,
+                        Handler(Looper.getMainLooper())
+                    )
+                    cont.invokeOnCancellation { sensorManager.unregisterListener(listener) }
+                }
+            }
+        } catch (e: Exception) { null }
+    }
+
     /**
      * Per-day totals for every day in [startDate, endDate] inclusive (local timezone).
      * Used to sync a group challenge day-by-day so each participant's daily
@@ -542,7 +644,7 @@ class HealthConnectManager(private val context: Context) {
             endDate.plusDays(1).atStartOfDay(zoneId).toInstant()
         )
 
-        val stepsByDay: Map<LocalDate, Long> = try {
+        var stepsByDay: Map<LocalDate, Long> = try {
             readAllRecords(client, StepsRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.sumOf { it.count } }
         } catch (e: Exception) { emptyMap() }
@@ -566,6 +668,17 @@ class HealthConnectManager(private val context: Context) {
             readAllRecords(client, ActiveCaloriesBurnedRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.sumOf { it.energy.inKilocalories } }
         } catch (e: Exception) { emptyMap() }
+
+        // No step source for today (no watch, no Samsung Health / Google Fit):
+        // fall back to the phone's own step counter. Past days have no
+        // pedometer history, so only today can be filled in.
+        val today = LocalDate.now()
+        if (!today.isBefore(startDate) && !today.isAfter(endDate) && (stepsByDay[today] ?: 0L) == 0L) {
+            val pedometerSteps = pedometerStepsForToday()
+            if (pedometerSteps > 0L) {
+                stepsByDay = stepsByDay + (today to pedometerSteps)
+            }
+        }
 
         val days = mutableListOf<ca.zeezaglobal.gymsuitapp.data.model.DailyProgress>()
         var day = startDate
@@ -609,9 +722,22 @@ class HealthConnectManager(private val context: Context) {
         val range = TimeRangeFilter.between(rangeStart, rangeEnd)
 
         return try {
-            val steps = try {
-                readAllRecords(client, StepsRecord::class, range).sumOf { it.count }
-            } catch (e: Exception) { 0L }
+            val stepRecords = try {
+                readAllRecords(client, StepsRecord::class, range)
+            } catch (e: Exception) { emptyList() }
+            var steps = stepRecords.sumOf { it.count }
+            // No step source for today: fall back to the phone's own step
+            // counter. The range sum alone cannot tell whether today
+            // contributed, so bucket today out of the records just read.
+            val today = LocalDate.now()
+            if (!today.isBefore(startDate) && !today.isAfter(endDate)) {
+                val todayHcSteps = stepRecords
+                    .filter { it.startTime.atZone(zoneId).toLocalDate() == today }
+                    .sumOf { it.count }
+                if (todayHcSteps == 0L) {
+                    steps += pedometerStepsForToday()
+                }
+            }
 
             val workouts = try {
                 readAllRecords(client, ExerciseSessionRecord::class, range).size

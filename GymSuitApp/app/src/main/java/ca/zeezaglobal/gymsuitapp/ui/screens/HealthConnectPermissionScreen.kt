@@ -1,6 +1,11 @@
 package ca.zeezaglobal.gymsuitapp.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -38,11 +43,30 @@ fun HealthConnectPermissionScreen(
     val healthConnectManager = remember { HealthConnectManager(context) }
     val isAvailable = remember { healthConnectManager.isAvailable() }
 
+    // On-device pedometer (ACTIVITY_RECOGNITION): counts steps without a
+    // watch or step-source app. Denial just leaves the fallback off.
+    val activityRecognitionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        onContinue()
+    }
+
+    fun continueAfterActivityPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+        } else {
+            onContinue()
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        // Proceed to dashboard regardless of whether user accepted or denied
-        onContinue()
+        // Proceed regardless of whether user accepted or denied, then ask
+        // for the pedometer permission (chained, not simultaneous).
+        continueAfterActivityPermission()
     }
 
     Box(
@@ -142,7 +166,7 @@ fun HealthConnectPermissionScreen(
                             coroutineScope.launch {
                                 val hasGranted = healthConnectManager.hasPermissions()
                                 if (hasGranted) {
-                                    onContinue()
+                                    continueAfterActivityPermission()
                                 } else {
                                     permissionLauncher.launch(healthConnectManager.permissions)
                                 }
