@@ -12,7 +12,7 @@ data class FoodItem(
 )
 
 /**
- * Built-in offline food list: common Indian foods plus the Food-101 dishes.
+ * Built-in offline food list: common Indian foods.
  * Values are approximate typical servings, not lab-measured data.
  */
 object FoodDatabase {
@@ -158,13 +158,7 @@ Cornflakes with milk|1 bowl|250|8|44|5|
                 carbsG = p[4].toInt(), fatG = p[5].toInt(), aliases = p.getOrElse(6) { "" }
             )
         }
-        val known = indian.map { it.name.lowercase() }.toSet()
-        val western = FoodNutrition.CLASSES.mapNotNull { id ->
-            FoodNutrition.forClass(id)?.let {
-                FoodItem(it.name, it.serving, it.kcal, it.proteinG, it.carbsG, it.fatG, id.replace('_', ' '))
-            }
-        }.filter { it.name.lowercase() !in known }
-        indian + western
+        indian
     }
 
     /** Case-insensitive search; every typed word must appear in the name or aliases. Best matches first. */
