@@ -5,7 +5,8 @@ import java.util.UUID
 /**
  * Exercise catalog bundled in assets/exercises.json. Exercise metadata (names,
  * muscle data, instructions) sourced from DuarteSantos8/openGym's EXDB dataset.
- * The GIF/JPG media is (c) Gym Visual - see NOTICE in PR #22.
+ * Exercise GIFs are our own dataset, served by the backend on demand
+ * (see ExerciseMedia) — the old Gym Visual remote GIFs are no longer used.
  */
 data class Exercise(
     val id: String,
@@ -19,7 +20,14 @@ data class Exercise(
     val img: String
 ) {
     val muscleGroup: String get() = ExerciseMuscleGroups.groupFor(bodyPart)
-    val gifUrl: String? get() = gif.takeIf { it.isNotEmpty() }?.let { ExerciseMedia.GIF_BASE_URL + it }
+    /**
+     * Bundled exercise GIF (own dataset), served by the backend on demand.
+     * Null when this exercise has no GIF yet — the old Gym Visual remote
+     * GIFs are no longer used.
+     */
+    val gifUrl: String?
+        get() = ExerciseMedia.localGifAsset(name)
+            ?.let { ExerciseMedia.GIF_BASE_URL + it }
     val imageUrl: String? get() = img.takeIf { it.isNotEmpty() }?.let { ExerciseMedia.IMAGE_BASE_URL + it }
     val primaryMuscleLabel: String get() =
         if (primaryMuscle.isNotEmpty()) primaryMuscle.replaceFirstChar { it.uppercaseChar() }
@@ -27,8 +35,33 @@ data class Exercise(
 }
 
 object ExerciseMedia {
-    const val GIF_BASE_URL = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/videos/"
     const val IMAGE_BASE_URL = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/images/"
+
+    /**
+     * Backend endpoint serving the exercise GIFs on demand, so the app
+     * doesn't bundle them. Same hardcoded host as the other API clients —
+     * repoint it together with them when moving to the self-hosted server.
+     */
+    const val GIF_BASE_URL = "https://api.gymsuit.app/api/exercise-gifs/"
+
+    /**
+     * Exercise GIF dataset index (own GIFs, served by the backend).
+     * An exercise shows a GIF only if its exact (lowercased) name is in
+     * this map. To add a GIF: drop the file in the backend's
+     * src/main/resources/exercise-gifs/ and add one line here.
+     * NOTE: squat.gif is on the backend but unmapped — the catalog has no
+     * plain bodyweight-squat entry. Map it when one is added.
+     */
+    private val LOCAL_GIFS = mapOf(
+        "barbell bench press" to "bench-press.gif",
+        "barbell full squat" to "weighted-squat.gif",
+        "barbell deadlift" to "deadlift.gif",
+        "dumbbell biceps curl" to "dumbbell-curl.gif",
+        "dumbbell hammer curl" to "hammer-curl.gif"
+    )
+
+    fun localGifAsset(exerciseName: String): String? =
+        LOCAL_GIFS[exerciseName.lowercase().trim()]
 }
 
 object ExerciseMuscleGroups {
