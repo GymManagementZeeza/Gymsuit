@@ -161,28 +161,29 @@ class HealthSyncManager(private val context: Context) {
                             val endOfDay = recordDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
 
                             val progress = healthConnectManager.readProgressTotals(recordDate, recordDate)
-                            val cal = healthConnectManager.readCaloriesBreakdownForDate(recordDate)
                             val hr = healthConnectManager.tryReadHeartRateDataForDate(recordDate)
                             val sleep = healthConnectManager.readDetailedSleepForDate(recordDate)
 
-                            // Prioritize device with larger data
+                            // Prioritize device with larger data. Inserts are the GAP only:
+                            // Health Connect readers sum all records, so writing the full
+                            // remote count alongside local records would double-count the day.
                             remote.steps?.let { steps ->
                                 if (steps > progress.steps) {
-                                    healthConnectManager.insertSteps(steps, startOfDay, endOfDay)
+                                    healthConnectManager.insertSteps(steps - progress.steps, startOfDay, endOfDay)
                                 }
                             }
 
-                            val localActiveCal = if (cal.hasData) (cal.workoutKcal + cal.moveKcal) else 0.0
+                            val localActiveCal = healthConnectManager.readActiveCaloriesSumForDate(recordDate)
                             remote.activeCalories?.let { rCal ->
                                 if (rCal > localActiveCal) {
-                                    healthConnectManager.insertActiveCalories(rCal, startOfDay, endOfDay)
+                                    healthConnectManager.insertActiveCalories(rCal - localActiveCal, startOfDay, endOfDay)
                                 }
                             }
 
                             val localDistanceMeters = progress.distanceKm * 1000.0
                             remote.distanceMeters?.let { dist ->
                                 if (dist > localDistanceMeters) {
-                                    healthConnectManager.insertDistance(dist, startOfDay, endOfDay)
+                                    healthConnectManager.insertDistance(dist - localDistanceMeters, startOfDay, endOfDay)
                                 }
                             }
 
