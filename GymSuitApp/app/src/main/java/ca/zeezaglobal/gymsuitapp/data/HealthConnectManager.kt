@@ -11,10 +11,12 @@ import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import kotlin.reflect.KClass
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -443,6 +445,36 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
+     * Reads ALL records of [recordType] in [range], following Health Connect's
+     * page tokens until exhausted. A single readRecords call returns at most
+     * 1000 records (first page) — without this loop, any range holding more
+     * than 1000 records (e.g. a month-long challenge) silently drops the
+     * newest ones and totals freeze at the page boundary. No record-count
+     * cap: a long challenge can legitimately exceed a few thousand records.
+     */
+    private suspend fun <T : Record> readAllRecords(
+        client: HealthConnectClient,
+        recordType: KClass<T>,
+        range: TimeRangeFilter
+    ): List<T> {
+        val records = mutableListOf<T>()
+        var pageToken: String? = null
+        do {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = recordType,
+                    timeRangeFilter = range,
+                    pageToken = pageToken,
+                    pageSize = 1000
+                )
+            )
+            records.addAll(response.records)
+            pageToken = response.pageToken
+        } while (pageToken != null)
+        return records
+    }
+
+    /**
      * Per-day totals for every day in [startDate, endDate] inclusive (local timezone).
      * Used to sync a group challenge day-by-day so each participant's daily
      * breakdown can be shown and graphed. Each record type is read once for the
@@ -461,37 +493,27 @@ class HealthConnectManager(private val context: Context) {
         )
 
         val stepsByDay: Map<LocalDate, Long> = try {
-            client.readRecords(
-                ReadRecordsRequest(recordType = StepsRecord::class, timeRangeFilter = range)
-            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+            readAllRecords(client, StepsRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.sumOf { it.count } }
         } catch (e: Exception) { emptyMap() }
 
         val workoutsByDay: Map<LocalDate, Int> = try {
-            client.readRecords(
-                ReadRecordsRequest(recordType = ExerciseSessionRecord::class, timeRangeFilter = range)
-            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+            readAllRecords(client, ExerciseSessionRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.size }
         } catch (e: Exception) { emptyMap() }
 
         val distanceByDay: Map<LocalDate, Double> = try {
-            client.readRecords(
-                ReadRecordsRequest(recordType = DistanceRecord::class, timeRangeFilter = range)
-            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+            readAllRecords(client, DistanceRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.sumOf { it.distance.inKilometers } }
         } catch (e: Exception) { emptyMap() }
 
         val totalCaloriesByDay: Map<LocalDate, Double> = try {
-            client.readRecords(
-                ReadRecordsRequest(recordType = TotalCaloriesBurnedRecord::class, timeRangeFilter = range)
-            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+            readAllRecords(client, TotalCaloriesBurnedRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.sumOf { it.energy.inKilocalories } }
         } catch (e: Exception) { emptyMap() }
 
         val activeCaloriesByDay: Map<LocalDate, Double> = try {
-            client.readRecords(
-                ReadRecordsRequest(recordType = ActiveCaloriesBurnedRecord::class, timeRangeFilter = range)
-            ).records.groupBy { it.startTime.atZone(zoneId).toLocalDate() }
+            readAllRecords(client, ActiveCaloriesBurnedRecord::class, range).groupBy { it.startTime.atZone(zoneId).toLocalDate() }
                 .mapValues { (_, records) -> records.sumOf { it.energy.inKilocalories } }
         } catch (e: Exception) { emptyMap() }
 
@@ -538,33 +560,23 @@ class HealthConnectManager(private val context: Context) {
 
         return try {
             val steps = try {
-                client.readRecords(
-                    ReadRecordsRequest(recordType = StepsRecord::class, timeRangeFilter = range)
-                ).records.sumOf { it.count }
+                readAllRecords(client, StepsRecord::class, range).sumOf { it.count }
             } catch (e: Exception) { 0L }
 
             val workouts = try {
-                client.readRecords(
-                    ReadRecordsRequest(recordType = ExerciseSessionRecord::class, timeRangeFilter = range)
-                ).records.size
+                readAllRecords(client, ExerciseSessionRecord::class, range).size
             } catch (e: Exception) { 0 }
 
             val distanceKm = try {
-                client.readRecords(
-                    ReadRecordsRequest(recordType = DistanceRecord::class, timeRangeFilter = range)
-                ).records.sumOf { it.distance.inKilometers }
+                readAllRecords(client, DistanceRecord::class, range).sumOf { it.distance.inKilometers }
             } catch (e: Exception) { 0.0 }
 
             val calories = try {
-                val total = client.readRecords(
-                    ReadRecordsRequest(recordType = TotalCaloriesBurnedRecord::class, timeRangeFilter = range)
-                ).records.sumOf { it.energy.inKilocalories }
+                val total = readAllRecords(client, TotalCaloriesBurnedRecord::class, range).sumOf { it.energy.inKilocalories }
                 if (total > 0.0) {
                     total
                 } else {
-                    val active = client.readRecords(
-                        ReadRecordsRequest(recordType = ActiveCaloriesBurnedRecord::class, timeRangeFilter = range)
-                    ).records.sumOf { it.energy.inKilocalories }
+                    val active = readAllRecords(client, ActiveCaloriesBurnedRecord::class, range).sumOf { it.energy.inKilocalories }
                     if (active > 0.0) active else steps * 0.04
                 }
             } catch (e: Exception) { steps * 0.04 }
