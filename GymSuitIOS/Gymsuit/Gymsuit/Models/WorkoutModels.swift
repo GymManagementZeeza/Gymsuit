@@ -2,7 +2,8 @@ import Foundation
 
 // MARK: - Exercise catalog (bundled exercises.json, exercise metadata sourced from
 // DuarteSantos8/openGym's EXDB dataset. Exercise names, muscle data and instructions
-// are MIT-licensed; the GIF/JPG media is (c) Gym Visual - see NOTICE in PR #22.)
+// are MIT-licensed. Exercise GIFs are our own dataset, served by the backend
+// on demand — the old Gym Visual remote GIFs are no longer used.)
 
 public struct Exercise: Codable, Identifiable, Hashable {
     public let id: String
@@ -31,8 +32,12 @@ public struct Exercise: Codable, Identifiable, Hashable {
         ExerciseMuscleGroups.group(for: bodyPart)
     }
 
+    /// Exercise GIF (own dataset), served by the backend on demand.
+    /// Nil when this exercise has no GIF yet — the old Gym Visual remote
+    /// GIFs are no longer used.
     public var gifURL: URL? {
-        gif.isEmpty ? nil : URL(string: ExerciseMedia.gifBaseURL + gif)
+        guard let file = ExerciseMedia.localGIFFile(for: name) else { return nil }
+        return URL(string: ExerciseMedia.gifBaseURL + file)
     }
 
     public var imageURL: URL? {
@@ -45,8 +50,30 @@ public struct Exercise: Codable, Identifiable, Hashable {
 }
 
 public enum ExerciseMedia {
-    public static let gifBaseURL = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/videos/"
     public static let imageBaseURL = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/images/"
+
+    /// Backend endpoint serving the exercise GIFs on demand, so the app
+    /// doesn't bundle them. Same hardcoded host as the other API clients —
+    /// repoint it together with them when moving to the self-hosted server.
+    public static let gifBaseURL = "https://api.gymsuit.app/api/exercise-gifs/"
+
+    /// Exercise GIF dataset index (own GIFs, served by the backend).
+    /// An exercise shows a GIF only if its exact (lowercased) name is in
+    /// this map. To add a GIF: drop the file in the backend's
+    /// src/main/resources/exercise-gifs/ and add one line here.
+    /// NOTE: squat.gif is on the backend but unmapped — the catalog has no
+    /// plain bodyweight-squat entry. Map it when one is added.
+    private static let localGIFs: [String: String] = [
+        "barbell bench press": "bench-press.gif",
+        "barbell full squat": "weighted-squat.gif",
+        "barbell deadlift": "deadlift.gif",
+        "dumbbell biceps curl": "dumbbell-curl.gif",
+        "dumbbell hammer curl": "hammer-curl.gif"
+    ]
+
+    public static func localGIFFile(for exerciseName: String) -> String? {
+        localGIFs[exerciseName.lowercased().trimmingCharacters(in: .whitespaces)]
+    }
 }
 
 public enum ExerciseMuscleGroups {
