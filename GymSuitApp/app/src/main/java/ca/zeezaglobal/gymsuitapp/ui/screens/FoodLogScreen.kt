@@ -27,15 +27,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import ca.zeezaglobal.gymsuitapp.data.food.FoodClassifier
 import ca.zeezaglobal.gymsuitapp.data.food.FoodDatabase
 import ca.zeezaglobal.gymsuitapp.data.food.FoodItem
 import ca.zeezaglobal.gymsuitapp.data.food.RegionalFoodRepository
-import ca.zeezaglobal.gymsuitapp.data.food.FoodNutrition
-import ca.zeezaglobal.gymsuitapp.data.food.FoodPrediction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -93,6 +91,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ca.zeezaglobal.gymsuitapp.data.FoodEntry
+import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionApi
+import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionUnavailableException
 import ca.zeezaglobal.gymsuitapp.data.FoodStore
 import ca.zeezaglobal.gymsuitapp.data.MealType
 import java.time.Instant
@@ -117,24 +117,60 @@ fun FoodLogScreen() {
     var chooserMeal by remember { mutableStateOf<MealType?>(null) } // meal picked, choosing how to add
     var scanMeal by remember { mutableStateOf(MealType.SNACK) }      // meal the scan result will go into
 
-    // On-device scan flow: photo -> classify -> pick result -> prefilled add sheet
+    // Server scan flow: photo -> backend API -> pick result -> prefilled add sheet
     val scope = rememberCoroutineScope()
-    val classifier = remember { FoodClassifier(context) }
+    val recognitionApi = remember { FoodRecognitionApi(context) }
     var scanning by remember { mutableStateOf(false) }
     var scanImage by remember { mutableStateOf<Bitmap?>(null) }
-    var scanPredictions by remember { mutableStateOf<List<FoodPrediction>>(emptyList()) }
+    var scanCandidates by remember { mutableStateOf<List<DishCandidate>>(emptyList()) }
+    var scanError by remember { mutableStateOf<String?>(null) }
     var showScanResult by remember { mutableStateOf(false) }
 
     fun runScan(uri: Uri) {
         scanning = true
+        scanError = null
         scope.launch {
-            val bitmap = withContext(Dispatchers.IO) { decodeBitmap(context, uri) }
-            if (bitmap != null) {
+            try {
+                val bitmap = withContext(Dispatchers.IO) { decodeBitmap(context, uri) }
+                if (bitmap == null) {
+                    scanError = "Couldn't read that photo. Try another one."
+                    return@launch
+                }
                 scanImage = bitmap
-                scanPredictions = classifier.classify(bitmap)
+                val jpeg = withContext(Dispatchers.IO) {
+                    ByteArrayOutputStream().also {
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it)
+                    }.toByteArray()
+                }
+                val result = recognitionApi.recognize(jpeg)
+                val ranked = result.probabilities.entries.sortedByDescending { it.value }.take(3)
+                val candidates = ranked.map { (dish, confidence) ->
+                    DishCandidate(
+                        dish = dish,
+                        displayName = dishDisplayName(dish),
+                        confidence = confidence,
+                        nutrition = resolveDishNutrition(context, dish)
+                    )
+                }
+                // Probabilities may be empty even when the top dish is set.
+                scanCandidates = if (candidates.isEmpty() && result.dish.isNotBlank()) {
+                    listOf(
+                        DishCandidate(
+                            dish = result.dish,
+                            displayName = dishDisplayName(result.dish),
+                            confidence = result.confidence,
+                            nutrition = resolveDishNutrition(context, result.dish)
+                        )
+                    )
+                } else candidates
                 showScanResult = true
+            } catch (e: FoodRecognitionUnavailableException) {
+                scanError = "Food recognition is unavailable right now — the server is down. You can still add it manually."
+            } catch (e: Exception) {
+                scanError = "Couldn't reach the food recognition server. You can still add it manually."
+            } finally {
+                scanning = false
             }
-            scanning = false
         }
     }
 
@@ -202,6 +238,14 @@ fun FoodLogScreen() {
         if (scanning) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
+        }
+
+        scanError?.let { error ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = { scanError = null }) { Text("Dismiss") }
+            }
+            Spacer(Modifier.height(8.dp))
         }
 
         LazyColumn(
@@ -326,7 +370,7 @@ fun FoodLogScreen() {
     if (showScanResult) {
         ScanResultSheet(
             image = scanImage,
-            predictions = scanPredictions,
+            candidates = scanCandidates,
             onDismiss = { showScanResult = false },
             onContinue = { name, kcal, p, c, f ->
                 showScanResult = false
@@ -507,6 +551,32 @@ private fun AddFoodSheet(
 
 private data class FoodPrefill(val name: String, val kcal: Int, val proteinG: Int, val carbsG: Int, val fatG: Int)
 
+/** One server-recognised dish: model label, display name, confidence, and nutrition resolved from the offline food lists. */
+private data class DishCandidate(
+    val dish: String,
+    val displayName: String,
+    val confidence: Double,
+    val nutrition: FoodItem?
+)
+
+/** Model labels are snake_case ("kerala_porotta"); display them as words ("Kerala Porotta"). */
+private fun dishDisplayName(dish: String): String = when (dish) {
+    "beeffry" -> "Beef Fry"
+    else -> dish.split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
+}
+
+/**
+ * Nutrition for a recognised dish, from the offline lists (Kerala Room DB
+ * first, then the built-in list). The backend returns no nutrition, so the
+ * dish name is matched against the same lists the manual search uses.
+ * Null when nothing matches — the user enters nutrition by hand.
+ */
+private suspend fun resolveDishNutrition(context: android.content.Context, dish: String): FoodItem? {
+    val query = dishDisplayName(dish)
+    return RegionalFoodRepository.search(context, query, limit = 1).firstOrNull()
+        ?: FoodDatabase.search(query, limit = 1).firstOrNull()
+}
+
 /** Decodes a downsampled bitmap and applies the EXIF rotation. */
 private fun decodeBitmap(context: android.content.Context, uri: Uri): Bitmap? = try {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -536,14 +606,15 @@ private fun decodeBitmap(context: android.content.Context, uri: Uri): Bitmap? = 
 @Composable
 private fun ScanResultSheet(
     image: Bitmap?,
-    predictions: List<FoodPrediction>,
+    candidates: List<DishCandidate>,
     onDismiss: () -> Unit,
     onContinue: (name: String, kcal: Int, protein: Int, carbs: Int, fat: Int) -> Unit
 ) {
     var selected by remember { mutableStateOf(0) }
     var portion by remember { mutableStateOf(1.0) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val nutrition = predictions.getOrNull(selected)?.let { FoodNutrition.forClass(it.classId) }
+    val candidate = candidates.getOrNull(selected)
+    val nutrition = candidate?.nutrition
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -565,7 +636,7 @@ private fun ScanResultSheet(
                 )
             }
 
-            if (predictions.isEmpty() || nutrition == null) {
+            if (candidate == null) {
                 Text(
                     "Couldn't recognise this food. You can still add it manually.",
                     style = MaterialTheme.typography.bodyMedium
@@ -574,53 +645,63 @@ private fun ScanResultSheet(
             } else {
                 Text("Best matches", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    predictions.forEachIndexed { index, p ->
-                        val label = FoodNutrition.forClass(p.classId)?.name ?: p.classId
+                    candidates.forEachIndexed { index, c ->
                         FilterChip(
                             selected = selected == index,
                             onClick = { selected = index },
-                            label = { Text("$label ${(p.probability * 100).toInt()}%") }
+                            label = { Text("${c.displayName} ${(c.confidence * 100).toInt()}%") }
                         )
                     }
                 }
 
-                Text("Portion (${nutrition.serving} = 1x)", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(0.5, 1.0, 1.5, 2.0).forEach {
-                        FilterChip(selected = portion == it, onClick = { portion = it }, label = { Text("${it}x") })
+                if (nutrition == null) {
+                    Text(
+                        "No nutrition data for ${candidate.displayName} yet — enter it next.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(
+                        onClick = { onContinue(candidate.displayName, 0, 0, 0, 0) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Continue") }
+                } else {
+                    Text("Portion (${nutrition.serving} = 1x)", style = MaterialTheme.typography.titleSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0.5, 1.0, 1.5, 2.0).forEach {
+                            FilterChip(selected = portion == it, onClick = { portion = it }, label = { Text("${it}x") })
+                        }
                     }
-                }
 
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("${(nutrition.kcal * portion).toInt()} kcal", style = MaterialTheme.typography.headlineMedium)
-                        Text(
-                            "Protein ${(nutrition.proteinG * portion).toInt()} g • Carbs ${(nutrition.carbsG * portion).toInt()} g • Fat ${(nutrition.fatG * portion).toInt()} g",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Estimate for a typical serving. You can edit it next.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("${(nutrition.kcal * portion).toInt()} kcal", style = MaterialTheme.typography.headlineMedium)
+                            Text(
+                                "Protein ${(nutrition.proteinG * portion).toInt()} g • Carbs ${(nutrition.carbsG * portion).toInt()} g • Fat ${(nutrition.fatG * portion).toInt()} g",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                "Estimate for a typical serving. You can edit it next.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
-                }
 
-                Button(
-                    onClick = {
-                        onContinue(
-                            nutrition.name,
-                            (nutrition.kcal * portion).toInt(),
-                            (nutrition.proteinG * portion).toInt(),
-                            (nutrition.carbsG * portion).toInt(),
-                            (nutrition.fatG * portion).toInt()
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Continue") }
+                    Button(
+                        onClick = {
+                            onContinue(
+                                nutrition.name,
+                                (nutrition.kcal * portion).toInt(),
+                                (nutrition.proteinG * portion).toInt(),
+                                (nutrition.carbsG * portion).toInt(),
+                                (nutrition.fatG * portion).toInt()
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Continue") }
+                }
             }
         }
     }

@@ -6,18 +6,6 @@ import org.junit.Test
 class FoodDatabaseTest {
 
     @Test
-    fun foodNutrition_forClassReturnsExpectedNutrition() {
-        val pie = FoodNutrition.forClass("apple_pie")
-        assertNotNull(pie)
-        assertEquals("Apple pie", pie!!.name)
-        assertTrue(pie.kcal > 0)
-        assertTrue(pie.carbsG > 0)
-
-        val nonExistent = FoodNutrition.forClass("unknown_dish_xyz")
-        assertNull(nonExistent)
-    }
-
-    @Test
     fun foodDatabase_containsFoods() {
         assertTrue(FoodDatabase.ALL.isNotEmpty())
         assertTrue(FoodDatabase.ALL.any { it.name.contains("Roti", ignoreCase = true) })
