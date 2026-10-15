@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -99,6 +100,62 @@ public class EmailService {
                     .toBodilessEntity();
 
             log.info("Successfully sent email with attachment {} via Resend to {}", filename, to);
+        } catch (Exception e) {
+            log.error("Failed to send email with attachment to {} via Resend API: {}", to, e.getMessage(), e);
+            throw new EmailDeliveryException("Failed to send email to " + to, e);
+        }
+    }
+
+    /**
+     * Sends an email with one file attachment plus inline images via Resend.
+     * Each inline image is sent with a {@code content_id} so the HTML can
+     * reference it as {@code <img src="cid:<content_id>">} — this is how
+     * Resend embeds images that render inside the message body (e.g. the
+     * health report's step progress rings). Same failure semantics as
+     * {@link #sendEmailWithAttachment}: throws {@link EmailDeliveryException}
+     * on API failure, skips quietly when no API key is configured.
+     */
+    public void sendEmailWithInlineImagesAndAttachment(String to, String subject, String htmlContent,
+                                                       Map<String, byte[]> inlineImages,
+                                                       String filename, byte[] fileBytes, String contentType) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            log.warn("RESEND_API_KEY is not set. Skipping email dispatch to {}. Content subject: {}", to, subject);
+            return;
+        }
+
+        try {
+            List<Object> attachments = new ArrayList<>();
+            for (Map.Entry<String, byte[]> image : inlineImages.entrySet()) {
+                attachments.add(Map.of(
+                        "content", Base64.getEncoder().encodeToString(image.getValue()),
+                        "filename", image.getKey() + ".png",
+                        "content_type", "image/png",
+                        "content_id", image.getKey()
+                ));
+            }
+            attachments.add(Map.of(
+                    "content", Base64.getEncoder().encodeToString(fileBytes),
+                    "filename", filename,
+                    "content_type", contentType
+            ));
+            Map<String, Object> body = Map.of(
+                    "from", fromEmail,
+                    "to", List.of(to),
+                    "subject", subject,
+                    "html", htmlContent,
+                    "attachments", attachments
+            );
+
+            restClient.post()
+                    .uri("/emails")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            log.info("Successfully sent email with attachment {} and {} inline images via Resend to {}",
+                    filename, inlineImages.size(), to);
         } catch (Exception e) {
             log.error("Failed to send email with attachment to {} via Resend API: {}", to, e.getMessage(), e);
             throw new EmailDeliveryException("Failed to send email to " + to, e);
