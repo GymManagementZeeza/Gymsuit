@@ -1835,9 +1835,17 @@ private fun WorkoutLogSheet(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    exercise.gifUrl?.let { url ->
+                    val gifUrl = exercise.gifUrl
+                    if (gifUrl != null) {
                         GifWebView(
-                            url = url,
+                            url = gifUrl,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    } else {
+                        NoGifPlaceholder(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
@@ -2249,6 +2257,25 @@ private fun BodyPartWorkoutPickerPage(
                 }
             }
         }
+    }
+}
+
+/**
+ * Shown where an exercise GIF would go when the exercise has no GIF yet
+ * (our GIF dataset only covers a few exercises so far). Keeps the layout
+ * stable instead of leaving a blank gap.
+ */
+@Composable
+fun NoGifPlaceholder(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.background(Color(0xFFF1F5F9)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "No GIF available",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

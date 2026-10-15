@@ -39,6 +39,13 @@ struct WorkoutLogView: View {
                             GIFView(url: gifURL)
                                 .frame(height: 220)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            Text("No GIF available")
+                                .font(.system(size: 14))
+                                .foregroundColor(AppColors.textSecondary)
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                                .background(Color.gray.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         if !exercise.instructions.isEmpty {
                             Text("How to perform")

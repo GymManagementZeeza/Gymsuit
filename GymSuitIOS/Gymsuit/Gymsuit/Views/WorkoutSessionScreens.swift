@@ -276,6 +276,12 @@ struct BodyPartWorkoutPickerPage: View {
                 GIFView(url: gifURL)
                     .frame(width: 84, height: 84)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                Image(systemName: "photo")
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(width: 84, height: 84)
+                    .background(Color.gray.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
@@ -337,6 +343,13 @@ struct SetBySetLogPage: View {
                 if let gifURL = exercise.gifURL {
                     GIFView(url: gifURL)
                         .frame(height: 200)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                } else {
+                    Text("No GIF available")
+                        .font(.system(size: 14))
+                        .foregroundColor(AppColors.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                        .background(Color.gray.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
 
