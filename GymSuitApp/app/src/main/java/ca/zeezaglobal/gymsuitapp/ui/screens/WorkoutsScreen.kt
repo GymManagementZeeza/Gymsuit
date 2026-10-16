@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package ca.zeezaglobal.gymsuitapp.ui.screens
 
 import android.content.Context
@@ -87,6 +89,19 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.filled.Photo
+import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
 
 private const val PREFS_NAME = "gymsuit_workout_plan"
 private const val KEY_SELECTED_WORKOUTS = "selected_workouts_json"
@@ -422,8 +437,22 @@ fun WorkoutsScreen(
         loadSavedSelections()
     }
 
-    // View Switching
-    when (currentViewMode) {
+    // View Switching, animated: screens fade + slide in as the user moves
+    // through the flow (calendar <-> plan <-> editor <-> steps).
+    AnimatedContent(
+        targetState = currentViewMode,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(250)) + slideInHorizontally(
+                animationSpec = tween(250),
+                initialOffsetX = { it / 8 }
+            )) togetherWith (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                animationSpec = tween(200),
+                targetOffsetX = { -it / 8 }
+            ))
+        },
+        label = "workouts-view"
+    ) { viewMode ->
+        when (viewMode) {
         WorkoutsViewMode.CALENDAR -> {
             WorkoutsCalendarView(
                 selectedYearMonth = selectedYearMonth,
@@ -501,6 +530,7 @@ fun WorkoutsScreen(
                 bodyWeightKg = setupWeightKg,
                 onEditSetup = { openSetupFromPlanPage() }
             )
+        }
         }
     }
 }
@@ -584,40 +614,46 @@ fun WorkoutsCalendarView(
         }
 
         // Active Plan Banner if plan already generated
-        if (activePlan != null) {
-            item {
-                ElevatedCard(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+        item {
+            AnimatedVisibility(
+                visible = activePlan != null,
+                enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+            ) {
+                activePlan?.let { plan ->
+                    ElevatedCard(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Active Workout Plan",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${activePlan.sections.size} planned days • ${activePlan.totalExercises} workouts",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = onViewPlanClick,
-                            shape = RoundedCornerShape(12.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("View plan", fontSize = 12.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Active Workout Plan",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${plan.sections.size} planned days • ${plan.totalExercises} workouts",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = onViewPlanClick,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("View plan", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -733,7 +769,11 @@ fun WorkoutsCalendarView(
                         }
                     }
 
-                    if (plannedForDay.isNotEmpty()) {
+                    AnimatedVisibility(
+                        visible = plannedForDay.isNotEmpty(),
+                        enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                        exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+                    ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             plannedForDay.take(3).forEach { item ->
                                 Text(
@@ -941,6 +981,20 @@ fun PlannedWorkoutsMainScreen(
                 }
             }
         } else {
+            AnimatedContent(
+                targetState = activeSection,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(250)) + slideInHorizontally(
+                        animationSpec = tween(250),
+                        initialOffsetX = { it / 10 }
+                    )) togetherWith (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                        animationSpec = tween(200),
+                        targetOffsetX = { -it / 10 }
+                    ))
+                },
+                label = "plan-day"
+            ) { section ->
+                val day = section ?: return@AnimatedContent
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -970,7 +1024,7 @@ fun PlannedWorkoutsMainScreen(
                                     color = MaterialTheme.colorScheme.primaryContainer
                                 ) {
                                     Text(
-                                        text = "Section ${activeSection.dayNumber} of ${plan.sections.size}",
+                                        text = "Section ${day.dayNumber} of ${plan.sections.size}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -979,7 +1033,7 @@ fun PlannedWorkoutsMainScreen(
                                 }
 
                                 Text(
-                                    text = activeSection.scheduledDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
+                                    text = day.scheduledDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
                                     color = Color(0xFF64748B)
@@ -989,14 +1043,14 @@ fun PlannedWorkoutsMainScreen(
                             Spacer(modifier = Modifier.height(2.dp))
 
                             Text(
-                                text = activeSection.title,
+                                text = day.title,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A)
                             )
 
                             Text(
-                                text = "${activeSection.exercises.size} Exercises",
+                                text = "${day.exercises.size} Exercises",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFF64748B)
                             )
@@ -1005,7 +1059,7 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Empty day: no workouts selected yet for this date.
-                if (activeSection.exercises.isEmpty()) {
+                if (day.exercises.isEmpty()) {
                     item {
                         Column(
                             modifier = Modifier
@@ -1031,7 +1085,7 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Exercises List Header
-                if (activeSection.exercises.isNotEmpty()) item {
+                if (day.exercises.isNotEmpty()) item {
                     Text(
                         text = "Scheduled Exercises",
                         style = MaterialTheme.typography.titleMedium,
@@ -1041,14 +1095,14 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Exercise Cards
-                items(activeSection.exercises) { exercise ->
-                    PlannedExerciseCard(exercise = exercise)
+                items(day.exercises, key = { it.name }) { exercise ->
+                    PlannedExerciseCard(exercise = exercise, modifier = Modifier.animateItem())
                 }
 
                 // Edit this day's selected workouts
                 item {
                     OutlinedButton(
-                        onClick = { onEditDay(activeSection.scheduledDate) },
+                        onClick = { onEditDay(day.scheduledDate) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -1065,7 +1119,7 @@ fun PlannedWorkoutsMainScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = if (activeSection.exercises.isEmpty()) "Add workouts" else "Edit workouts",
+                                text = if (day.exercises.isEmpty()) "Add workouts" else "Edit workouts",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1074,10 +1128,10 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Material You 3 "Start Workout" Button
-                if (activeSection.exercises.isNotEmpty()) item {
+                if (day.exercises.isNotEmpty()) item {
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
-                        onClick = { onStartWorkout(activeSection) },
+                        onClick = { onStartWorkout(day) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -1098,12 +1152,13 @@ fun PlannedWorkoutsMainScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                             Text(
-                                text = "Start Day ${activeSection.dayNumber} Workout",
+                                text = "Start Day ${day.dayNumber} Workout",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
+                }
                 }
             }
         }
@@ -1563,13 +1618,46 @@ fun PlanWorkoutPickerScreen(
     }
 }
 
+/**
+ * 64dp GIF thumbnail for a planned exercise, or a photo-icon placeholder when
+ * the exercise has no GIF yet (only 5 catalog exercises do). Same pattern as
+ * the picker rows: the GIF animates via GifWebView, everything else gets the
+ * placeholder.
+ */
 @Composable
-fun PlannedExerciseCard(exercise: PlannedExerciseItem) {
+private fun ExerciseGifThumbnail(exerciseName: String, modifier: Modifier = Modifier) {
+    val gifFile = ExerciseMedia.localGifAsset(exerciseName)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFFF1F5F9)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (gifFile != null) {
+            GifWebView(
+                url = ExerciseMedia.GIF_BASE_URL + gifFile,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.Photo,
+                contentDescription = null,
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun PlannedExerciseCard(exercise: PlannedExerciseItem, modifier: Modifier = Modifier) {
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize()
     ) {
         Column(
             modifier = Modifier
@@ -1579,9 +1667,13 @@ fun PlannedExerciseCard(exercise: PlannedExerciseItem) {
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                ExerciseGifThumbnail(
+                    exerciseName = exercise.name,
+                    modifier = Modifier.size(64.dp)
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = exercise.name,
