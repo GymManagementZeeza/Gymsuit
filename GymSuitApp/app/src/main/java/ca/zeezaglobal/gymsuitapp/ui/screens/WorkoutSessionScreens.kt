@@ -1,9 +1,11 @@
 package ca.zeezaglobal.gymsuitapp.ui.screens
 
+import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -644,3 +646,33 @@ fun SetBySetLogPage(
         Spacer(Modifier.height(80.dp))
     }
 }
+
+@Composable
+fun NoGifPlaceholder(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.background(Color(0xFFF1F5F9)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "No GIF available",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun GifWebView(url: String, modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            WebView(ctx).apply {
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                setBackgroundColor(0x00000000)
+                loadUrl(url)
+            }
+        }
+    )
+}
+
