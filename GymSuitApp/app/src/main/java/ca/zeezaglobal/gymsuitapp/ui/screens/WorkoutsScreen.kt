@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.EditCalendar
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Tune
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import ca.zeezaglobal.gymsuitapp.data.model.Exercise
+import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
 import org.json.JSONArray
 import org.json.JSONObject
@@ -1144,6 +1146,43 @@ private fun SetsRepsStepper(
     }
 }
 
+/**
+ * 64dp GIF thumbnail for a picker row: the exercise GIF (same backend-served
+ * GIFs as the detail view) when one exists, else a photo-icon placeholder.
+ * The WebView would swallow taps, so when [onClick] is given the thumbnail
+ * gets its own clickable that forwards the tap (e.g. row toggle).
+ */
+@Composable
+private fun PlanPickerGifThumb(
+    gifUrl: String?,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFFF1F5F9))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        if (gifUrl != null) {
+            GifWebView(url = gifUrl, modifier = Modifier.fillMaxSize())
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = "No GIF available",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+/** Backend GIF URL for a planned item (which carries no Exercise), or null. */
+private fun gifUrlForPlannedItem(name: String): String? =
+    ExerciseMedia.localGifAsset(name)?.let { ExerciseMedia.GIF_BASE_URL + it }
+
 @Composable
 fun PlanWorkoutPickerScreen(
     date: LocalDate,
@@ -1310,6 +1349,10 @@ fun PlanWorkoutPickerScreen(
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(22.dp)
                                 )
+                                PlanPickerGifThumb(
+                                    gifUrl = gifUrlForPlannedItem(item.name),
+                                    modifier = Modifier.padding(start = 10.dp)
+                                )
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
@@ -1417,19 +1460,20 @@ fun PlanWorkoutPickerScreen(
             }
             items(filtered, key = { it.id + it.name }) { exercise ->
                 val isSelected = draft.any { it.name == exercise.name }
+                val onToggle = {
+                    if (isSelected) {
+                        draft.removeAll { it.name == exercise.name }
+                    } else {
+                        draft.add(exercise.toPlannedItem())
+                    }
+                }
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
                     shadowElevation = if (isSelected) 0.dp else 1.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            if (isSelected) {
-                                draft.removeAll { it.name == exercise.name }
-                            } else {
-                                draft.add(exercise.toPlannedItem())
-                            }
-                        }
+                        .clickable { onToggle() }
                         .then(
                             if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
                             else Modifier
@@ -1446,6 +1490,11 @@ fun PlanWorkoutPickerScreen(
                             contentDescription = null,
                             tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFCBD5E1),
                             modifier = Modifier.size(22.dp)
+                        )
+                        PlanPickerGifThumb(
+                            gifUrl = exercise.gifUrl,
+                            onClick = onToggle,
+                            modifier = Modifier.padding(start = 10.dp)
                         )
                         Column(
                             modifier = Modifier
