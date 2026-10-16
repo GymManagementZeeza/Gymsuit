@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface HealthDeviceRepository extends JpaRepository<HealthDevice, String> {
     List<HealthDevice> findByUserIdAndActiveTrue(Long userId);
     Optional<HealthDevice> findByDeviceIdAndUserId(String deviceId, Long userId);
+
+    void deleteAllByUserId(Long userId);
 }

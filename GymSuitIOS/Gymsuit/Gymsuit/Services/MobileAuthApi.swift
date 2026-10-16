@@ -108,6 +108,36 @@ public final class MobileAuthApi {
         return try parseSession(json: json)
     }
     
+    /// Self-service account deletion (DELETE /api/auth/account). Deletes the
+    /// caller's account and personal data on the server. The caller must pass
+    /// its current access token; on success it should discard the session.
+    public func deleteAccount(accessToken: String) async throws {
+        guard let url = URL(string: "https://api.gymsuit.app/api/auth/account") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = timeoutInterval
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        if !(200...299).contains(httpResponse.statusCode) {
+            if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let message = errorJson["message"] as? String {
+                throw NSError(domain: "MobileAuthApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            throw NSError(domain: "MobileAuthApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorText])
+        }
+    }
+    
     // MARK: - HTTP Helpers
     private func postJson(urlString: String, payload: [String: Any]) async throws -> [String: Any] {
         guard let url = URL(string: urlString) else {

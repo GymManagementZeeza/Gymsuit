@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface HealthUserSyncStateRepository extends JpaRepository<HealthUserSyncState, Long> {
+
+    void deleteAllByUserId(Long userId);
 }

@@ -419,7 +419,7 @@ public class ChallengeService {
                 participants.size(),
                 findMyRank(leaderboard, userId),
                 challenge.getInviteCode(),
-                challenge.getCreatedBy().getId().equals(userId),
+                challenge.getCreatedBy() != null && challenge.getCreatedBy().getId().equals(userId),
                 leaderboard);
     }
 

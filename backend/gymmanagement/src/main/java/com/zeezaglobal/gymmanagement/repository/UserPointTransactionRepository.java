@@ -18,4 +18,6 @@ public interface UserPointTransactionRepository extends JpaRepository<UserPointT
 
     @Query("SELECT COALESCE(SUM(t.points), 0) FROM UserPointTransaction t WHERE t.user.id = :userId")
     Integer calculateBalance(@Param("userId") Long userId);
+
+    void deleteAllByUserId(Long userId);
 }
