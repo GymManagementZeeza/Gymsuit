@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -74,6 +75,19 @@ public class AuthController {
         String rawToken = cookieToken != null ? cookieToken
                 : (body != null ? body.refreshToken() : null);
         authService.logout(rawToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.clear().toString())
+                .build();
+    }
+
+    /**
+     * Self-service account deletion (App Store Guideline 5.1.1(v)).
+     * Deletes the caller's account and their personal data, then clears the
+     * refresh cookie so the session ends immediately.
+     */
+    @DeleteMapping("/account")
+    public ResponseEntity<Void> deleteOwnAccount() {
+        authService.deleteOwnAccount();
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.clear().toString())
                 .build();

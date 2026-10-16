@@ -22,4 +22,6 @@ public interface HealthCanonicalRecordRepository extends JpaRepository<HealthCan
 
     Optional<HealthCanonicalRecord> findByUserIdAndMetricTypeAndStartTimeAndEndTime(
             Long userId, String metricType, LocalDateTime startTime, LocalDateTime endTime);
+
+    void deleteAllByUserId(Long userId);
 }

@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface HealthSourcePreferenceRepository extends JpaRepository<HealthSourcePreference, Long> {
     List<HealthSourcePreference> findByUserId(Long userId);
     Optional<HealthSourcePreference> findByUserIdAndMetricType(Long userId, String metricType);
+
+    void deleteAllByUserId(Long userId);
 }

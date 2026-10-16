@@ -16,6 +16,16 @@ enum BackgroundHealthSync {
     /// How soon to ask for the next run. iOS treats this as a hint, not a promise.
     private static let interval: TimeInterval = 4 * 60 * 60
 
+    private static let enabledKey = "healthAutoSyncEnabled"
+
+    /// Whether background health sync is enabled (Settings → "Apple Health
+    /// Auto-Sync"). Defaults to true. When disabled, no background task is
+    /// scheduled; foreground syncs are unaffected.
+    static var isEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+    }
+
     static func register() {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: taskIdentifier, using: nil) { task in
             guard let refreshTask = task as? BGAppRefreshTask else {
@@ -27,6 +37,7 @@ enum BackgroundHealthSync {
     }
 
     static func schedule() {
+        guard isEnabled else { return }
         let request = BGAppRefreshTaskRequest(identifier: taskIdentifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: interval)
         do {
@@ -35,6 +46,12 @@ enum BackgroundHealthSync {
             // Already scheduled or scheduler busy — harmless, next foregrounding retries.
             print("[BackgroundHealthSync] schedule failed: \(error)")
         }
+    }
+
+    /// Cancels any pending background sync task (called when auto-sync is
+    /// turned off in Settings).
+    static func cancel() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
     }
 
     private static func handle(task: BGAppRefreshTask) {
