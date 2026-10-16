@@ -1,12 +1,12 @@
 package ca.zeezaglobal.gymsuitapp.ui.screens
 
-import android.app.DatePickerDialog
-import android.webkit.WebView
-import androidx.compose.foundation.BorderStroke
+import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,77 +21,42 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.CalendarToday
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.EditCalendar
+import androidx.compose.material.icons.outlined.RadioButtonChecked
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -99,2035 +64,796 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
-import ca.zeezaglobal.gymsuitapp.data.PointsStore
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
-import ca.zeezaglobal.gymsuitapp.data.HealthWorkoutSignals
-import ca.zeezaglobal.gymsuitapp.data.model.Exercise
-import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
-import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
-import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSet
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.time.DayOfWeek
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Calendar
 import java.util.Locale
 
-// MARK: - Workout Split & Body Parts Data Models
-data class BodyPartItem(
-    val id: String,
+private const val PREFS_NAME = "gymsuit_workout_plan"
+private const val KEY_HAS_PLAN = "has_plan"
+private const val KEY_DAYS_PER_WEEK = "days_per_week"
+private const val KEY_SCHEDULED_DATES = "scheduled_dates"
+private const val KEY_USER_WEIGHT = "user_body_weight_kg"
+
+/**
+ * Screen navigation modes for the Workout tab:
+ * CALENDAR -> Monthly overview with pink tickmarks
+ * PLAN_WIZARD_WEIGHT -> Ask weight if none recorded in app or Health Connect
+ * PLAN_WIZARD_FREQUENCY -> Ask days per week
+ * PLAN_WIZARD_DAYS -> Ask which days of the next 7 days
+ * PLANNED_WORKOUTS_MAIN -> Main page with top bar sections matching days per week
+ */
+enum class WorkoutsViewMode {
+    CALENDAR,
+    PLAN_WIZARD_WEIGHT,
+    PLAN_WIZARD_FREQUENCY,
+    PLAN_WIZARD_DAYS,
+    PLANNED_WORKOUTS_MAIN
+}
+
+data class PlannedExerciseItem(
     val name: String,
-    val subtitle: String
+    val targetMuscle: String,
+    val setsReps: String,
+    val suggestedWeightKg: Double?,
+    val note: String
 )
 
-val defaultBodyParts = listOf(
-    BodyPartItem(id = "chest", name = "Chest", subtitle = "Pecs, push-ups, dumbbells"),
-    BodyPartItem(id = "back", name = "Back", subtitle = "Lats, traps, rows"),
-    BodyPartItem(id = "shoulders", name = "Shoulders", subtitle = "Deltoids, presses"),
-    BodyPartItem(id = "biceps", name = "Biceps", subtitle = "Curls, dumbbells"),
-    BodyPartItem(id = "triceps", name = "Triceps", subtitle = "Extensions, dips"),
-    BodyPartItem(id = "legs", name = "Legs", subtitle = "Quads, hamstrings, glutes"),
-    BodyPartItem(id = "core", name = "Core / Abs", subtitle = "Planks, crunches, rotational"),
-    BodyPartItem(id = "calves", name = "Calves", subtitle = "Calf raises, jumps")
-)
-
-data class SplitExerciseItem(
-    val exerciseName: String,
-    val catalogExerciseId: String,
-    val type: String, // "Compound" or "Isolation"
-    val muscles: String,
-    val setsCount: Int,
-    val targetReps: String,
-    val targetRepsInt: Int,
-    val targetWeight: String,
-    val targetWeightKg: Double
-)
-
-data class WorkoutSplitPreset(
-    val id: String,
-    val name: String, // "Push", "Pull", "Legs"
+data class PlannedDaySection(
+    val dayNumber: Int,
     val title: String,
-    val durationText: String,
-    val difficultyText: String,
-    val description: String,
-    val exercises: List<SplitExerciseItem>
+    val scheduledDate: LocalDate,
+    val bodyParts: List<String>,
+    val exercises: List<PlannedExerciseItem>
 )
 
-val workoutSplits = listOf(
-    WorkoutSplitPreset(
-        id = "push",
-        name = "Push",
-        title = "Push Day",
-        durationText = "55-70 minutes",
-        difficultyText = "Intermediate",
-        description = "Focus on chest, anterior deltoids, and triceps with pressing mechanics. Prioritize clean form and controlled eccentrics on every repetition.",
-        exercises = listOf(
-            SplitExerciseItem(
-                exerciseName = "Barbell Bench Press",
-                catalogExerciseId = "0025",
-                type = "Compound",
-                muscles = "Chest, Front Deltoids, Triceps",
-                setsCount = 4,
-                targetReps = "8-10 Reps",
-                targetRepsInt = 8,
-                targetWeight = "65kg",
-                targetWeightKg = 65.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Overhead Shoulder Press",
-                catalogExerciseId = "0997",
-                type = "Compound",
-                muscles = "Shoulders, Upper Chest, Triceps",
-                setsCount = 3,
-                targetReps = "8-12 Reps",
-                targetRepsInt = 10,
-                targetWeight = "40kg",
-                targetWeightKg = 40.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Incline Dumbbell Press",
-                catalogExerciseId = "1254",
-                type = "Compound",
-                muscles = "Upper Chest, Anterior Deltoids",
-                setsCount = 3,
-                targetReps = "10-12 Reps",
-                targetRepsInt = 10,
-                targetWeight = "22kg",
-                targetWeightKg = 22.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Triceps Dips",
-                catalogExerciseId = "0019",
-                type = "Compound",
-                muscles = "Triceps, Lower Chest",
-                setsCount = 3,
-                targetReps = "10-15 Reps",
-                targetRepsInt = 12,
-                targetWeight = "Bodyweight",
-                targetWeightKg = 0.0
-            )
-        )
-    ),
-    WorkoutSplitPreset(
-        id = "pull",
-        name = "Pull",
-        title = "Pull Day",
-        durationText = "50-65 minutes",
-        difficultyText = "Intermediate",
-        description = "Target the entire posterior chain including lats, rhomboids, rear delts, and biceps. Focus on full scapular retraction and a squeeze at peak contraction.",
-        exercises = listOf(
-            SplitExerciseItem(
-                exerciseName = "Pull-Ups",
-                catalogExerciseId = "0652",
-                type = "Compound",
-                muscles = "Latissimus Dorsi, Upper Back, Biceps",
-                setsCount = 4,
-                targetReps = "6-10 Reps",
-                targetRepsInt = 8,
-                targetWeight = "Bodyweight",
-                targetWeightKg = 0.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Barbell Bent Over Row",
-                catalogExerciseId = "0027",
-                type = "Compound",
-                muscles = "Lats, Rhomboids, Lower Back",
-                setsCount = 4,
-                targetReps = "8-10 Reps",
-                targetRepsInt = 8,
-                targetWeight = "60kg",
-                targetWeightKg = 60.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Cable Lat Pulldown",
-                catalogExerciseId = "2330",
-                type = "Compound",
-                muscles = "Lats, Middle Back, Biceps",
-                setsCount = 3,
-                targetReps = "10-12 Reps",
-                targetRepsInt = 10,
-                targetWeight = "50kg",
-                targetWeightKg = 50.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Bicep Curls",
-                catalogExerciseId = "1634",
-                type = "Isolation",
-                muscles = "Biceps Brachii, Forearms",
-                setsCount = 3,
-                targetReps = "12-15 Reps",
-                targetRepsInt = 12,
-                targetWeight = "14kg",
-                targetWeightKg = 14.0
-            )
-        )
-    ),
-    WorkoutSplitPreset(
-        id = "legs",
-        name = "Legs",
-        title = "Legs Day",
-        durationText = "60-75 minutes",
-        difficultyText = "Intermediate",
-        description = "Focus on compound movements to maximize muscle recruitment and strength gains. Rest for 90-120 seconds between heavy sets.",
-        exercises = listOf(
-            SplitExerciseItem(
-                exerciseName = "Squats",
-                catalogExerciseId = "0043",
-                type = "Compound",
-                muscles = "Quadriceps, Hamstrings, Glutes",
-                setsCount = 4,
-                targetReps = "8-12 Reps",
-                targetRepsInt = 10,
-                targetWeight = "70kg",
-                targetWeightKg = 70.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Romanian Deadlifts",
-                catalogExerciseId = "0085",
-                type = "Compound",
-                muscles = "Hamstrings, Glutes, Lower Back",
-                setsCount = 4,
-                targetReps = "8-10 Reps",
-                targetRepsInt = 8,
-                targetWeight = "80kg",
-                targetWeightKg = 80.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Leg Press",
-                catalogExerciseId = "0739",
-                type = "Compound",
-                muscles = "Quadriceps, Glutes",
-                setsCount = 3,
-                targetReps = "10-12 Reps",
-                targetRepsInt = 10,
-                targetWeight = "120kg",
-                targetWeightKg = 120.0
-            ),
-            SplitExerciseItem(
-                exerciseName = "Lunges",
-                catalogExerciseId = "0336",
-                type = "Compound",
-                muscles = "Quadriceps, Glutes, Calves",
-                setsCount = 3,
-                targetReps = "12-15 Reps",
-                targetRepsInt = 12,
-                targetWeight = "16kg",
-                targetWeightKg = 16.0
-            )
-        )
-    )
+data class WorkoutPlanData(
+    val daysPerWeek: Int,
+    val bodyWeightKg: Double,
+    val sections: List<PlannedDaySection>
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutsScreen(session: WorkoutSessionState = remember { WorkoutSessionState() }) {
+fun WorkoutsScreen(
+    session: WorkoutSessionState = remember { WorkoutSessionState() }
+) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val workoutStore = remember { WorkoutStore(context) }
     val healthConnectManager = remember { HealthConnectManager(context) }
-    val scope = rememberCoroutineScope()
+    val planPrefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
-    var selectedSplitIndex by remember { mutableIntStateOf(2) } // Default to "Legs" matching reference design
-    var isCatalogMode by remember { mutableStateOf(false) }
-    var sessionPart by remember { mutableStateOf<String?>(null) }
-    var setLogExercise by remember { mutableStateOf<Exercise?>(null) }
-    var query by remember { mutableStateOf("") }
-    var selectedGroup by remember { mutableStateOf<String?>(null) }
-    
-    // Active logging exercise and its preset configuration
-    var loggingExercise by remember { mutableStateOf<Exercise?>(null) }
-    var loggingTargetReps by remember { mutableIntStateOf(10) }
-    var loggingTargetWeightKg by remember { mutableStateOf(0.0) }
-    var loggingSetCount by remember { mutableIntStateOf(3) }
-    
-    var loggedWorkouts by remember { mutableStateOf(workoutStore.getLoggedWorkouts()) }
-    var selectedCalendarDate by remember { mutableStateOf(LocalDate.now()) }
-    val completedDates = remember(loggedWorkouts) {
-        loggedWorkouts.map {
-            Instant.ofEpochMilli(it.timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+    // Screen State
+    var currentViewMode by remember { mutableStateOf(WorkoutsViewMode.CALENDAR) }
+    var isCheckingWeight by remember { mutableStateOf(false) }
+
+    // Calendar State
+    var selectedYearMonth by remember { mutableStateOf(YearMonth.now()) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var completedDates by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
+
+    // Plan Configuration Wizard State
+    var userWeightKg by remember {
+        val savedWeight = planPrefs.getFloat(KEY_USER_WEIGHT, 0f).toDouble()
+        mutableDoubleStateOf(if (savedWeight > 20.0) savedWeight else 0.0)
+    }
+    var selectedDaysPerWeek by remember {
+        val savedDays = planPrefs.getInt(KEY_DAYS_PER_WEEK, 4)
+        mutableIntStateOf(savedDays.coerceIn(2, 6))
+    }
+    var selectedDatesList by remember { mutableStateOf<List<LocalDate>>(emptyList()) }
+    var activePlan by remember { mutableStateOf<WorkoutPlanData?>(null) }
+    var selectedSectionTabIndex by remember { mutableIntStateOf(0) }
+
+    fun refreshCompletedDates() {
+        val zone = ZoneId.systemDefault()
+        val fromStore = workoutStore.getLoggedWorkouts().map {
+            Instant.ofEpochMilli(it.timestampMillis).atZone(zone).toLocalDate()
         }.toSet()
+
+        val prefs = context.getSharedPreferences("gymsuit_workouts", Context.MODE_PRIVATE)
+        val fromPrefs = (prefs.getStringSet("completed_dates", emptySet()) ?: emptySet()).mapNotNull {
+            try { LocalDate.parse(it) } catch (_: Exception) { null }
+        }.toSet()
+
+        completedDates = fromStore + fromPrefs
     }
 
-    // On-device AI recommendation state with loading shimmer
-    var aiRecommendation by remember { mutableStateOf<WorkoutAiRecommendation?>(null) }
-    var isAiLoading by remember { mutableStateOf(true) }
+    // Load persisted plan on startup if present
+    fun loadSavedPlan(): WorkoutPlanData? {
+        val hasPlan = planPrefs.getBoolean(KEY_HAS_PLAN, false)
+        if (!hasPlan) return null
+        val daysCount = planPrefs.getInt(KEY_DAYS_PER_WEEK, 4)
+        val weight = planPrefs.getFloat(KEY_USER_WEIGHT, 70f).toDouble()
+        val rawDatesJson = planPrefs.getString(KEY_SCHEDULED_DATES, null)
+        val dates = mutableListOf<LocalDate>()
+        if (!rawDatesJson.isNullOrBlank()) {
+            try {
+                val arr = JSONArray(rawDatesJson)
+                for (i in 0 until arr.length()) {
+                    dates.add(LocalDate.parse(arr.getString(i)))
+                }
+            } catch (_: Exception) {}
+        }
+        if (dates.isEmpty()) {
+            val today = LocalDate.now()
+            for (i in 0 until daysCount) {
+                dates.add(today.plusDays(i.toLong()))
+            }
+        }
+        return buildWorkoutPlan(daysCount, weight, dates)
+    }
 
-    // Selected body parts (max 3, none selected until the user picks them)
-    var selectedBodyParts by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(Unit) {
+        refreshCompletedDates()
+        try {
+            if (healthConnectManager.isAvailable() && healthConnectManager.hasExercisePermission()) {
+                val hcDates = healthConnectManager.readWorkoutDays()
+                completedDates = completedDates + hcDates
+            }
+        } catch (_: Exception) {}
 
-    // Session stopwatch keeps counting even while a sub-page is open; pause stops it
-    LaunchedEffect(session.active, session.running) {
-        while (session.active && session.running) {
-            delay(1000)
-            session.tick()
+        // Check if a plan is already active
+        activePlan = loadSavedPlan()
+    }
+
+    // Handler when user clicks "Plan Workouts" button
+    fun startPlanningFlow() {
+        coroutineScope.launch {
+            isCheckingWeight = true
+            var weightFound: Double? = null
+
+            // 1. Check local saved plan weight
+            val localWeight = planPrefs.getFloat(KEY_USER_WEIGHT, 0f).toDouble()
+            if (localWeight > 25.0) {
+                weightFound = localWeight
+            }
+
+            // 2. Check user_fitness_prefs if available
+            if (weightFound == null) {
+                val fitPrefs = context.getSharedPreferences("user_fitness_prefs", Context.MODE_PRIVATE)
+                val fitWeight = fitPrefs.getFloat("user_body_weight_kg", 0f).toDouble()
+                if (fitWeight > 25.0) {
+                    weightFound = fitWeight
+                }
+            }
+
+            // 3. Check Health Connect if available
+            if (weightFound == null) {
+                try {
+                    if (healthConnectManager.isAvailable() && healthConnectManager.hasWeightPermission()) {
+                        val hcWeight = healthConnectManager.readLatestWeight()
+                        if (hcWeight != null && hcWeight > 25.0) {
+                            weightFound = hcWeight
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            isCheckingWeight = false
+
+            if (weightFound != null && weightFound > 25.0) {
+                userWeightKg = weightFound
+                // Body weight already recorded: advance directly to frequency question!
+                currentViewMode = WorkoutsViewMode.PLAN_WIZARD_FREQUENCY
+            } else {
+                // No body weight recorded: ask for body weight
+                currentViewMode = WorkoutsViewMode.PLAN_WIZARD_WEIGHT
+            }
         }
     }
 
-    LaunchedEffect(selectedCalendarDate, completedDates) {
-        isAiLoading = true
-        // Simulate in-device AI model inferencing and show smooth shimmer
-        withContext(Dispatchers.Default) {
-            val health = try {
-                healthConnectManager.readWorkoutSignals()
-            } catch (e: Exception) {
-                HealthWorkoutSignals()
-            }
-            val recommendation = OnDeviceWorkoutAiEngine.generateRecommendation(
-                selectedDate = selectedCalendarDate,
-                exercises = workoutStore.exercises,
-                loggedWorkouts = loggedWorkouts,
-                health = health
-            )
-            delay(650) // Realistic on-device neural/rule processing delay to display shimmer
-            withContext(Dispatchers.Main) {
-                aiRecommendation = recommendation
-                isAiLoading = false
-            }
-        }
-    }
-
-    val onWorkoutSaved: (LoggedWorkout) -> Unit = { workout ->
-        loggedWorkouts = workoutStore.logWorkout(workout)
-            PointsStore.init(context)
-            PointsStore.awardForWorkout(
-                exerciseName = workout.exerciseName,
-                setCount = workout.sets.size,
-                durationMinutes = workout.durationMinutes
-            )
-            loggingExercise = null
-            scope.launch {
-                val ok = healthConnectManager.insertExerciseSession(
-                    exerciseName = workout.exerciseName,
-                    start = Instant.ofEpochMilli(workout.timestampMillis)
-                        .minusSeconds(workout.durationMinutes * 60L),
-                    end = Instant.ofEpochMilli(workout.timestampMillis),
-                    setCount = workout.sets.size,
-                    totalReps = workout.totalReps,
-                    totalVolumeKg = workout.totalVolumeKg
-                )
-                if (ok) loggedWorkouts = workoutStore.markSynced(workout.id)
-                ca.zeezaglobal.gymsuitapp.di.AppComponent.from(context).healthSyncManager.sync()
-            }
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        if (session.active && setLogExercise != null) {
-            val exercise = setLogExercise!!
-            SetBySetLogPage(
-                exercise = exercise,
-                sessionRunning = session.running,
-                onBack = { setLogExercise = null },
-                onFinished = { workout ->
-                    onWorkoutSaved(workout)
-                    session.record(
-                        exercise,
-                        OnDeviceWorkoutAiEngine.bodyPartNameFor(exercise) ?: sessionPart.orEmpty(),
-                        workout.sets.size
-                    )
-                    setLogExercise = null
-                }
-            )
-        } else if (session.active && sessionPart != null) {
-            BackHandler { sessionPart = null }
-            BodyPartWorkoutPickerPage(
-                bodyParts = listOf(sessionPart!!),
-                exercises = workoutStore.exercises,
-                onBack = { sessionPart = null },
-                onExerciseClick = { exercise -> setLogExercise = exercise }
-            )
-        } else if (session.active) {
-            WorkoutSessionPage(
-                session = session,
-                onFinish = { session.end() },
-                onSelectBodyPart = { sessionPart = it }
-            )
-        } else if (isCatalogMode) {
-            BackHandler { isCatalogMode = false }
-            // Secondary bar to return to Split view
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "All Exercises Catalog",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                FilledTonalButton(
-                    onClick = { isCatalogMode = false },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Back to Splits", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-
-            ExercisesContent(
-                workoutStore = workoutStore,
-                query = query,
-                onQueryChange = { query = it },
-                selectedGroup = selectedGroup,
-                onGroupSelected = { group -> selectedGroup = if (selectedGroup == group) null else group },
-                onExerciseClick = { exercise ->
-                    loggingExercise = exercise
-                    loggingTargetReps = 10
-                    loggingTargetWeightKg = 0.0
-                    loggingSetCount = 3
-                }
-            )
-        } else {
-            val currentSplit = workoutSplits[selectedSplitIndex.coerceIn(0, workoutSplits.lastIndex)]
-            WorkoutSplitContent(
-                split = currentSplit,
-                selectedSplitIndex = selectedSplitIndex,
-                selectedCalendarDate = selectedCalendarDate,
+    // View Switching
+    when (currentViewMode) {
+        WorkoutsViewMode.CALENDAR -> {
+            WorkoutsCalendarView(
+                selectedYearMonth = selectedYearMonth,
+                onYearMonthChange = { selectedYearMonth = it },
                 completedDates = completedDates,
-                aiRecommendation = aiRecommendation,
-                isAiLoading = isAiLoading,
-                selectedBodyParts = selectedBodyParts,
-                recommendedBodyParts = aiRecommendation?.recommendedBodyParts.orEmpty(),
-                onToggleBodyPart = { partName ->
-                    if (selectedBodyParts.contains(partName)) {
-                        selectedBodyParts = selectedBodyParts - partName
-                    } else if (selectedBodyParts.size < 3) {
-                        selectedBodyParts = selectedBodyParts + partName
+                selectedDate = selectedDate,
+                onSelectDate = { selectedDate = it },
+                activePlan = activePlan,
+                isCheckingWeight = isCheckingWeight,
+                onPlanWorkoutsClick = {
+                    if (activePlan != null) {
+                        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+                    } else {
+                        startPlanningFlow()
                     }
                 },
-                onRemoveBodyPart = { partName ->
-                    selectedBodyParts = selectedBodyParts - partName
-                },
-                onStartAiWorkout = {
-                    session.start(selectedBodyParts)
-                },
-                onSelectCalendarDate = { selectedCalendarDate = it },
-                onSelectSplit = { selectedSplitIndex = it },
-                onOpenCatalog = { isCatalogMode = true },
-                onExerciseClick = { splitItem ->
-                    // Match catalog exercise or synthesize fallback
-                    val matched = workoutStore.exercises.find { it.id == splitItem.catalogExerciseId }
-                        ?: workoutStore.exercises.find { it.name.contains(splitItem.exerciseName, ignoreCase = true) }
-                        ?: Exercise(
-                            id = splitItem.catalogExerciseId,
-                            name = splitItem.exerciseName,
-                            bodyPart = currentSplit.name.lowercase(),
-                            equipment = "Gym Equipment",
-                            primaryMuscle = splitItem.muscles.split(",").firstOrNull()?.trim() ?: "Muscles",
-                            secondaryMuscles = emptyList(),
-                            instructions = listOf("Perform ${splitItem.exerciseName} with proper form for ${splitItem.targetReps}."),
-                            gif = "",
-                            img = ""
-                        )
-                    loggingExercise = matched
-                    loggingTargetReps = splitItem.targetRepsInt
-                    loggingTargetWeightKg = splitItem.targetWeightKg
-                    loggingSetCount = splitItem.setsCount
+                onRePlanClick = {
+                    startPlanningFlow()
                 }
             )
         }
-    }
 
-    loggingExercise?.let { exercise ->
-        WorkoutLogSheet(
-            exercise = exercise,
-            initialTargetReps = loggingTargetReps,
-            initialTargetWeightKg = loggingTargetWeightKg,
-            initialSetCount = loggingSetCount,
-            onDismiss = { loggingExercise = null },
-            onSaved = onWorkoutSaved
-        )
+        WorkoutsViewMode.PLAN_WIZARD_WEIGHT -> {
+            BackHandler { currentViewMode = WorkoutsViewMode.CALENDAR }
+            BodyWeightStepScreen(
+                initialWeight = if (userWeightKg > 20.0) userWeightKg else 70.0,
+                onBack = { currentViewMode = WorkoutsViewMode.CALENDAR },
+                onContinue = { enteredWeight ->
+                    userWeightKg = enteredWeight
+                    planPrefs.edit().putFloat(KEY_USER_WEIGHT, enteredWeight.toFloat()).apply()
+                    val fitPrefs = context.getSharedPreferences("user_fitness_prefs", Context.MODE_PRIVATE)
+                    fitPrefs.edit().putFloat("user_body_weight_kg", enteredWeight.toFloat()).apply()
+                    // Try writing to Health Connect if available
+                    coroutineScope.launch {
+                        try {
+                            if (healthConnectManager.isAvailable()) {
+                                healthConnectManager.insertWeight(enteredWeight)
+                            }
+                        } catch (_: Exception) {}
+                    }
+                    currentViewMode = WorkoutsViewMode.PLAN_WIZARD_FREQUENCY
+                }
+            )
+        }
+
+        WorkoutsViewMode.PLAN_WIZARD_FREQUENCY -> {
+            BackHandler {
+                val hasSavedWeight = planPrefs.getFloat(KEY_USER_WEIGHT, 0f) > 20f
+                currentViewMode = if (!hasSavedWeight) WorkoutsViewMode.PLAN_WIZARD_WEIGHT else WorkoutsViewMode.CALENDAR
+            }
+            WorkoutFrequencyStepScreen(
+                currentFrequency = selectedDaysPerWeek,
+                onBack = {
+                    val hasSavedWeight = planPrefs.getFloat(KEY_USER_WEIGHT, 0f) > 20f
+                    currentViewMode = if (!hasSavedWeight) WorkoutsViewMode.PLAN_WIZARD_WEIGHT else WorkoutsViewMode.CALENDAR
+                },
+                onContinue = { frequency ->
+                    selectedDaysPerWeek = frequency
+                    // Reset selected dates to match new frequency
+                    selectedDatesList = emptyList()
+                    currentViewMode = WorkoutsViewMode.PLAN_WIZARD_DAYS
+                }
+            )
+        }
+
+        WorkoutsViewMode.PLAN_WIZARD_DAYS -> {
+            BackHandler { currentViewMode = WorkoutsViewMode.PLAN_WIZARD_FREQUENCY }
+            WorkoutDaysSelectionStepScreen(
+                targetDaysCount = selectedDaysPerWeek,
+                initialSelectedDates = selectedDatesList,
+                onBack = { currentViewMode = WorkoutsViewMode.PLAN_WIZARD_FREQUENCY },
+                onConfirmPlan = { chosenDates ->
+                    selectedDatesList = chosenDates
+                    val newPlan = buildWorkoutPlan(selectedDaysPerWeek, userWeightKg, chosenDates)
+                    activePlan = newPlan
+
+                    // Persist Plan
+                    val datesJson = JSONArray()
+                    chosenDates.forEach { datesJson.put(it.toString()) }
+                    planPrefs.edit()
+                        .putBoolean(KEY_HAS_PLAN, true)
+                        .putInt(KEY_DAYS_PER_WEEK, selectedDaysPerWeek)
+                        .putFloat(KEY_USER_WEIGHT, userWeightKg.toFloat())
+                        .putString(KEY_SCHEDULED_DATES, datesJson.toString())
+                        .apply()
+
+                    selectedSectionTabIndex = 0
+                    currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+                }
+            )
+        }
+
+        WorkoutsViewMode.PLANNED_WORKOUTS_MAIN -> {
+            BackHandler { currentViewMode = WorkoutsViewMode.CALENDAR }
+            val plan = activePlan ?: buildWorkoutPlan(selectedDaysPerWeek, userWeightKg, selectedDatesList)
+            PlannedWorkoutsMainScreen(
+                plan = plan,
+                selectedTabIndex = selectedSectionTabIndex,
+                onTabSelect = { selectedSectionTabIndex = it },
+                onBackToCalendar = { currentViewMode = WorkoutsViewMode.CALENDAR },
+                onRePlan = { startPlanningFlow() },
+                onStartWorkout = { daySection ->
+                    session.start(daySection.bodyParts)
+                }
+            )
+        }
     }
 }
 
-// MARK: - Workout Split Content (Matches Reference Design)
+/**
+ * Builds standard workout plan split routines customized to user bodyweight and selected days.
+ */
+private fun buildWorkoutPlan(
+    daysCount: Int,
+    weightKg: Double,
+    dates: List<LocalDate>
+): WorkoutPlanData {
+    val effectiveWeight = if (weightKg > 20.0) weightKg else 70.0
+    val sections = mutableListOf<PlannedDaySection>()
+
+    for (i in 0 until daysCount) {
+        val scheduledDate = dates.getOrNull(i) ?: LocalDate.now().plusDays(i.toLong())
+        val dayNumber = i + 1
+
+        val (title, bodyParts, exercises) = when (daysCount) {
+            2 -> {
+                if (i == 0) {
+                    Triple(
+                        "Full Body A (Chest, Back, Quads)",
+                        listOf("chest", "back", "upper legs"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Bench Press", "Chest", "4 sets × 8-10 reps", (effectiveWeight * 0.75).roundToHalf(), "Focus on controlled bar descent to mid-chest"),
+                            PlannedExerciseItem("Lat Pulldown", "Back", "4 sets × 10-12 reps", (effectiveWeight * 0.65).roundToHalf(), "Squeeze lats at the bottom"),
+                            PlannedExerciseItem("Barbell Full Squat", "Legs", "4 sets × 8-10 reps", (effectiveWeight * 0.90).roundToHalf(), "Maintain neutral spine and break parallel"),
+                            PlannedExerciseItem("Overhead Dumbbell Press", "Shoulders", "3 sets × 10 reps", (effectiveWeight * 0.20).roundToHalf(), "Keep elbows at 45 degree angle"),
+                            PlannedExerciseItem("Plank", "Core", "3 sets × 45-60s", null, "Keep core braced tight and glutes squeezed")
+                        )
+                    )
+                } else {
+                    Triple(
+                        "Full Body B (Hamstrings, Shoulders, Arms)",
+                        listOf("upper legs", "shoulders", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Deadlift", "Back/Legs", "4 sets × 6-8 reps", (effectiveWeight * 1.05).roundToHalf(), "Drive through heels, maintain neutral neck"),
+                            PlannedExerciseItem("Incline Dumbbell Press", "Chest", "3 sets × 10 reps", (effectiveWeight * 0.25).roundToHalf(), "Target upper pectorals at 30 degree incline"),
+                            PlannedExerciseItem("Dumbbell Biceps Curl", "Arms", "3 sets × 12 reps", (effectiveWeight * 0.15).roundToHalf(), "Supinate wrists at the peak contraction"),
+                            PlannedExerciseItem("Triceps Pushdown", "Arms", "3 sets × 12 reps", (effectiveWeight * 0.30).roundToHalf(), "Lock elbows firmly at sides"),
+                            PlannedExerciseItem("Hanging Knee Raise", "Core", "3 sets × 15 reps", null, "Control the swing and exhale on elevation")
+                        )
+                    )
+                }
+            }
+            3 -> {
+                when (i) {
+                    0 -> Triple(
+                        "Push (Chest, Shoulders & Triceps)",
+                        listOf("chest", "shoulders", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Bench Press", "Chest", "4 sets × 8-10 reps", (effectiveWeight * 0.75).roundToHalf(), "Classic compound builder for upper torso"),
+                            PlannedExerciseItem("Incline Dumbbell Press", "Chest", "3 sets × 10-12 reps", (effectiveWeight * 0.25).roundToHalf(), "Set bench to 30 degrees for upper chest"),
+                            PlannedExerciseItem("Dumbbell Lateral Raise", "Shoulders", "4 sets × 12-15 reps", (effectiveWeight * 0.10).roundToHalf(), "Slight bend in elbows, lead with elbows"),
+                            PlannedExerciseItem("Overhead Triceps Extension", "Triceps", "3 sets × 10-12 reps", (effectiveWeight * 0.22).roundToHalf(), "Deep stretch on the long head of triceps"),
+                            PlannedExerciseItem("Cable Pushdown", "Triceps", "3 sets × 12 reps", (effectiveWeight * 0.30).roundToHalf(), "Full extension and lock out smoothly")
+                        )
+                    )
+                    1 -> Triple(
+                        "Pull (Back & Biceps)",
+                        listOf("back", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Deadlift", "Back", "4 sets × 6 reps", (effectiveWeight * 1.10).roundToHalf(), "Heavy compound pull for entire posterior chain"),
+                            PlannedExerciseItem("Barbell Bent-Over Row", "Back", "4 sets × 8-10 reps", (effectiveWeight * 0.60).roundToHalf(), "Pull bar toward lower abdomen"),
+                            PlannedExerciseItem("Lat Pulldown", "Back", "3 sets × 10-12 reps", (effectiveWeight * 0.65).roundToHalf(), "Wide grip, pull towards upper chest"),
+                            PlannedExerciseItem("Barbell Biceps Curl", "Biceps", "3 sets × 10 reps", (effectiveWeight * 0.35).roundToHalf(), "Strict form without swinging"),
+                            PlannedExerciseItem("Hammer Curls", "Forearms/Biceps", "3 sets × 12 reps", (effectiveWeight * 0.16).roundToHalf(), "Neutral grip targeting the brachialis")
+                        )
+                    )
+                    else -> Triple(
+                        "Legs & Core",
+                        listOf("upper legs", "waist"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Full Squat", "Quads", "4 sets × 8-10 reps", (effectiveWeight * 0.90).roundToHalf(), "Deep squat with active knee tracking"),
+                            PlannedExerciseItem("Romanian Deadlift", "Hamstrings", "4 sets × 10 reps", (effectiveWeight * 0.70).roundToHalf(), "Hinge at hips, feeling hamstring stretch"),
+                            PlannedExerciseItem("Walking Dumbbell Lunges", "Quads/Glutes", "3 sets × 12 reps/leg", (effectiveWeight * 0.18).roundToHalf(), "Upright chest and steady strides"),
+                            PlannedExerciseItem("Standing Calf Raise", "Calves", "4 sets × 15 reps", (effectiveWeight * 0.50).roundToHalf(), "2-second pause at top of each rep"),
+                            PlannedExerciseItem("Hanging Leg Raise", "Core", "3 sets × 15 reps", null, "Raise knees/toes up to bar level")
+                        )
+                    )
+                }
+            }
+            4 -> {
+                when (i) {
+                    0 -> Triple(
+                        "Upper Body Strength (Chest & Back)",
+                        listOf("chest", "back"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Bench Press", "Chest", "4 sets × 6-8 reps", (effectiveWeight * 0.80).roundToHalf(), "Primary compound upper press"),
+                            PlannedExerciseItem("Barbell Bent-Over Row", "Back", "4 sets × 8-10 reps", (effectiveWeight * 0.65).roundToHalf(), "Heavy back thickness builder"),
+                            PlannedExerciseItem("Incline Dumbbell Press", "Chest", "3 sets × 10 reps", (effectiveWeight * 0.25).roundToHalf(), "Clavicular head development"),
+                            PlannedExerciseItem("Lat Pulldown", "Back", "3 sets × 12 reps", (effectiveWeight * 0.65).roundToHalf(), "Back width builder"),
+                            PlannedExerciseItem("Face Pulls", "Rear Delts", "3 sets × 15 reps", (effectiveWeight * 0.20).roundToHalf(), "Shoulder health and posture")
+                        )
+                    )
+                    1 -> Triple(
+                        "Lower Body Strength (Quads & Hamstrings)",
+                        listOf("upper legs", "waist"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Full Squat", "Quads", "4 sets × 6-8 reps", (effectiveWeight * 0.95).roundToHalf(), "Foundation for lower body power"),
+                            PlannedExerciseItem("Romanian Deadlift", "Hamstrings", "4 sets × 8-10 reps", (effectiveWeight * 0.75).roundToHalf(), "Posterior chain hypertrophy"),
+                            PlannedExerciseItem("Leg Press", "Quads", "3 sets × 12 reps", (effectiveWeight * 1.30).roundToHalf(), "Controlled eccentric movement"),
+                            PlannedExerciseItem("Standing Calf Raise", "Calves", "4 sets × 15 reps", (effectiveWeight * 0.50).roundToHalf(), "Full extension and plantarflexion"),
+                            PlannedExerciseItem("Plank Hold", "Core", "3 sets × 60s", null, "Anti-extension core stabilization")
+                        )
+                    )
+                    2 -> Triple(
+                        "Upper Body Hypertrophy (Shoulders & Arms)",
+                        listOf("shoulders", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Seated Dumbbell Shoulder Press", "Shoulders", "4 sets × 10 reps", (effectiveWeight * 0.22).roundToHalf(), "Full shoulder development"),
+                            PlannedExerciseItem("Lateral Raise", "Shoulders", "4 sets × 15 reps", (effectiveWeight * 0.10).roundToHalf(), "Strict medial deltoid isolation"),
+                            PlannedExerciseItem("Dumbbell Biceps Curl", "Biceps", "3 sets × 12 reps", (effectiveWeight * 0.15).roundToHalf(), "Alternating arms with squeeze"),
+                            PlannedExerciseItem("Skull Crushers", "Triceps", "3 sets × 12 reps", (effectiveWeight * 0.25).roundToHalf(), "Lower bar gently toward forehead"),
+                            PlannedExerciseItem("Hammer Curls", "Forearms", "3 sets × 12 reps", (effectiveWeight * 0.16).roundToHalf(), "Brachioradialis emphasis")
+                        )
+                    )
+                    else -> Triple(
+                        "Lower Body & Core Hypertrophy",
+                        listOf("upper legs", "waist"),
+                        listOf(
+                            PlannedExerciseItem("Dumbbell Goblet Squat", "Quads", "4 sets × 12 reps", (effectiveWeight * 0.35).roundToHalf(), "Vertical torso upright squat"),
+                            PlannedExerciseItem("Lying Hamstring Curl", "Hamstrings", "4 sets × 12 reps", (effectiveWeight * 0.40).roundToHalf(), "Isolated knee flexion"),
+                            PlannedExerciseItem("Dumbbell Walking Lunges", "Glutes/Quads", "3 sets × 12 reps/leg", (effectiveWeight * 0.18).roundToHalf(), "Dynamic leg drive"),
+                            PlannedExerciseItem("Hanging Leg Raise", "Core", "4 sets × 15 reps", null, "Controlled lower abs workout"),
+                            PlannedExerciseItem("Cable Woodchoppers", "Obliques", "3 sets × 15 reps/side", (effectiveWeight * 0.20).roundToHalf(), "Rotational core strength")
+                        )
+                    )
+                }
+            }
+            5 -> {
+                when (i) {
+                    0 -> Triple(
+                        "Chest & Triceps",
+                        listOf("chest", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Bench Press", "Chest", "4 sets × 8-10 reps", (effectiveWeight * 0.75).roundToHalf(), "Main chest strength lift"),
+                            PlannedExerciseItem("Incline Dumbbell Press", "Chest", "3 sets × 10-12 reps", (effectiveWeight * 0.25).roundToHalf(), "Upper chest hypertrophy"),
+                            PlannedExerciseItem("Dumbbell Chest Flyes", "Chest", "3 sets × 12-15 reps", (effectiveWeight * 0.14).roundToHalf(), "Full pectoral stretch"),
+                            PlannedExerciseItem("Triceps Rope Pushdown", "Triceps", "4 sets × 12 reps", (effectiveWeight * 0.28).roundToHalf(), "Spread rope at base"),
+                            PlannedExerciseItem("Dips (or Bench Dips)", "Chest/Triceps", "3 sets × 12 reps", null, "Chest lean forward")
+                        )
+                    )
+                    1 -> Triple(
+                        "Back & Biceps",
+                        listOf("back", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Deadlift", "Back", "4 sets × 6 reps", (effectiveWeight * 1.10).roundToHalf(), "Full posterior tension"),
+                            PlannedExerciseItem("Lat Pulldown", "Back", "4 sets × 10 reps", (effectiveWeight * 0.65).roundToHalf(), "Controlled negative phase"),
+                            PlannedExerciseItem("Seated Cable Row", "Back", "3 sets × 12 reps", (effectiveWeight * 0.60).roundToHalf(), "Pull into mid-torso"),
+                            PlannedExerciseItem("Incline Dumbbell Curl", "Biceps", "3 sets × 12 reps", (effectiveWeight * 0.14).roundToHalf(), "Deep biceps stretch"),
+                            PlannedExerciseItem("Preacher Curl", "Biceps", "3 sets × 10 reps", (effectiveWeight * 0.25).roundToHalf(), "Peak contraction isolation")
+                        )
+                    )
+                    2 -> Triple(
+                        "Legs & Calves",
+                        listOf("upper legs"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Full Squat", "Quads", "4 sets × 8 reps", (effectiveWeight * 0.90).roundToHalf(), "Core braced, deep depth"),
+                            PlannedExerciseItem("Romanian Deadlift", "Hamstrings", "4 sets × 10 reps", (effectiveWeight * 0.70).roundToHalf(), "Feel stretch through glutes"),
+                            PlannedExerciseItem("Leg Extension Machine", "Quads", "3 sets × 15 reps", (effectiveWeight * 0.45).roundToHalf(), "Pause at maximum extension"),
+                            PlannedExerciseItem("Standing Calf Raise", "Calves", "4 sets × 15 reps", (effectiveWeight * 0.50).roundToHalf(), "High repetitions for calves"),
+                            PlannedExerciseItem("Walking Lunges", "Glutes", "3 sets × 12 reps/leg", (effectiveWeight * 0.18).roundToHalf(), "Steady balance")
+                        )
+                    )
+                    3 -> Triple(
+                        "Shoulders & Traps",
+                        listOf("shoulders"),
+                        listOf(
+                            PlannedExerciseItem("Overhead Barbell Press", "Shoulders", "4 sets × 8 reps", (effectiveWeight * 0.45).roundToHalf(), "Strict military press overhead"),
+                            PlannedExerciseItem("Dumbbell Lateral Raise", "Shoulders", "4 sets × 15 reps", (effectiveWeight * 0.10).roundToHalf(), "Side delt width builder"),
+                            PlannedExerciseItem("Reverse Pec Deck Fly", "Rear Delts", "4 sets × 15 reps", (effectiveWeight * 0.30).roundToHalf(), "Upper back and rear delts"),
+                            PlannedExerciseItem("Dumbbell Shrugs", "Traps", "4 sets × 12 reps", (effectiveWeight * 0.35).roundToHalf(), "Elevate shoulders straight up"),
+                            PlannedExerciseItem("Front Dumbbell Raise", "Shoulders", "3 sets × 12 reps", (effectiveWeight * 0.12).roundToHalf(), "Anterior delt isolation")
+                        )
+                    )
+                    else -> Triple(
+                        "Core & Conditioning",
+                        listOf("waist", "cardio"),
+                        listOf(
+                            PlannedExerciseItem("Hanging Knee-to-Elbow", "Core", "4 sets × 12 reps", null, "Full abdominal contraction"),
+                            PlannedExerciseItem("Cable Russian Twist", "Core", "3 sets × 15 reps", (effectiveWeight * 0.20).roundToHalf(), "Rotational torque on obliques"),
+                            PlannedExerciseItem("Plank to Pushup", "Core/Shoulders", "3 sets × 10 reps", null, "Core dynamic stability"),
+                            PlannedExerciseItem("Ab Wheel Rollout", "Core", "3 sets × 10 reps", null, "Deep lat and core anti-extension"),
+                            PlannedExerciseItem("High Knees / Jump Rope", "Cardio", "4 rounds × 60s", null, "Endurance finisher")
+                        )
+                    )
+                }
+            }
+            else -> {
+                // 6 Days PPL x 2
+                val isPPLSecondHalf = i >= 3
+                val partSuffix = if (isPPLSecondHalf) "B" else "A"
+                when (i % 3) {
+                    0 -> Triple(
+                        "Push $partSuffix (Chest, Shoulders & Triceps)",
+                        listOf("chest", "shoulders", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Bench Press", "Chest", "4 sets × 8 reps", (effectiveWeight * 0.75).roundToHalf(), "Compound push power"),
+                            PlannedExerciseItem("Incline Dumbbell Press", "Chest", "3 sets × 10 reps", (effectiveWeight * 0.25).roundToHalf(), "Upper chest development"),
+                            PlannedExerciseItem("Dumbbell Lateral Raise", "Shoulders", "4 sets × 15 reps", (effectiveWeight * 0.10).roundToHalf(), "Strict medial delt isolate"),
+                            PlannedExerciseItem("Cable Triceps Pushdown", "Triceps", "4 sets × 12 reps", (effectiveWeight * 0.30).roundToHalf(), "Triceps lateral head"),
+                            PlannedExerciseItem("Dips", "Chest/Triceps", "3 sets × 10 reps", null, "Bodyweight finisher")
+                        )
+                    )
+                    1 -> Triple(
+                        "Pull $partSuffix (Back, Rear Delts & Biceps)",
+                        listOf("back", "upper arms"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Deadlift", "Back", "4 sets × 6 reps", (effectiveWeight * 1.10).roundToHalf(), "Posterior chain foundation"),
+                            PlannedExerciseItem("Lat Pulldown", "Back", "4 sets × 10 reps", (effectiveWeight * 0.65).roundToHalf(), "Lat width builder"),
+                            PlannedExerciseItem("Barbell Row", "Back", "3 sets × 10 reps", (effectiveWeight * 0.60).roundToHalf(), "Back thickness"),
+                            PlannedExerciseItem("Face Pulls", "Rear Delts", "4 sets × 15 reps", (effectiveWeight * 0.20).roundToHalf(), "Scapular retraction"),
+                            PlannedExerciseItem("Dumbbell Biceps Curl", "Biceps", "4 sets × 12 reps", (effectiveWeight * 0.15).roundToHalf(), "Full arm peak")
+                        )
+                    )
+                    else -> Triple(
+                        "Legs & Core $partSuffix",
+                        listOf("upper legs", "waist"),
+                        listOf(
+                            PlannedExerciseItem("Barbell Full Squat", "Quads", "4 sets × 8 reps", (effectiveWeight * 0.90).roundToHalf(), "Main leg drive"),
+                            PlannedExerciseItem("Romanian Deadlift", "Hamstrings", "4 sets × 10 reps", (effectiveWeight * 0.70).roundToHalf(), "Deep hamstring stretch"),
+                            PlannedExerciseItem("Leg Press", "Quads", "3 sets × 12 reps", (effectiveWeight * 1.30).roundToHalf(), "Quad burnout"),
+                            PlannedExerciseItem("Standing Calf Raise", "Calves", "4 sets × 15 reps", (effectiveWeight * 0.50).roundToHalf(), "Full calves flex"),
+                            PlannedExerciseItem("Hanging Leg Raise", "Core", "3 sets × 15 reps", null, "Abdominal definition")
+                        )
+                    )
+                }
+            }
+        }
+
+        sections.add(
+            PlannedDaySection(
+                dayNumber = dayNumber,
+                title = title,
+                scheduledDate = scheduledDate,
+                bodyParts = bodyParts,
+                exercises = exercises
+            )
+        )
+    }
+
+    return WorkoutPlanData(
+        daysPerWeek = daysCount,
+        bodyWeightKg = effectiveWeight,
+        sections = sections
+    )
+}
+
+private fun Double.roundToHalf(): Double = Math.round(this * 2.0) / 2.0
+
+// MARK: - Calendar Screen with Material You 3 "Plan Workouts" Button
+
 @Composable
-private fun WorkoutSplitContent(
-    split: WorkoutSplitPreset,
-    selectedSplitIndex: Int,
-    selectedCalendarDate: LocalDate,
+fun WorkoutsCalendarView(
+    selectedYearMonth: YearMonth,
+    onYearMonthChange: (YearMonth) -> Unit,
     completedDates: Set<LocalDate>,
-    aiRecommendation: WorkoutAiRecommendation?,
-    isAiLoading: Boolean,
-    selectedBodyParts: List<String>,
-    recommendedBodyParts: List<String>,
-    onToggleBodyPart: (String) -> Unit,
-    onRemoveBodyPart: (String) -> Unit,
-    onStartAiWorkout: () -> Unit,
-    onSelectCalendarDate: (LocalDate) -> Unit,
-    onSelectSplit: (Int) -> Unit,
-    onOpenCatalog: () -> Unit,
-    onExerciseClick: (SplitExerciseItem) -> Unit
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit,
+    activePlan: WorkoutPlanData?,
+    isCheckingWeight: Boolean,
+    onPlanWorkoutsClick: () -> Unit,
+    onRePlanClick: () -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 100.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA)),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Top Week Calendar Strip (Matching Reference Image)
+        // Top Header Row with Title & Month Switcher
         item {
-            WeeklyWorkoutCalendarStrip(
-                selectedDate = selectedCalendarDate,
-                completedDates = completedDates,
-                onSelectDate = onSelectCalendarDate
-            )
-        }
-
-        // AI Recommendation Card with shimmer effect (Directly below date selection)
-        item {
-            AiRecommendationCard(
-                recommendation = aiRecommendation,
-                isLoading = isAiLoading,
-                selectedBodyParts = selectedBodyParts,
-                onRemoveBodyPart = onRemoveBodyPart,
-                onStartWorkout = onStartAiWorkout
-            )
-        }
-
-        // Body Parts Section Container (Matching Reference Image)
-        item {
-            ElevatedCard(
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // Header Row: "Body parts" + "8 parts" badge
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Body parts",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFEFF6FF) // Soft light blue badge background
-                        ) {
-                            Text(
-                                text = "${defaultBodyParts.size} parts",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2563EB), // Vibrant blue
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                            )
-                        }
-                    }
-
-                    // Subtitle
+                Column {
                     Text(
-                        text = "Choose the focus for your next session",
+                        text = "Workouts",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = selectedYearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Normal,
                         color = Color(0xFF64748B)
                     )
+                }
 
-                    Spacer(Modifier.height(2.dp))
-
-                    // List of 8 Body Part Cards
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { onYearMonthChange(selectedYearMonth.minusMonths(1)) }
                     ) {
-                        defaultBodyParts.forEach { part ->
-                            val isSelected = selectedBodyParts.contains(part.name)
-                            val canAdd = selectedBodyParts.size < 3
-                            val isRecommended = part.name in recommendedBodyParts
-                            val glow by rememberInfiniteTransition(label = "recommend_glow").animateFloat(
-                                initialValue = 0.25f,
-                                targetValue = 1f,
-                                animationSpec = infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                                label = "recommend_glow_alpha"
-                            )
-
-                            Surface(
-                                shape = RoundedCornerShape(18.dp),
-                                color = Color.White,
-                                border = BorderStroke(
-                                    if (isRecommended) 2.dp else 1.dp,
-                                    when {
-                                        isRecommended -> Color(0xFF8B5CF6).copy(alpha = glow)
-                                        isSelected -> Color(0xFF2563EB).copy(alpha = 0.4f)
-                                        else -> Color(0xFFF1F5F9)
-                                    }
-                                ),
-                                shadowElevation = if (isRecommended) (2 + 10 * glow).dp else 0.5.dp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .then(
-                                        if (isRecommended) Modifier.shadow(
-                                            elevation = (4 + 12 * glow).dp,
-                                            shape = RoundedCornerShape(18.dp),
-                                            ambientColor = Color(0xFF8B5CF6),
-                                            spotColor = Color(0xFF8B5CF6)
-                                        ) else Modifier
-                                    )
-                                    .clip(RoundedCornerShape(18.dp))
-                                    .clickable { onToggleBodyPart(part.name) }
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = part.name,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF0F172A)
-                                            )
-                                            if (isRecommended) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    color = Color(0xFF8B5CF6).copy(alpha = 0.12f)
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Outlined.AutoAwesome,
-                                                            contentDescription = null,
-                                                            tint = Color(0xFF7C3AED),
-                                                            modifier = Modifier.size(11.dp)
-                                                        )
-                                                        Text(
-                                                            text = "Recommended",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = Color(0xFF7C3AED)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Text(
-                                            text = part.subtitle,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF64748B)
-                                        )
-                                    }
-
-                                    // Circular Add / Check Button
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (isSelected) Color(0xFF10B981) else if (canAdd) Color(0xFF2563EB) else Color(0xFF94A3B8),
-                                        modifier = Modifier.size(38.dp)
-                                    ) {
-                                        Box(
-                                            contentAlignment = Alignment.Center,
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isSelected) Icons.Filled.Check else Icons.Filled.Add,
-                                                contentDescription = if (isSelected) "Selected" else "Add body part",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Previous Month",
+                            tint = Color(0xFF475569)
+                        )
                     }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Exercise Card Matching Reference Image
-@Composable
-private fun SplitExerciseCard(
-    item: SplitExerciseItem,
-    onClick: () -> Unit
-) {
-    ElevatedCard(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp, pressedElevation = 3.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Header Row: Exercise Name + Sets Badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.exerciseName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF1F5F9)
-                ) {
-                    Text(
-                        text = "${item.setsCount} Sets",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF475569),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            // Subtitle: Type & Muscles
-            Text(
-                text = "${item.type} • ${item.muscles}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF64748B),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            // Target Pills Row: Target Reps pill + Target Weight pill
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF1F5F9)
-                ) {
-                    Text(
-                        text = item.targetReps,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF334155),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF1F5F9)
-                ) {
-                    Text(
-                        text = item.targetWeight,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF334155),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Weekly Workout Calendar Strip Matching Reference Image
-data class WorkoutCalendarDay(
-    val date: LocalDate,
-    val dayName: String, // "Mon", "Tue", etc.
-    val dayNumber: String, // "24", "25", etc.
-    val isCompleted: Boolean
-)
-
-@Composable
-private fun WeeklyWorkoutCalendarStrip(
-    selectedDate: LocalDate,
-    completedDates: Set<LocalDate>,
-    onSelectDate: (LocalDate) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Current week starting from Monday to Sunday enclosing selectedDate
-    val monday = remember(selectedDate) {
-        selectedDate.with(DayOfWeek.MONDAY)
-    }
-    val weekDays = remember(monday, completedDates) {
-        (0L..6L).map { offset ->
-            val date = monday.plusDays(offset)
-            WorkoutCalendarDay(
-                date = date,
-                dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                dayNumber = date.dayOfMonth.toString(),
-                isCompleted = date in completedDates
-            )
-        }
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        weekDays.forEach { day ->
-            val isSelected = day.date == selectedDate
-            CalendarDayCard(
-                day = day,
-                isSelected = isSelected,
-                onClick = { onSelectDate(day.date) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun CalendarDayCard(
-    day: WorkoutCalendarDay,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .width(52.dp)
-            .height(84.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) Color(0xFF0F172A) else Color.White,
-        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        shadowElevation = if (isSelected) 3.dp else 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = day.dayName,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = if (isSelected) Color(0xFF94A3B8) else Color(0xFF64748B)
-            )
-
-            Text(
-                text = day.dayNumber,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (isSelected) Color.White else Color(0xFF0F172A)
-            )
-
-            if (day.isCompleted) {
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF10B981)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "Completed",
-                        tint = Color.White,
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-            } else {
-                Spacer(Modifier.size(18.dp))
-            }
-        }
-    }
-}
-
-// MARK: - On-Device AI Workout Recommendation
-data class WorkoutAiRecommendation(
-    val splitTarget: String, // e.g. "CHEST & TRICEPS"
-    val targetSplitIndex: Int,
-    val headline: String,
-    val description: String,
-    val recommendedBodyParts: List<String> = emptyList()
-)
-
-object OnDeviceWorkoutAiEngine {
-    private const val RECOMMEND_COUNT = 2
-
-    /** Maps a catalog exercise to one of the names in [defaultBodyParts]. */
-    fun bodyPartNameFor(exercise: Exercise): String? = when (exercise.bodyPart) {
-        "chest" -> "Chest"
-        "back" -> "Back"
-        "shoulders" -> "Shoulders"
-        "upper arms" -> if (exercise.primaryMuscle.contains("tricep", ignoreCase = true)) "Triceps" else "Biceps"
-        "lower arms" -> "Biceps"
-        "upper legs" -> "Legs"
-        "lower legs" -> "Calves"
-        "waist" -> "Core / Abs"
-        else -> null
-    }
-
-    private fun bodyPartFromTitle(title: String): String? {
-        val t = title.lowercase()
-        return when {
-            "chest" in t || "bench" in t || "push" in t -> "Chest"
-            "back" in t || "pull" in t || "row" in t -> "Back"
-            "shoulder" in t -> "Shoulders"
-            "bicep" in t || "curl" in t -> "Biceps"
-            "tricep" in t -> "Triceps"
-            "leg" in t || "squat" in t || "lunge" in t -> "Legs"
-            "calf" in t || "calves" in t -> "Calves"
-            "core" in t || "abs" in t || "plank" in t -> "Core / Abs"
-            else -> null
-        }
-    }
-
-    private fun splitIndexFor(parts: List<String>): Int = when (parts.firstOrNull()) {
-        "Chest", "Shoulders", "Triceps" -> 0
-        "Back", "Biceps" -> 1
-        else -> 2
-    }
-
-    fun generateRecommendation(
-        selectedDate: LocalDate,
-        exercises: List<Exercise>,
-        loggedWorkouts: List<LoggedWorkout>,
-        health: HealthWorkoutSignals = HealthWorkoutSignals()
-    ): WorkoutAiRecommendation {
-        val zone = ZoneId.systemDefault()
-        val byId = exercises.associateBy { it.id }
-
-        // Body part -> most recent day it was trained (up to and including the selected date)
-        val lastTrained = HashMap<String, LocalDate>()
-        loggedWorkouts.forEach { log ->
-            val date = Instant.ofEpochMilli(log.timestampMillis).atZone(zone).toLocalDate()
-            if (date.isAfter(selectedDate)) return@forEach
-            val exercise = byId[log.exerciseId] ?: exercises.find { it.name.equals(log.exerciseName, true) }
-            val part = exercise?.let(::bodyPartNameFor) ?: return@forEach
-            if (lastTrained[part]?.isBefore(date) != false) lastTrained[part] = date
-        }
-
-        // Health Connect sessions: map to a body part when the title names one, else count as general load
-        val hcLoadDays = HashSet<LocalDate>()
-        var hasUnmappedHcToday = false
-        health.sessions.forEach { session ->
-            if (session.date.isAfter(selectedDate)) return@forEach
-            hcLoadDays.add(session.date)
-            val part = exercises.find { it.name.equals(session.title, true) }?.let(::bodyPartNameFor)
-                ?: bodyPartFromTitle(session.title)
-            if (part != null) {
-                if (lastTrained[part]?.isBefore(session.date) != false) lastTrained[part] = session.date
-            } else if (session.date == selectedDate) {
-                hasUnmappedHcToday = true
-            }
-        }
-
-        val trainedToday = defaultBodyParts.map { it.name }.filter { lastTrained[it] == selectedDate }
-
-        if (trainedToday.size + (if (hasUnmappedHcToday) 1 else 0) >= RECOMMEND_COUNT) {
-            return WorkoutAiRecommendation(
-                splitTarget = "DONE",
-                targetSplitIndex = splitIndexFor(trainedToday),
-                headline = "Good job today!",
-                description = if (trainedToday.isEmpty()) "Health Connect shows a workout today. That's enough for today, so rest up and recover."
-                else "You trained ${trainedToday.joinToString(" & ")} today${if (hasUnmappedHcToday) " plus a Health Connect workout" else ""}. That's enough for today, so rest up and recover.",
-                recommendedBodyParts = emptyList()
-            )
-        }
-
-        // Never-trained first, then the longest-rested; anything already done today is skipped
-        val candidates = defaultBodyParts.map { it.name }
-            .filter { it !in trainedToday }
-            .sortedByDescending { part ->
-                lastTrained[part]?.let { java.time.temporal.ChronoUnit.DAYS.between(it, selectedDate) } ?: Long.MAX_VALUE
-            }
-        // Recovery check from Health Connect: recent training load and last night's sleep
-        val loggedDays = lastTrained.values.toSet() + hcLoadDays
-        val recentLoadDays = (1..3).count { selectedDate.minusDays(it.toLong()) in loggedDays }
-        val shortSleep = health.lastSleepMinutes?.let { it < 360 } == true
-        val heavyLoad = recentLoadDays >= 3
-        val pickCount = if (shortSleep || heavyLoad) 1 else RECOMMEND_COUNT
-        val picks = candidates.take(pickCount)
-        val recoveryNote = buildString {
-            if (shortSleep) {
-                val m = health.lastSleepMinutes!!
-                append(" You slept ${m / 60}h ${m % 60}m, so keep the volume light.")
-            }
-            if (heavyLoad) append(" You've trained 3 days in a row, so don't overdo it.")
-        }
-
-        val reasons = picks.joinToString(" ") { part ->
-            val last = lastTrained[part]
-            if (last == null) "$part hasn't been trained yet."
-            else {
-                val days = java.time.temporal.ChronoUnit.DAYS.between(last, selectedDate)
-                "$part was last trained $days day${if (days == 1L) "" else "s"} ago."
-            }
-        }
-        val intro = if (trainedToday.isNotEmpty())
-            "You already trained ${trainedToday.joinToString(", ")} today, so switch to something fresh. "
-        else ""
-
-        return WorkoutAiRecommendation(
-            splitTarget = picks.joinToString(" & ") { it.substringBefore(" /").uppercase() },
-            targetSplitIndex = splitIndexFor(picks),
-            headline = if (trainedToday.isNotEmpty()) "Next Up" else "Today's Recommendation",
-            description = intro + reasons + recoveryNote,
-            recommendedBodyParts = picks
-        )
-    }
-}
-
-@Composable
-private fun AiRecommendationCard(
-    recommendation: WorkoutAiRecommendation?,
-    isLoading: Boolean,
-    selectedBodyParts: List<String>,
-    onRemoveBodyPart: (String) -> Unit,
-    onStartWorkout: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (isLoading || recommendation == null) {
-        AiRecommendationShimmerCard(modifier = modifier)
-    } else {
-        // High-contrast dark navy card matching the reference image
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = Color(0xFF0F172A), // Dark navy slate matching reference design
-            shadowElevation = 4.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Header Row: "Today's Recommendation" + Badge (e.g. "LEG DAY")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = recommendation.headline,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF1E293B) // Subtle container badge
+                    IconButton(
+                        onClick = { onYearMonthChange(selectedYearMonth.plusMonths(1)) }
                     ) {
-                        Text(
-                            text = recommendation.splitTarget,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFCBD5E1),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next Month",
+                            tint = Color(0xFF475569)
                         )
                     }
                 }
+            }
+        }
 
-                // AI description sentence matching reference design
-                Text(
-                    text = recommendation.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Normal,
-                    color = Color(0xFF94A3B8), // Soft slate gray
-                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
-                )
+        // Monthly Workout Calendar Card (matches the uploaded design with pink circles and checkmarks)
+        item {
+            MonthlyWorkoutCalendarCard(
+                yearMonth = selectedYearMonth,
+                completedDates = completedDates,
+                selectedDate = selectedDate,
+                onSelectDate = onSelectDate
+            )
+        }
 
-                // Body Parts in AI Card (Flowing badges from list below)
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Active Plan Banner if plan already generated
+        if (activePlan != null) {
+            item {
+                ElevatedCard(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Body parts",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE2E8F0)
-                        )
-
-                        Text(
-                            text = "${selectedBodyParts.size}/3 part limit",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF94A3B8)
-                        )
-                    }
-
-                    // Pills stay composed until their exit animation finishes
-                    val shownParts = remember { mutableStateListOf<String>() }
-                    val pillStates = remember { HashMap<String, MutableTransitionState<Boolean>>() }
-                    LaunchedEffect(selectedBodyParts) {
-                        selectedBodyParts.forEach { part ->
-                            val state = pillStates.getOrPut(part) { MutableTransitionState(false) }
-                            state.targetState = true
-                            if (part !in shownParts) shownParts.add(part)
-                        }
-                        shownParts.filter { it !in selectedBodyParts }
-                            .forEach { pillStates[it]?.targetState = false }
-                    }
-
-                    // Pills Row with smooth add/remove animation
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .animateContentSize(tween(300)),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        shownParts.toList().forEach { part ->
-                          key(part) {
-                            val visibleState = pillStates.getOrPut(part) { MutableTransitionState(false) }
-                            LaunchedEffect(visibleState.currentState, visibleState.isIdle) {
-                                if (visibleState.isIdle && !visibleState.currentState && part !in selectedBodyParts) {
-                                    shownParts.remove(part)
-                                    pillStates.remove(part)
-                                }
-                            }
-                            AnimatedVisibility(
-                                visibleState = visibleState,
-                                enter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.6f) + expandHorizontally(tween(300)),
-                                exit = fadeOut(tween(250)) + scaleOut(tween(250))
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = Color(0xFF1E293B),
-                                    border = BorderStroke(1.dp, Color(0xFF334155)),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .clickable { onRemoveBodyPart(part) }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.AutoAwesome,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                        Text(
-                                            text = part,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-                            }
-                          }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(4.dp))
-
-                // Big White Pill Button "Start Workout"
-                Button(
-                    onClick = onStartWorkout,
-                    enabled = selectedBodyParts.isNotEmpty(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(26.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF0F172A),
-                        disabledContainerColor = Color.White.copy(alpha = 0.6f),
-                        disabledContentColor = Color(0xFF0F172A).copy(alpha = 0.7f)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                ) {
-                    Text(
-                        text = if (selectedBodyParts.isEmpty()) "Select Body Part" else "Start Workout",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (selectedBodyParts.isEmpty()) Color(0xFF0F172A).copy(alpha = 0.7f) else Color(0xFF0F172A)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AiRecommendationShimmerCard(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "ai_card_shimmer")
-    val translateAnim by transition.animateFloat(
-        initialValue = -300f,
-        targetValue = 1200f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmer_anim"
-    )
-
-    val shimmerBrush = Brush.linearGradient(
-        colors = listOf(
-            Color(0xFF1E293B),
-            Color(0xFF334155),
-            Color(0xFF1E293B)
-        ),
-        start = Offset(translateAnim - 200f, translateAnim - 200f),
-        end = Offset(translateAnim, translateAnim)
-    )
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF0F172A),
-        shadowElevation = 4.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // Header Row Shimmer
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(180.dp)
-                        .height(24.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(shimmerBrush)
-                )
-                Box(
-                    modifier = Modifier
-                        .width(70.dp)
-                        .height(22.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(shimmerBrush)
-                )
-            }
-
-            // Description Lines Shimmer
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(shimmerBrush)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.75f)
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(shimmerBrush)
-            )
-
-            Spacer(Modifier.height(2.dp))
-
-            // Button Shimmer
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(shimmerBrush)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ExercisesContent(
-    workoutStore: WorkoutStore,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    selectedGroup: String?,
-    onGroupSelected: (String?) -> Unit,
-    onExerciseClick: (Exercise) -> Unit
-) {
-    Column {
-        // Material 3 Outlined Search Field with Pill Shape
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = {
-                Text(
-                    text = "Search exercises",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Search,
-                    contentDescription = "Search",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = "Clear search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            },
-            singleLine = true,
-            shape = CircleShape,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        // Material 3 Filter Chips Row
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = selectedGroup == null,
-                onClick = { onGroupSelected(null) },
-                label = { Text("All", style = MaterialTheme.typography.labelMedium) },
-                leadingIcon = if (selectedGroup == null) {
-                    {
-                        Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
-                } else null,
-                shape = RoundedCornerShape(8.dp),
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = selectedGroup == null,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    selectedBorderColor = Color.Transparent
-                )
-            )
-
-            ExerciseMuscleGroups.all.forEach { group ->
-                val isSelected = selectedGroup == group
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { onGroupSelected(group) },
-                    label = { Text(group, style = MaterialTheme.typography.labelMedium) },
-                    leadingIcon = if (isSelected) {
-                        {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize)
-                            )
-                        }
-                    } else null,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                        selectedBorderColor = Color.Transparent
-                    )
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        val results = workoutStore.filteredExercises(query, selectedGroup)
-        if (results.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 40.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.SearchOff,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        modifier = Modifier.size(44.dp)
-                    )
-                    Text(
-                        text = if (workoutStore.exercises.isEmpty()) "Exercise catalog failed to load."
-                        else "No exercises match your search.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 100.dp)
-            ) {
-                items(results, key = { it.id }) { exercise ->
-                    ExerciseRow(exercise = exercise, onClick = { onExerciseClick(exercise) })
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExerciseRow(exercise: Exercise, onClick: () -> Unit) {
-    ElevatedCard(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp, pressedElevation = 2.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.FitnessCenter,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = exercise.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "${exercise.primaryMuscleLabel} • ${exercise.equipment}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun HistoryContent(
-    loggedWorkouts: List<LoggedWorkout>,
-    onDelete: (String) -> Unit
-) {
-    if (loggedWorkouts.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 40.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.FitnessCenter,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                Text(
-                    text = "No workouts logged yet",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Pick an exercise and log your sets to start tracking.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 100.dp)
-        ) {
-            items(loggedWorkouts, key = { it.id }) { workout ->
-                HistoryRow(workout = workout, onDelete = { onDelete(workout.id) })
-            }
-        }
-    }
-}
-
-@Composable
-private fun HistoryRow(workout: LoggedWorkout, onDelete: () -> Unit) {
-    val dateFmt = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
-    val dateStr = remember(workout.timestampMillis) {
-        Instant.ofEpochMilli(workout.timestampMillis).atZone(ZoneId.systemDefault()).format(dateFmt)
-    }
-    ElevatedCard(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = workout.exerciseName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${workout.sets.size} sets • ${workout.totalReps} reps • ${workout.durationMinutes} min",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = dateStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "${workout.totalVolumeKg.toInt()} kg",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (workout.syncedToHealth) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (workout.syncedToHealth) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = if (workout.syncedToHealth) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            },
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = if (workout.syncedToHealth) "Synced" else "Not synced",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = if (workout.syncedToHealth) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            }
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-                )
-            }
-        }
-    }
-}
-
-// MARK: - Log sheet
-
-private class SetRowUi(reps: String, weight: String) {
-    var repsText by mutableStateOf(reps)
-    var weightText by mutableStateOf(weight)
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun WorkoutLogSheet(
-    exercise: Exercise,
-    initialTargetReps: Int = 10,
-    initialTargetWeightKg: Double = 0.0,
-    initialSetCount: Int = 3,
-    onDismiss: () -> Unit,
-    onSaved: (LoggedWorkout) -> Unit
-) {
-    val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val setRows = remember(exercise.id) {
-        mutableStateListOf<SetRowUi>().apply {
-            val weightStr = if (initialTargetWeightKg > 0) {
-                if (initialTargetWeightKg % 1.0 == 0.0) initialTargetWeightKg.toInt().toString() else initialTargetWeightKg.toString()
-            } else "0"
-            val count = if (initialSetCount in 1..8) initialSetCount else 3
-            repeat(count) { add(SetRowUi(initialTargetReps.toString(), weightStr)) }
-        }
-    }
-    var durationMinutes by remember { mutableIntStateOf(30) }
-    var notes by remember { mutableStateOf("") }
-    var logDate by remember { mutableStateOf(LocalDate.now()) }
-    var isSaving by remember { mutableStateOf(false) }
-    var saveMessage by remember { mutableStateOf<String?>(null) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Log Workout",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Exercise Detail OutlinedCard
-            OutlinedCard(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = exercise.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${exercise.primaryMuscleLabel} • ${exercise.equipment}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val gifUrl = exercise.gifUrl
-                    if (gifUrl != null) {
-                        GifWebView(
-                            url = gifUrl,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                    } else {
-                        NoGifPlaceholder(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                    }
-                    if (exercise.instructions.isNotEmpty()) {
-                        Text(
-                            text = "How to perform",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        exercise.instructions.forEachIndexed { index, step ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = "${index + 1}.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = step,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Sets OutlinedCard
-            OutlinedCard(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
+                            .padding(18.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Sets",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        FilledTonalButton(
-                            onClick = {
-                                val last = setRows.lastOrNull()
-                                setRows.add(SetRowUi(last?.repsText ?: "10", last?.weightText ?: "0"))
-                            },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Add set", style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-
-                    setRows.forEachIndexed { index, row ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                                .padding(10.dp)
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Set ${index + 1}",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.width(52.dp)
+                                text = "Active Workout Plan",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                            OutlinedTextField(
-                                value = row.repsText,
-                                onValueChange = { row.repsText = it.filter(Char::isDigit) },
-                                label = { Text("Reps") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.width(82.dp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${activePlan.daysPerWeek} Days / Week • ${activePlan.sections.size} Structured Routines",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
-                            OutlinedTextField(
-                                value = row.weightText,
-                                onValueChange = { row.weightText = it.filter { c -> c.isDigit() || c == '.' } },
-                                label = { Text("kg") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.width(92.dp)
-                            )
-                            Spacer(Modifier.weight(1f))
-                            if (setRows.size > 1) {
-                                IconButton(onClick = { setRows.removeAt(index) }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Delete,
-                                        contentDescription = "Remove set",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = onRePlanClick,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Re-plan", fontSize = 12.sp)
                         }
                     }
                 }
             }
+        }
 
-            // Duration, Date & Notes Card
-            OutlinedCard(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Duration Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Duration",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.weight(1f))
-                        FilledTonalIconButton(
-                            onClick = { if (durationMinutes > 1) durationMinutes-- },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(Icons.Filled.Remove, contentDescription = "Decrease duration", modifier = Modifier.size(18.dp))
-                        }
-                        Text(
-                            text = "$durationMinutes min",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 12.dp)
-                        )
-                        FilledTonalIconButton(
-                            onClick = { if (durationMinutes < 300) durationMinutes++ },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Increase duration", modifier = Modifier.size(18.dp))
-                        }
-                    }
-
-                    // Date Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Date",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.weight(1f))
-                        FilledTonalButton(
-                            onClick = {
-                                val cal = Calendar.getInstance()
-                                DatePickerDialog(
-                                    context,
-                                    { _, y, m, d -> logDate = LocalDate.of(y, m + 1, d) },
-                                    cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)
-                                ).show()
-                            },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.CalendarToday,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = logDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
-
-                    // Notes Field
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        placeholder = { Text("Notes (optional)") },
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            saveMessage?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // Primary M3 Action Button
+        // Material You 3 "Plan Workouts" Button
+        item {
             Button(
-                onClick = {
-                    if (isSaving) return@Button
-                    isSaving = true
-                    val sets = setRows.map {
-                        WorkoutSet(reps = it.repsText.toIntOrNull() ?: 0, weightKg = it.weightText.toDoubleOrNull() ?: 0.0)
-                    }
-                    // Today logs use the current time so the Health Connect session lands on today
-                    val timestamp = if (logDate == LocalDate.now()) Instant.now().toEpochMilli()
-                    else logDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                        .coerceAtMost(Instant.now().toEpochMilli())
-                    val workout = LoggedWorkout(
-                        exerciseId = exercise.id,
-                        exerciseName = exercise.name,
-                        timestampMillis = timestamp,
-                        sets = sets,
-                        durationMinutes = durationMinutes,
-                        notes = notes
-                    )
-                    onSaved(workout)
-                },
-                enabled = !isSaving && setRows.isNotEmpty(),
-                shape = RoundedCornerShape(16.dp),
+                onClick = onPlanWorkoutsClick,
+                enabled = !isCheckingWeight,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
+            ) {
+                if (isCheckingWeight) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.EditCalendar,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = if (activePlan != null) "View Workout Plan" else "Plan Workouts",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Daily Summary / Selected Date Detail Card
+        item {
+            val isDateCompleted = selectedDate in completedDates
+            ElevatedCard(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.5.dp
-                    )
-                    Spacer(Modifier.width(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isDateCompleted) Color(0xFFFDF2F8) else Color(0xFFF1F5F9),
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (isDateCompleted) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Completed",
+                                    tint = Color(0xFFBE185D),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.FitnessCenter,
+                                    contentDescription = null,
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = if (isDateCompleted) "Workout session completed" else "No workouts recorded",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isDateCompleted) Color(0xFFBE185D) else Color(0xFF64748B)
+                        )
+                    }
                 }
-                Text(
-                    text = if (isSaving) "Saving..." else "Log Workout",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 6.dp)
-                )
             }
         }
     }
 }
 
-// MARK: - Workout picker page (exercises of the selected body parts, with animated demos)
-@Composable
-private fun BodyPartWorkoutPickerPage(
-    bodyParts: List<String>,
-    exercises: List<Exercise>,
-    onBack: () -> Unit,
-    onExerciseClick: (Exercise) -> Unit
-) {
-    var filterPart by remember { mutableStateOf<String?>(null) }
-    val results = remember(bodyParts, exercises, filterPart) {
-        exercises.filter { ex ->
-            val part = OnDeviceWorkoutAiEngine.bodyPartNameFor(ex)
-            if (filterPart != null) part == filterPart else part in bodyParts
-        }
-    }
+// MARK: - Step 1: Body Weight Input Screen
 
-    Column(modifier = Modifier.fillMaxSize()) {
+@Composable
+fun BodyWeightStepScreen(
+    initialWeight: Double,
+    onBack: () -> Unit,
+    onContinue: (Double) -> Unit
+) {
+    var weightText by remember { mutableStateOf(if (initialWeight > 20.0) initialWeight.toInt().toString() else "70") }
+    val isValid = (weightText.toDoubleOrNull() ?: 0.0) in 25.0..300.0
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+    ) {
+        // Top Back Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -2136,121 +862,735 @@ private fun BodyPartWorkoutPickerPage(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = Color(0xFF0F172A)
                 )
             }
-            Column {
-                Text(
-                    text = "Choose a workout",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${results.size} exercises for ${bodyParts.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "Step 1: Body Weight",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF64748B)
+            )
         }
 
-        if (bodyParts.size > 1) {
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Graphic / Icon
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                modifier = Modifier.size(52.dp)
             ) {
-                FilterChip(
-                    selected = filterPart == null,
-                    onClick = { filterPart = null },
-                    label = { Text("All") },
-                    shape = RoundedCornerShape(8.dp)
-                )
-                bodyParts.forEach { part ->
-                    FilterChip(
-                        selected = filterPart == part,
-                        onClick = { filterPart = if (filterPart == part) null else part },
-                        label = { Text(part) },
-                        shape = RoundedCornerShape(8.dp)
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.MonitorWeight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = "What is your body weight?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "We use your weight to calculate personalized exercise volume, suggested resistance, and calorie burn.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Weight Input Card
+            ElevatedCard(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        OutlinedTextField(
+                            value = weightText,
+                            onValueChange = { input ->
+                                if (input.length <= 5 && input.all { it.isDigit() || it == '.' }) {
+                                    weightText = input
+                                }
+                            },
+                            textStyle = MaterialTheme.typography.displaySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color(0xFFE2E8F0)
+                            ),
+                            modifier = Modifier.width(140.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "kg",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Recommended range: 30 - 250 kg",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF94A3B8)
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        if (results.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(vertical = 40.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Text(
-                    text = "No exercises found for this body part.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        // Continue Button
+        Button(
+            onClick = {
+                val weight = weightText.toDoubleOrNull()
+                if (weight != null && weight in 25.0..300.0) {
+                    onContinue(weight)
+                }
+            },
+            enabled = isValid,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(
+                text = "Continue",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+// MARK: - Step 2: Workout Frequency Screen ("How many days a week will you workout?")
+
+@Composable
+fun WorkoutFrequencyStepScreen(
+    currentFrequency: Int,
+    onBack: () -> Unit,
+    onContinue: (Int) -> Unit
+) {
+    var selectedDays by remember { mutableIntStateOf(currentFrequency) }
+
+    val options = listOf(
+        Triple(2, "2 Days / Week", "Light maintenance & full body stimulation"),
+        Triple(3, "3 Days / Week", "Classic Push / Pull / Legs split (Recommended)"),
+        Triple(4, "4 Days / Week", "Upper / Lower split with optimal rest days"),
+        Triple(5, "5 Days / Week", "Dedicated body part focus & hypertrophy"),
+        Triple(6, "6 Days / Week", "High volume Push / Pull / Legs rotation")
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+    ) {
+        // Top Back Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF0F172A)
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 100.dp)
+            Text(
+                text = "Step 2: Training Frequency",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "How many days a week will you workout?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Choose a realistic frequency you can stick with consistently throughout the week.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Options List
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(results, key = { it.id }) { exercise ->
-                    ElevatedCard(
+                options.forEach { (days, label, subtitle) ->
+                    val isSelected = selectedDays == days
+                    Surface(
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
+                        shadowElevation = if (isSelected) 0.dp else 1.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedDays = days }
+                            .then(
+                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                                else Modifier
+                            )
                     ) {
-                        Box {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                val gif = exercise.gifUrl
-                                Box(
-                                    modifier = Modifier
-                                        .size(96.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color.White),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (gif != null) {
-                                        GifWebView(url = gif, modifier = Modifier.fillMaxSize())
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Outlined.AutoAwesome,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Outlined.RadioButtonChecked else Icons.Outlined.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
+                                modifier = Modifier.size(22.dp)
+                            )
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A)
+                                )
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color(0xFF64748B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Continue Button
+        Button(
+            onClick = { onContinue(selectedDays) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(
+                text = "Continue",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+// MARK: - Step 3: Days of the Next 7 Days Selection Screen
+
+@Composable
+fun WorkoutDaysSelectionStepScreen(
+    targetDaysCount: Int,
+    initialSelectedDates: List<LocalDate>,
+    onBack: () -> Unit,
+    onConfirmPlan: (List<LocalDate>) -> Unit
+) {
+    val today = remember { LocalDate.now() }
+    val nextSevenDays = remember { (0..6).map { today.plusDays(it.toLong()) } }
+
+    var selectedDates by remember {
+        mutableStateOf(
+            if (initialSelectedDates.isNotEmpty() && initialSelectedDates.size == targetDaysCount) {
+                initialSelectedDates.toSet()
+            } else {
+                nextSevenDays.take(targetDaysCount).toSet()
+            }
+        )
+    }
+
+    val isComplete = selectedDates.size == targetDaysCount
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+    ) {
+        // Top Back Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF0F172A)
+                )
+            }
+            Text(
+                text = "Step 3: Select Days",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Which days of the next seven days?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Select exactly $targetDaysCount days you plan to workout:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF64748B)
+                )
+                Surface(
+                    shape = CircleShape,
+                    color = if (isComplete) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+                ) {
+                    Text(
+                        text = "${selectedDates.size} / $targetDaysCount",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isComplete) Color(0xFF16A34A) else Color(0xFFD97706),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Next 7 Days Selection List
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                nextSevenDays.forEach { date ->
+                    val isSelected = date in selectedDates
+                    val isToday = date == today
+                    val weekdayFormatted = date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault()))
+                    val dateFormatted = date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
+                        shadowElevation = if (isSelected) 0.dp else 1.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (isSelected) {
+                                    selectedDates = selectedDates - date
+                                } else {
+                                    if (selectedDates.size < targetDaysCount) {
+                                        selectedDates = selectedDates + date
                                     }
                                 }
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                            }
+                            .then(
+                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
+                                else Modifier
+                            )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF1F5F9),
+                                    modifier = Modifier.size(32.dp)
                                 ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Filled.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = Color(0xFF94A3B8),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = weekdayFormatted,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A)
+                                        )
+                                        if (isToday) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    text = "Today",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                     Text(
-                                        text = exercise.name.replaceFirstChar { it.uppercaseChar() },
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 2
-                                    )
-                                    Text(
-                                        text = "${exercise.primaryMuscleLabel} • ${exercise.equipment}",
+                                        text = dateFormatted,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color(0xFF64748B)
                                     )
                                 }
                             }
-                            // The WebView swallows touches, so capture taps on an overlay
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .clickable { onExerciseClick(exercise) }
+
+                            Icon(
+                                imageVector = if (isSelected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFCBD5E1),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Confirm / Generate Plan Button
+        Button(
+            onClick = {
+                val sorted = selectedDates.toList().sorted()
+                onConfirmPlan(sorted)
+            },
+            enabled = isComplete,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(
+                text = if (isComplete) "Generate Workout Plan" else "Select $targetDaysCount Days (${selectedDates.size}/$targetDaysCount)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+// MARK: - Step 4: The Main Planned Workouts Page with Top Bar Sections
+
+@Composable
+fun PlannedWorkoutsMainScreen(
+    plan: WorkoutPlanData,
+    selectedTabIndex: Int,
+    onTabSelect: (Int) -> Unit,
+    onBackToCalendar: () -> Unit,
+    onRePlan: () -> Unit,
+    onStartWorkout: (PlannedDaySection) -> Unit
+) {
+    val activeSection = plan.sections.getOrNull(selectedTabIndex) ?: plan.sections.firstOrNull()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+    ) {
+        // Top App Bar
+        Surface(
+            color = Color.White,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        IconButton(onClick = onBackToCalendar) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back to Calendar",
+                                tint = Color(0xFF0F172A)
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "Weekly Workout Plan",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = "${plan.daysPerWeek} Days / Week • Body Weight: ${plan.bodyWeightKg.toInt()} kg",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onRePlan) {
+                        Icon(
+                            imageVector = Icons.Outlined.EditCalendar,
+                            contentDescription = "Edit Plan",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                // Top Bar Sections (Tabs): Number of sections equals the number of days user works out!
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTabIndex.coerceIn(0, (plan.sections.size - 1).coerceAtLeast(0)),
+                    edgePadding = 16.dp,
+                    containerColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    divider = {}
+                ) {
+                    plan.sections.forEachIndexed { index, section ->
+                        val isSelected = index == selectedTabIndex
+                        val dayLabel = "Day ${section.dayNumber}"
+                        val dateLabel = section.scheduledDate.format(DateTimeFormatter.ofPattern("EEE d", Locale.getDefault()))
+
+                        Tab(
+                            selected = isSelected,
+                            onClick = { onTabSelect(index) },
+                            text = {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = dayLabel,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 14.sp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF64748B)
+                                    )
+                                    Text(
+                                        text = dateLabel,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color(0xFF94A3B8)
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section Content
+        if (activeSection != null) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Section Overview Card
+                item {
+                    ElevatedCard(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = "Section ${activeSection.dayNumber} of ${plan.sections.size}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+
+                                Text(
+                                    text = activeSection.scheduledDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            Text(
+                                text = activeSection.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            )
+
+                            Text(
+                                text = "${activeSection.exercises.size} Exercises • ~50 mins • Weights tailored to ${plan.bodyWeightKg.toInt()} kg BW",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                }
+
+                // Exercises List Header
+                item {
+                    Text(
+                        text = "Scheduled Exercises",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+
+                // Exercise Cards
+                items(activeSection.exercises) { exercise ->
+                    PlannedExerciseCard(exercise = exercise)
+                }
+
+                // Material You 3 "Start Workout" Button
+                item {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = { onStartWorkout(activeSection) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                text = "Start Day ${activeSection.dayNumber} Workout",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -2260,36 +1600,212 @@ private fun BodyPartWorkoutPickerPage(
     }
 }
 
-/**
- * Shown where an exercise GIF would go when the exercise has no GIF yet
- * (our GIF dataset only covers a few exercises so far). Keeps the layout
- * stable instead of leaving a blank gap.
- */
 @Composable
-fun NoGifPlaceholder(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.background(Color(0xFFF1F5F9)),
-        contentAlignment = Alignment.Center
+fun PlannedExerciseCard(exercise: PlannedExerciseItem) {
+    ElevatedCard(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = "No GIF available",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exercise.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = exercise.targetMuscle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Text(
+                        text = exercise.setsReps,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF334155),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (exercise.suggestedWeightKg != null || exercise.note.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (exercise.suggestedWeightKg != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FitnessCenter,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Suggested: ${exercise.suggestedWeightKg} kg",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF475569)
+                            )
+                        }
+                    }
+
+                    if (exercise.note.isNotBlank()) {
+                        Text(
+                            text = exercise.note,
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
+/**
+ * Monthly calendar card rendering weekdays (M, T, W, T, F, S, S)
+ * and highlighting completed dates with a light-pink circle & checkmark.
+ */
 @Composable
-fun GifWebView(url: String, modifier: Modifier = Modifier) {
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            WebView(ctx).apply {
-                settings.loadWithOverviewMode = true
-                settings.useWideViewPort = true
-                setBackgroundColor(0x00000000)
-                loadUrl(url)
+fun MonthlyWorkoutCalendarCard(
+    yearMonth: YearMonth,
+    completedDates: Set<LocalDate>,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val daysOfWeek = listOf("M", "T", "W", "T", "F", "S", "S")
+    val daysInMonth = yearMonth.lengthOfMonth()
+    // Monday = 1 ... Sunday = 7
+    val firstDayOfWeek = yearMonth.atDay(1).dayOfWeek.value
+    val leadingEmptyDays = firstDayOfWeek - 1
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 1.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Weekday Headers (M, T, W, T, F, S, S)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                daysOfWeek.forEach { dayLabel ->
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = dayLabel,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF6B7280),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            // Calendar Grid of Days
+            val totalCells = leadingEmptyDays + daysInMonth
+            val totalRows = (totalCells + 6) / 7
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                for (row in 0 until totalRows) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        for (col in 0 until 7) {
+                            val cellIndex = row * 7 + col
+                            val dayNumber = cellIndex - leadingEmptyDays + 1
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (dayNumber in 1..daysInMonth) {
+                                    val date = yearMonth.atDay(dayNumber)
+                                    val isCompleted = date in completedDates
+                                    val isSelected = date == selectedDate
+
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .then(
+                                                when {
+                                                    isCompleted -> Modifier.background(Color(0xFFFDF2F8)) // Soft light pink
+                                                    isSelected -> Modifier.background(Color(0xFFF1F5F9))
+                                                    else -> Modifier
+                                                }
+                                            )
+                                            .clickable { onSelectDate(date) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isCompleted) {
+                                            // Magenta/pink checkmark replacing the day number (matching reference)
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = "Completed on day $dayNumber",
+                                                tint = Color(0xFFBE185D),
+                                                modifier = Modifier.size(17.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = dayNumber.toString(),
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFF0F172A),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-    )
+    }
 }

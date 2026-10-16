@@ -155,7 +155,7 @@ private struct ParticipantRoute: Hashable {
 struct ChallengesView: View {
     @StateObject private var viewModel = ChallengesViewModel()
     @State private var showingCreate = false
-    @State private var navigationPath: [AnyHashable] = []
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -180,10 +180,14 @@ struct ChallengesView: View {
                         )
                     } else {
                         ForEach(viewModel.challenges) { challenge in
-                            NavigationLink(value: challenge.challengeId ?? -1) {
+                            if let id = challenge.challengeId {
+                                NavigationLink(value: id) {
+                                    ChallengeCard(challenge: challenge)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
                                 ChallengeCard(challenge: challenge)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -213,7 +217,7 @@ struct ChallengesView: View {
             }
             .navigationDestination(for: Int64.self) { challengeId in
                 ChallengeDetailView(challengeId: challengeId) {
-                    navigationPath.removeAll()
+                    navigationPath = NavigationPath()
                     Task { await viewModel.load() }
                 }
             }
@@ -1105,7 +1109,7 @@ private struct ParticipantProgressChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: max(1, days.count / 4))) { value in
+            AxisMarks(values: days.isEmpty ? [] : Array(stride(from: 0, to: days.count, by: max(1, days.count / 4)))) { value in
                 if let index = value.as(Int.self) {
                     AxisValueLabel {
                         Text(dayLabel(for: index))
@@ -1257,7 +1261,7 @@ private struct ParticipantDetailView: View {
                 }
                 .frame(height: 220)
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: max(1, days.count / 7))) { _ in
+                    AxisMarks(values: days.isEmpty ? [] : Array(stride(from: 0, to: days.count, by: max(1, days.count / 7)).map { challengeDisplayDateFormatter.string(from: days[$0]) })) { _ in
                         AxisGridLine()
                         AxisTick()
                     }

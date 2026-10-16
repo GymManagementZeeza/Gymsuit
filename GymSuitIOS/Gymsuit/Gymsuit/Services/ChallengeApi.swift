@@ -159,7 +159,7 @@ public final class ChallengeApi {
             throw NSError(
                 domain: "ChallengeApi",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Could not understand the server response."]
+                userInfo: [NSLocalizedDescriptionKey: "Could not understand the server response: \(error.localizedDescription)"]
             )
         }
     }

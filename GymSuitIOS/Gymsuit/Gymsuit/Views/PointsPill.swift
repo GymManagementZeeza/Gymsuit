@@ -10,7 +10,7 @@ struct PointsPill: View {
     var body: some View {
         Button(action: { showPoints = true }) {
             HStack(spacing: 6) {
-                Image(systemName: "indianrupeesign.circle.fill")
+                Image(systemName: "star.circle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(AppColors.warning)
                 Text("\(pointsStore.balance)")
