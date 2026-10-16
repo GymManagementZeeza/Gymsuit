@@ -2,7 +2,6 @@ package com.zeezaglobal.gymmanagement.controller;
 
 import com.zeezaglobal.gymmanagement.dto.EmailCheckResponse;
 import com.zeezaglobal.gymmanagement.dto.EmailRequest;
-import com.zeezaglobal.gymmanagement.dto.GoogleLoginRequest;
 import com.zeezaglobal.gymmanagement.dto.LoginRequest;
 import com.zeezaglobal.gymmanagement.dto.LoginResponse;
 import com.zeezaglobal.gymmanagement.dto.OtpVerifyRequest;
@@ -30,11 +29,6 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return withRefreshCookie(authService.login(request));
-    }
-
-    @PostMapping("/google")
-    public ResponseEntity<LoginResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
-        return withRefreshCookie(authService.loginWithGoogle(request));
     }
 
     @PostMapping("/email/check")
