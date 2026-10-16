@@ -15,4 +15,6 @@ public interface ChallengeDailyProgressRepository extends JpaRepository<Challeng
 
     Optional<ChallengeDailyProgress> findByChallengeIdAndUserIdAndDate(
             Long challengeId, Long userId, LocalDate date);
+
+    void deleteAllByUserId(Long userId);
 }
