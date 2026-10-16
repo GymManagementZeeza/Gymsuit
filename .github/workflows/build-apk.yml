@@ -21,8 +21,19 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # NOTE: setup-android's own license step runs `sdkmanager --licenses`
+      # interactively and fails in CI (it stalls on the y/N prompt), so
+      # disable it here and accept licenses non-interactively below.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: false
+
+      - name: Accept Android SDK licenses
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
