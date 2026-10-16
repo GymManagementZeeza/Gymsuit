@@ -19,8 +19,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -28,11 +31,14 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EditCalendar
+import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -61,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,11 +100,15 @@ private const val DEFAULT_PLANNED_SETS_REPS = "3 sets × 10 reps"
  * Screen navigation modes for the Workout tab:
  * CALENDAR -> Monthly overview; planned days are marked, tapping a day shows its planned workouts
  * PLAN_EDITOR -> Search + multi-select workouts for one day, then Save
+ * SETUP_WEIGHT -> Body-weight step, asked before the plan page when not yet saved
+ * SETUP_FREQUENCY -> Days-per-week step, asked before the plan page when not yet saved
  * PLANNED_WORKOUTS_MAIN -> Plan page: only the workouts the user selected, one tab per planned day
  */
 enum class WorkoutsViewMode {
     CALENDAR,
     PLAN_EDITOR,
+    SETUP_WEIGHT,
+    SETUP_FREQUENCY,
     PLANNED_WORKOUTS_MAIN
 }
 
@@ -230,6 +241,16 @@ fun WorkoutsScreen(
     var editingDate by remember { mutableStateOf<LocalDate?>(null) }
     var editorReturnToPlan by remember { mutableStateOf(false) }
 
+    // Setup (weight + frequency): asked before the plan page is shown.
+    // Null = not yet saved -> the setup steps run first.
+    var setupWeightKg by remember { mutableStateOf<Double?>(null) }
+    var setupDaysPerWeek by remember { mutableStateOf<Int?>(null) }
+    // True when setup was opened from the plan page (edit-setup icon): Back
+    // from the weight step returns to the plan page instead of the calendar.
+    var setupReturnToPlan by remember { mutableStateOf(false) }
+    // Plan-page tab to land on once setup completes.
+    var pendingPlanTabIndex by remember { mutableIntStateOf(0) }
+
     val activePlan = buildPlanFromSelections(selections)
     val plannedDates = selections.filterValues { it.isNotEmpty() }.keys
 
@@ -247,18 +268,16 @@ fun WorkoutsScreen(
         completedDates = fromStore + fromPrefs
     }
 
-    // Loads the saved plan on startup. Legacy auto-generated plan keys are dropped:
-    // the plan page shows only user-selected workouts.
+    // Loads the saved plan + setup on startup. Only the still-dead legacy keys
+    // are dropped (has_plan, scheduled_dates); weight/frequency are live setup values.
     fun loadSavedSelections() {
         selections = selectionsFromJson(planPrefs.getString(KEY_SELECTED_WORKOUTS, null))
-        if (planPrefs.contains(KEY_HAS_PLAN) || planPrefs.contains(KEY_DAYS_PER_WEEK) ||
-            planPrefs.contains(KEY_SCHEDULED_DATES) || planPrefs.contains(KEY_USER_WEIGHT)
-        ) {
+        setupWeightKg = planPrefs.getFloat(KEY_USER_WEIGHT, 0f).toDouble().takeIf { it > 0 }
+        setupDaysPerWeek = planPrefs.getInt(KEY_DAYS_PER_WEEK, 0).takeIf { it > 0 }
+        if (planPrefs.contains(KEY_HAS_PLAN) || planPrefs.contains(KEY_SCHEDULED_DATES)) {
             planPrefs.edit()
                 .remove(KEY_HAS_PLAN)
-                .remove(KEY_DAYS_PER_WEEK)
                 .remove(KEY_SCHEDULED_DATES)
-                .remove(KEY_USER_WEIGHT)
                 .apply()
         }
     }
@@ -266,6 +285,29 @@ fun WorkoutsScreen(
     fun persistSelections(updated: Map<LocalDate, List<PlannedExerciseItem>>) {
         selections = updated
         planPrefs.edit().putString(KEY_SELECTED_WORKOUTS, selectionsToJson(updated)).apply()
+    }
+
+    /**
+     * Navigates to the plan page, running the weight + frequency setup first
+     * when it has not been saved yet. Setup is display/goal metadata only:
+     * it never generates workouts or limits which days can be planned.
+     */
+    fun goToPlanPage(tabIndex: Int) {
+        selectedSectionTabIndex = tabIndex
+        if (setupWeightKg == null || setupDaysPerWeek == null) {
+            pendingPlanTabIndex = tabIndex
+            setupReturnToPlan = false
+            currentViewMode = WorkoutsViewMode.SETUP_WEIGHT
+        } else {
+            currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+        }
+    }
+
+    /** Re-opens the setup steps from the plan page's edit-setup icon. */
+    fun openSetupFromPlanPage() {
+        pendingPlanTabIndex = selectedSectionTabIndex
+        setupReturnToPlan = true
+        currentViewMode = WorkoutsViewMode.SETUP_WEIGHT
     }
 
     /** Opens the editor for a day. `returnToPlan` keeps Back on the plan page. */
@@ -277,7 +319,11 @@ fun WorkoutsScreen(
 
     fun closeEditor() {
         editingDate = null
-        currentViewMode = if (editorReturnToPlan) WorkoutsViewMode.PLANNED_WORKOUTS_MAIN else WorkoutsViewMode.CALENDAR
+        if (editorReturnToPlan) {
+            goToPlanPage(selectedSectionTabIndex)
+        } else {
+            currentViewMode = WorkoutsViewMode.CALENDAR
+        }
     }
 
     /** Saves one day's selection and shows the plan page on that day's tab. */
@@ -286,9 +332,9 @@ fun WorkoutsScreen(
         if (items.isEmpty()) updated.remove(date) else updated[date] = items
         persistSelections(updated)
         val sections = buildPlanFromSelections(updated).sections
-        selectedSectionTabIndex = sections.indexOfFirst { it.scheduledDate == date }.coerceAtLeast(0)
+        val tabIndex = sections.indexOfFirst { it.scheduledDate == date }.coerceAtLeast(0)
         editingDate = null
-        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+        goToPlanPage(tabIndex)
     }
 
     LaunchedEffect(Unit) {
@@ -317,8 +363,7 @@ fun WorkoutsScreen(
                 plannedWorkoutsForSelectedDate = selections[selectedDate].orEmpty(),
                 onPlanWorkoutsClick = {
                     if (activePlan.sections.isNotEmpty()) {
-                        selectedSectionTabIndex = 0
-                        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+                        goToPlanPage(0)
                     } else {
                         openEditor(selectedDate, returnToPlan = false)
                     }
@@ -338,6 +383,37 @@ fun WorkoutsScreen(
             )
         }
 
+        WorkoutsViewMode.SETUP_WEIGHT -> {
+            BackHandler {
+                currentViewMode = if (setupReturnToPlan) WorkoutsViewMode.PLANNED_WORKOUTS_MAIN else WorkoutsViewMode.CALENDAR
+            }
+            BodyWeightStepScreen(
+                initialWeight = setupWeightKg ?: 0.0,
+                onBack = {
+                    currentViewMode = if (setupReturnToPlan) WorkoutsViewMode.PLANNED_WORKOUTS_MAIN else WorkoutsViewMode.CALENDAR
+                },
+                onContinue = { weight ->
+                    setupWeightKg = weight
+                    planPrefs.edit().putFloat(KEY_USER_WEIGHT, weight.toFloat()).apply()
+                    currentViewMode = WorkoutsViewMode.SETUP_FREQUENCY
+                }
+            )
+        }
+
+        WorkoutsViewMode.SETUP_FREQUENCY -> {
+            BackHandler { currentViewMode = WorkoutsViewMode.SETUP_WEIGHT }
+            WorkoutFrequencyStepScreen(
+                currentFrequency = setupDaysPerWeek ?: 4,
+                onBack = { currentViewMode = WorkoutsViewMode.SETUP_WEIGHT },
+                onContinue = { days ->
+                    setupDaysPerWeek = days
+                    planPrefs.edit().putInt(KEY_DAYS_PER_WEEK, days).apply()
+                    selectedSectionTabIndex = pendingPlanTabIndex
+                    currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+                }
+            )
+        }
+
         WorkoutsViewMode.PLANNED_WORKOUTS_MAIN -> {
             BackHandler { currentViewMode = WorkoutsViewMode.CALENDAR }
             PlannedWorkoutsMainScreen(
@@ -348,7 +424,10 @@ fun WorkoutsScreen(
                 onEditDay = { date -> openEditor(date, returnToPlan = true) },
                 onStartWorkout = { daySection ->
                     session.start(daySection.bodyParts)
-                }
+                },
+                daysPerWeek = setupDaysPerWeek,
+                bodyWeightKg = setupWeightKg,
+                onEditSetup = { openSetupFromPlanPage() }
             )
         }
     }
@@ -622,7 +701,10 @@ fun PlannedWorkoutsMainScreen(
     onTabSelect: (Int) -> Unit,
     onBackToCalendar: () -> Unit,
     onEditDay: (LocalDate) -> Unit,
-    onStartWorkout: (PlannedDaySection) -> Unit
+    onStartWorkout: (PlannedDaySection) -> Unit,
+    daysPerWeek: Int? = null,
+    bodyWeightKg: Double? = null,
+    onEditSetup: () -> Unit = {}
 ) {
     val activeSection = plan.sections.getOrNull(selectedTabIndex) ?: plan.sections.firstOrNull()
 
@@ -665,20 +747,33 @@ fun PlannedWorkoutsMainScreen(
                                 color = Color(0xFF0F172A)
                             )
                             Text(
-                                text = "${plan.sections.size} planned days • ${plan.totalExercises} workouts",
+                                text = if (daysPerWeek != null && bodyWeightKg != null) {
+                                    "$daysPerWeek Days / Week • Body Weight: ${bodyWeightKg.toInt()} kg"
+                                } else {
+                                    "${plan.sections.size} planned days • ${plan.totalExercises} workouts"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF64748B)
                             )
                         }
                     }
 
-                    if (activeSection != null) {
-                        IconButton(onClick = { onEditDay(activeSection.scheduledDate) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onEditSetup) {
                             Icon(
-                                imageVector = Icons.Outlined.EditCalendar,
-                                contentDescription = "Edit workouts for this day",
+                                imageVector = Icons.Outlined.Tune,
+                                contentDescription = "Edit plan setup (weight and frequency)",
                                 tint = MaterialTheme.colorScheme.primary
                             )
+                        }
+                        if (activeSection != null) {
+                            IconButton(onClick = { onEditDay(activeSection.scheduledDate) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.EditCalendar,
+                                    contentDescription = "Edit workouts for this day",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
@@ -1453,3 +1548,313 @@ fun MonthlyWorkoutCalendarCard(
         }
     }
 }
+
+
+@Composable
+fun BodyWeightStepScreen(
+    initialWeight: Double,
+    onBack: () -> Unit,
+    onContinue: (Double) -> Unit
+) {
+    var weightText by remember { mutableStateOf(if (initialWeight > 20.0) initialWeight.toInt().toString() else "70") }
+    val isValid = (weightText.toDoubleOrNull() ?: 0.0) in 25.0..300.0
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+    ) {
+        // Top Back Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF0F172A)
+                )
+            }
+            Text(
+                text = "Step 1: Body Weight",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Graphic / Icon
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.MonitorWeight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = "What is your body weight?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Your weight is shown on your plan page alongside your weekly goal.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Weight Input Card
+            ElevatedCard(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        OutlinedTextField(
+                            value = weightText,
+                            onValueChange = { input ->
+                                if (input.length <= 5 && input.all { it.isDigit() || it == '.' }) {
+                                    weightText = input
+                                }
+                            },
+                            textStyle = MaterialTheme.typography.displaySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color(0xFFE2E8F0)
+                            ),
+                            modifier = Modifier.width(140.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "kg",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Recommended range: 30 - 250 kg",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Continue Button
+        Button(
+            onClick = {
+                val weight = weightText.toDoubleOrNull()
+                if (weight != null && weight in 25.0..300.0) {
+                    onContinue(weight)
+                }
+            },
+            enabled = isValid,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(
+                text = "Continue",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+// MARK: - Step 2: Workout Frequency Screen ("How many days a week will you workout?")
+
+@Composable
+fun WorkoutFrequencyStepScreen(
+    currentFrequency: Int,
+    onBack: () -> Unit,
+    onContinue: (Int) -> Unit
+) {
+    var selectedDays by remember { mutableIntStateOf(currentFrequency) }
+
+    val options = listOf(
+        Triple(2, "2 Days / Week", "Light maintenance & full body stimulation"),
+        Triple(3, "3 Days / Week", "Classic Push / Pull / Legs split (Recommended)"),
+        Triple(4, "4 Days / Week", "Upper / Lower split with optimal rest days"),
+        Triple(5, "5 Days / Week", "Dedicated body part focus & hypertrophy"),
+        Triple(6, "6 Days / Week", "High volume Push / Pull / Legs rotation")
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+    ) {
+        // Top Back Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF0F172A)
+                )
+            }
+            Text(
+                text = "Step 2: Training Frequency",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "How many days a week will you workout?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Choose a realistic frequency you can stick with consistently throughout the week.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Options List
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                options.forEach { (days, label, subtitle) ->
+                    val isSelected = selectedDays == days
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
+                        shadowElevation = if (isSelected) 0.dp else 1.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedDays = days }
+                            .then(
+                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                                else Modifier
+                            )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Outlined.RadioButtonChecked else Icons.Outlined.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
+                                modifier = Modifier.size(22.dp)
+                            )
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A)
+                                )
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color(0xFF64748B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Continue Button
+        Button(
+            onClick = { onContinue(selectedDays) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(
+                text = "Continue",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
