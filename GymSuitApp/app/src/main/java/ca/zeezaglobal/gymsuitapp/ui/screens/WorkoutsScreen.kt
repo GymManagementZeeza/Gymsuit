@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EditCalendar
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Tune
@@ -99,6 +100,16 @@ private const val KEY_USER_WEIGHT = "user_body_weight_kg"
 
 /** Default sets/reps for a workout picked from the exercise catalog. */
 private const val DEFAULT_PLANNED_SETS_REPS = "3 sets × 10 reps"
+
+/** Parses "N sets × M reps" back to (sets, reps); anything else -> the default (3, 10). */
+private fun parseSetsReps(setsReps: String): Pair<Int, Int> {
+    val numbers = Regex("\\d+").findAll(setsReps).mapNotNull { it.value.toIntOrNull() }.toList()
+    val sets = numbers.getOrNull(0)?.takeIf { it in 1..100 } ?: 3
+    val reps = numbers.getOrNull(1)?.takeIf { it in 1..100 } ?: 10
+    return sets to reps
+}
+
+private fun formatSetsReps(sets: Int, reps: Int): String = "$sets sets × $reps reps"
 
 /**
  * Screen navigation modes for the Workout tab:
@@ -1101,6 +1112,40 @@ fun PlannedWorkoutsMainScreen(
 
 // MARK: - Plan editor: search the catalog and multi-select workouts for one day
 
+/** Small − / + stepper for the optional sets/reps editor. */
+@Composable
+private fun SetsRepsStepper(
+    label: String,
+    value: Int,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    canDecrease: Boolean,
+    canIncrease: Boolean
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF0F172A),
+            modifier = Modifier.padding(end = 6.dp)
+        )
+        IconButton(onClick = onDecrease, enabled = canDecrease, modifier = Modifier.size(32.dp)) {
+            Text(text = "−", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+        }
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF0F172A),
+            modifier = Modifier.padding(horizontal = 2.dp)
+        )
+        IconButton(onClick = onIncrease, enabled = canIncrease, modifier = Modifier.size(32.dp)) {
+            Text(text = "+", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+        }
+    }
+}
+
 @Composable
 fun PlanWorkoutPickerScreen(
     date: LocalDate,
@@ -1114,6 +1159,8 @@ fun PlanWorkoutPickerScreen(
     val draft = remember(date) {
         mutableStateListOf<PlannedExerciseItem>().apply { addAll(initialSelection) }
     }
+    // Name of the selected workout whose sets/reps editor is expanded (null = none).
+    var editingSetsRepsFor by remember(date) { mutableStateOf<String?>(null) }
     // Save is only enabled when the selection actually changed; saving an
     // untouched (possibly empty) selection would be a silent no-op.
     val hasChanges = draft.toList() != initialSelection
@@ -1252,41 +1299,99 @@ fun PlanWorkoutPickerScreen(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Column(
+                        Column {
+                            Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 10.dp)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = item.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A)
-                                )
-                                Text(
-                                    text = item.targetMuscle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                            IconButton(onClick = { draft.remove(item) }) {
                                 Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Remove ${item.name}",
-                                    tint = Color(0xFF64748B)
+                                    imageVector = Icons.Outlined.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
                                 )
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(start = 10.dp)
+                                ) {
+                                    Text(
+                                        text = item.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                    Text(
+                                        text = item.targetMuscle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                    Text(
+                                        text = item.setsReps,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                // Optional sets/reps: tapping expands the steppers below.
+                                IconButton(onClick = {
+                                    editingSetsRepsFor =
+                                        if (editingSetsRepsFor == item.name) null else item.name
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Edit,
+                                        contentDescription = "Edit sets and reps for ${item.name}",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    if (editingSetsRepsFor == item.name) editingSetsRepsFor = null
+                                    draft.remove(item)
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Remove ${item.name}",
+                                        tint = Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                            if (editingSetsRepsFor == item.name) {
+                                val (sets, reps) = parseSetsReps(item.setsReps)
+                                fun updateSetsReps(newSets: Int, newReps: Int) {
+                                    val index = draft.indexOfFirst { it.name == item.name }
+                                    if (index >= 0) {
+                                        draft[index] = draft[index].copy(
+                                            setsReps = formatSetsReps(newSets, newReps)
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    SetsRepsStepper(
+                                        label = "Sets",
+                                        value = sets,
+                                        onDecrease = { updateSetsReps((sets - 1).coerceAtLeast(1), reps) },
+                                        onIncrease = { updateSetsReps((sets + 1).coerceAtMost(20), reps) },
+                                        canDecrease = sets > 1,
+                                        canIncrease = sets < 20
+                                    )
+                                    SetsRepsStepper(
+                                        label = "Reps",
+                                        value = reps,
+                                        onDecrease = { updateSetsReps(sets, (reps - 1).coerceAtLeast(1)) },
+                                        onIncrease = { updateSetsReps(sets, (reps + 1).coerceAtMost(100)) },
+                                        canDecrease = reps > 1,
+                                        canIncrease = reps < 100
+                                    )
+                                }
                             }
                         }
                     }
