@@ -770,7 +770,6 @@ private fun BlankPageContent(tab: DashboardTab) {
             shadowElevation = 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
         ) {
             Column(
                 modifier = Modifier.padding(vertical = 60.dp, horizontal = 24.dp),
