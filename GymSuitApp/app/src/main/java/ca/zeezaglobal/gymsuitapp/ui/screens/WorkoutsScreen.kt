@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EditCalendar
-import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
@@ -87,8 +87,11 @@ import java.util.Locale
 private const val PREFS_NAME = "gymsuit_workout_plan"
 private const val KEY_SELECTED_WORKOUTS = "selected_workouts_json"
 
-/** Legacy keys from the auto-generated plan wizard (removed); cleared on load. */
+/** Planned dates set (the days the user chose in the days step). */
+private const val KEY_PLANNED_DATES = "planned_dates_json"
+/** Legacy keys from removed flows; cleared on load. */
 private const val KEY_HAS_PLAN = "has_plan"
+/** Frequency step was removed; its key is dead and cleared on load. */
 private const val KEY_DAYS_PER_WEEK = "days_per_week"
 private const val KEY_SCHEDULED_DATES = "scheduled_dates"
 private const val KEY_USER_WEIGHT = "user_body_weight_kg"
@@ -100,15 +103,15 @@ private const val DEFAULT_PLANNED_SETS_REPS = "3 sets × 10 reps"
  * Screen navigation modes for the Workout tab:
  * CALENDAR -> Monthly overview; planned days are marked, tapping a day shows its planned workouts
  * PLAN_EDITOR -> Search + multi-select workouts for one day, then Save
- * SETUP_WEIGHT -> Body-weight step, asked before the plan page when not yet saved
- * SETUP_FREQUENCY -> Days-per-week step, asked before the plan page when not yet saved
- * PLANNED_WORKOUTS_MAIN -> Plan page: only the workouts the user selected, one tab per planned day
+ * SETUP_WEIGHT -> Body-weight step, asked first in the plan flow when not yet recorded
+ * SELECT_DAYS -> Next-7-days selection, asked in the plan flow after weight
+ * PLANNED_WORKOUTS_MAIN -> Plan page: one tab per planned date, each with its selected workouts
  */
 enum class WorkoutsViewMode {
     CALENDAR,
     PLAN_EDITOR,
     SETUP_WEIGHT,
-    SETUP_FREQUENCY,
+    SELECT_DAYS,
     PLANNED_WORKOUTS_MAIN
 }
 
@@ -147,22 +150,24 @@ private fun Exercise.toPlannedItem(): PlannedExerciseItem = PlannedExerciseItem(
     bodyPart = bodyPart
 )
 
-/** Builds the plan page sections from the user's per-day selections (non-empty days only, by date). */
+/**
+ * Builds the plan page sections from the planned dates (sorted), each with
+ * that day's selected workouts (possibly empty — empty days get an empty tab).
+ */
 private fun buildPlanFromSelections(
+    plannedDates: Set<LocalDate>,
     selections: Map<LocalDate, List<PlannedExerciseItem>>
 ): WorkoutPlanData {
-    val sections = selections.entries
-        .filter { it.value.isNotEmpty() }
-        .sortedBy { it.key }
-        .mapIndexed { index, (date, exercises) ->
-            PlannedDaySection(
-                dayNumber = index + 1,
-                title = date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())),
-                scheduledDate = date,
-                bodyParts = exercises.mapNotNull { it.bodyPart.takeIf { part -> part.isNotBlank() } }.distinct(),
-                exercises = exercises
-            )
-        }
+    val sections = plannedDates.sorted().mapIndexed { index, date ->
+        val exercises = selections[date].orEmpty()
+        PlannedDaySection(
+            dayNumber = index + 1,
+            title = date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())),
+            scheduledDate = date,
+            bodyParts = exercises.mapNotNull { it.bodyPart.takeIf { part -> part.isNotBlank() } }.distinct(),
+            exercises = exercises
+        )
+    }
     return WorkoutPlanData(sections)
 }
 
@@ -216,6 +221,26 @@ private fun selectionsFromJson(raw: String?): Map<LocalDate, List<PlannedExercis
     }
 }
 
+/** Serializes the planned dates set: ["2026-10-20", ...] (sorted). */
+private fun plannedDatesToJson(dates: Set<LocalDate>): String {
+    val arr = JSONArray()
+    dates.sorted().forEach { arr.put(it.toString()) }
+    return arr.toString()
+}
+
+/** Parses [plannedDatesToJson] output; malformed data yields an empty set (never a crash). */
+private fun plannedDatesFromJson(raw: String?): Set<LocalDate> {
+    if (raw.isNullOrBlank()) return emptySet()
+    return try {
+        val arr = JSONArray(raw)
+        List(arr.length()) { i ->
+            try { LocalDate.parse(arr.getString(i)) } catch (_: Exception) { null }
+        }.filterNotNull().toSet()
+    } catch (_: Exception) {
+        emptySet()
+    }
+}
+
 @Composable
 fun WorkoutsScreen(
     session: WorkoutSessionState = remember { WorkoutSessionState() }
@@ -241,18 +266,20 @@ fun WorkoutsScreen(
     var editingDate by remember { mutableStateOf<LocalDate?>(null) }
     var editorReturnToPlan by remember { mutableStateOf(false) }
 
-    // Setup (weight + frequency): asked before the plan page is shown.
-    // Null = not yet saved -> the setup steps run first.
-    var setupWeightKg by remember { mutableStateOf<Double?>(null) }
-    var setupDaysPerWeek by remember { mutableStateOf<Int?>(null) }
-    // True when setup was opened from the plan page (edit-setup icon): Back
-    // from the weight step returns to the plan page instead of the calendar.
-    var setupReturnToPlan by remember { mutableStateOf(false) }
-    // Plan-page tab to land on once setup completes.
-    var pendingPlanTabIndex by remember { mutableIntStateOf(0) }
+    // The planned dates: the days the user chose in the days step. The plan
+    // page shows one tab per planned date, including dates with no workouts yet.
+    // Invariant: selections keys are always a subset of plannedDates.
+    var plannedDates by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
 
-    val activePlan = buildPlanFromSelections(selections)
-    val plannedDates = selections.filterValues { it.isNotEmpty() }.keys
+    // Body weight, asked first in the plan flow. Null = not yet recorded.
+    var setupWeightKg by remember { mutableStateOf<Double?>(null) }
+    // True when the weight step was opened from the plan page (tune icon):
+    // Back/Continue from the weight step returns to the plan page.
+    var setupReturnToPlan by remember { mutableStateOf(false) }
+    // True when the days step was reached via the weight step (Back goes to weight).
+    var daysBackToWeight by remember { mutableStateOf(false) }
+
+    val activePlan = buildPlanFromSelections(plannedDates, selections)
 
     fun refreshCompletedDates() {
         val zone = ZoneId.systemDefault()
@@ -268,46 +295,72 @@ fun WorkoutsScreen(
         completedDates = fromStore + fromPrefs
     }
 
-    // Loads the saved plan + setup on startup. Only the still-dead legacy keys
-    // are dropped (has_plan, scheduled_dates); weight/frequency are live setup values.
+    // Loads the saved plan + weight on startup. Dead legacy keys (has_plan,
+    // scheduled_dates, days_per_week) are dropped. Plans saved before the
+    // planned-dates set existed derive it from their workout dates.
     fun loadSavedSelections() {
-        selections = selectionsFromJson(planPrefs.getString(KEY_SELECTED_WORKOUTS, null))
+        val loadedSelections = selectionsFromJson(planPrefs.getString(KEY_SELECTED_WORKOUTS, null))
+        val loadedDates = if (planPrefs.contains(KEY_PLANNED_DATES)) {
+            plannedDatesFromJson(planPrefs.getString(KEY_PLANNED_DATES, null))
+        } else {
+            loadedSelections.keys
+        }
+        plannedDates = loadedDates
+        selections = loadedSelections.filterKeys { it in loadedDates }
         setupWeightKg = planPrefs.getFloat(KEY_USER_WEIGHT, 0f).toDouble().takeIf { it > 0 }
-        setupDaysPerWeek = planPrefs.getInt(KEY_DAYS_PER_WEEK, 0).takeIf { it > 0 }
-        if (planPrefs.contains(KEY_HAS_PLAN) || planPrefs.contains(KEY_SCHEDULED_DATES)) {
+        if (planPrefs.contains(KEY_HAS_PLAN) || planPrefs.contains(KEY_SCHEDULED_DATES) ||
+            planPrefs.contains(KEY_DAYS_PER_WEEK)
+        ) {
             planPrefs.edit()
                 .remove(KEY_HAS_PLAN)
                 .remove(KEY_SCHEDULED_DATES)
+                .remove(KEY_DAYS_PER_WEEK)
                 .apply()
         }
     }
 
-    fun persistSelections(updated: Map<LocalDate, List<PlannedExerciseItem>>) {
-        selections = updated
-        planPrefs.edit().putString(KEY_SELECTED_WORKOUTS, selectionsToJson(updated)).apply()
+    /** Persists the planned dates + per-day selections together. */
+    fun persistPlan() {
+        planPrefs.edit()
+            .putString(KEY_PLANNED_DATES, plannedDatesToJson(plannedDates))
+            .putString(KEY_SELECTED_WORKOUTS, selectionsToJson(selections))
+            .apply()
     }
 
     /**
-     * Navigates to the plan page, running the weight + frequency setup first
-     * when it has not been saved yet. Setup is display/goal metadata only:
-     * it never generates workouts or limits which days can be planned.
+     * Starts the plan flow: body weight first (skipped when already recorded),
+     * then the next-7-days selection, then the plan page.
      */
-    fun goToPlanPage(tabIndex: Int) {
-        selectedSectionTabIndex = tabIndex
-        if (setupWeightKg == null || setupDaysPerWeek == null) {
-            pendingPlanTabIndex = tabIndex
-            setupReturnToPlan = false
+    fun startPlanFlow() {
+        setupReturnToPlan = false
+        if (setupWeightKg == null) {
             currentViewMode = WorkoutsViewMode.SETUP_WEIGHT
         } else {
-            currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+            daysBackToWeight = false
+            currentViewMode = WorkoutsViewMode.SELECT_DAYS
         }
     }
 
-    /** Re-opens the setup steps from the plan page's edit-setup icon. */
+    /** Re-opens the weight step from the plan page's tune icon. */
     fun openSetupFromPlanPage() {
-        pendingPlanTabIndex = selectedSectionTabIndex
         setupReturnToPlan = true
         currentViewMode = WorkoutsViewMode.SETUP_WEIGHT
+    }
+
+    /**
+     * Confirms the days selection: the planned set keeps dates outside the
+     * next 7 days and takes the chosen dates inside it; workouts for
+     * de-selected dates are dropped.
+     */
+    fun confirmPlannedDays(dates: List<LocalDate>) {
+        val today = LocalDate.now()
+        val nextSevenDays = (0..6).map { today.plusDays(it.toLong()) }.toSet()
+        val newDates = (plannedDates - nextSevenDays) + dates.toSet()
+        plannedDates = newDates
+        selections = selections.filterKeys { it in newDates }
+        persistPlan()
+        selectedSectionTabIndex = 0
+        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
     }
 
     /** Opens the editor for a day. `returnToPlan` keeps Back on the plan page. */
@@ -319,22 +372,28 @@ fun WorkoutsScreen(
 
     fun closeEditor() {
         editingDate = null
-        if (editorReturnToPlan) {
-            goToPlanPage(selectedSectionTabIndex)
+        currentViewMode = if (editorReturnToPlan) {
+            WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
         } else {
-            currentViewMode = WorkoutsViewMode.CALENDAR
+            WorkoutsViewMode.CALENDAR
         }
     }
 
     /** Saves one day's selection and shows the plan page on that day's tab. */
     fun saveDayPlan(date: LocalDate, items: List<PlannedExerciseItem>) {
-        val updated = selections.toMutableMap()
-        if (items.isEmpty()) updated.remove(date) else updated[date] = items
-        persistSelections(updated)
-        val sections = buildPlanFromSelections(updated).sections
-        val tabIndex = sections.indexOfFirst { it.scheduledDate == date }.coerceAtLeast(0)
+        val updatedSelections = selections.toMutableMap()
+        if (items.isEmpty()) {
+            updatedSelections.remove(date)
+            plannedDates = plannedDates - date
+        } else {
+            updatedSelections[date] = items
+            plannedDates = plannedDates + date
+        }
+        selections = updatedSelections
+        persistPlan()
+        selectedSectionTabIndex = plannedDates.sorted().indexOf(date).coerceAtLeast(0)
         editingDate = null
-        goToPlanPage(tabIndex)
+        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
     }
 
     LaunchedEffect(Unit) {
@@ -361,13 +420,8 @@ fun WorkoutsScreen(
                 activePlan = activePlan.takeIf { it.sections.isNotEmpty() },
                 plannedDates = plannedDates,
                 plannedWorkoutsForSelectedDate = selections[selectedDate].orEmpty(),
-                onPlanWorkoutsClick = {
-                    if (activePlan.sections.isNotEmpty()) {
-                        goToPlanPage(0)
-                    } else {
-                        openEditor(selectedDate, returnToPlan = false)
-                    }
-                },
+                onPlanWorkoutsClick = { startPlanFlow() },
+                onViewPlanClick = { currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN },
                 onEditDayPlan = { date -> openEditor(date, returnToPlan = false) }
             )
         }
@@ -395,22 +449,27 @@ fun WorkoutsScreen(
                 onContinue = { weight ->
                     setupWeightKg = weight
                     planPrefs.edit().putFloat(KEY_USER_WEIGHT, weight.toFloat()).apply()
-                    currentViewMode = WorkoutsViewMode.SETUP_FREQUENCY
+                    if (setupReturnToPlan) {
+                        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
+                    } else {
+                        daysBackToWeight = true
+                        currentViewMode = WorkoutsViewMode.SELECT_DAYS
+                    }
                 }
             )
         }
 
-        WorkoutsViewMode.SETUP_FREQUENCY -> {
-            BackHandler { currentViewMode = WorkoutsViewMode.SETUP_WEIGHT }
-            WorkoutFrequencyStepScreen(
-                currentFrequency = setupDaysPerWeek ?: 4,
-                onBack = { currentViewMode = WorkoutsViewMode.SETUP_WEIGHT },
-                onContinue = { days ->
-                    setupDaysPerWeek = days
-                    planPrefs.edit().putInt(KEY_DAYS_PER_WEEK, days).apply()
-                    selectedSectionTabIndex = pendingPlanTabIndex
-                    currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
-                }
+        WorkoutsViewMode.SELECT_DAYS -> {
+            WorkoutDaysSelectionStepScreen(
+                initialSelectedDates = plannedDates.toList(),
+                onBack = {
+                    currentViewMode = if (daysBackToWeight) {
+                        WorkoutsViewMode.SETUP_WEIGHT
+                    } else {
+                        WorkoutsViewMode.CALENDAR
+                    }
+                },
+                onConfirmPlan = { dates -> confirmPlannedDays(dates) }
             )
         }
 
@@ -425,7 +484,6 @@ fun WorkoutsScreen(
                 onStartWorkout = { daySection ->
                     session.start(daySection.bodyParts)
                 },
-                daysPerWeek = setupDaysPerWeek,
                 bodyWeightKg = setupWeightKg,
                 onEditSetup = { openSetupFromPlanPage() }
             )
@@ -446,6 +504,7 @@ fun WorkoutsCalendarView(
     plannedDates: Set<LocalDate>,
     plannedWorkoutsForSelectedDate: List<PlannedExerciseItem>,
     onPlanWorkoutsClick: () -> Unit,
+    onViewPlanClick: () -> Unit,
     onEditDayPlan: (LocalDate) -> Unit
 ) {
     LazyColumn(
@@ -541,7 +600,7 @@ fun WorkoutsCalendarView(
                         }
 
                         OutlinedButton(
-                            onClick = onPlanWorkoutsClick,
+                            onClick = onViewPlanClick,
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text("View plan", fontSize = 12.sp)
@@ -578,7 +637,7 @@ fun WorkoutsCalendarView(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = if (activePlan != null) "View Workout Plan" else "Plan Workouts",
+                        text = "Plan Workouts",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -702,7 +761,6 @@ fun PlannedWorkoutsMainScreen(
     onBackToCalendar: () -> Unit,
     onEditDay: (LocalDate) -> Unit,
     onStartWorkout: (PlannedDaySection) -> Unit,
-    daysPerWeek: Int? = null,
     bodyWeightKg: Double? = null,
     onEditSetup: () -> Unit = {}
 ) {
@@ -747,8 +805,8 @@ fun PlannedWorkoutsMainScreen(
                                 color = Color(0xFF0F172A)
                             )
                             Text(
-                                text = if (daysPerWeek != null && bodyWeightKg != null) {
-                                    "$daysPerWeek Days / Week • Body Weight: ${bodyWeightKg.toInt()} kg"
+                                text = if (bodyWeightKg != null) {
+                                    "Body Weight: ${bodyWeightKg.toInt()} kg • ${plan.sections.size} planned days • ${plan.totalExercises} workouts"
                                 } else {
                                     "${plan.sections.size} planned days • ${plan.totalExercises} workouts"
                                 },
@@ -762,7 +820,7 @@ fun PlannedWorkoutsMainScreen(
                         IconButton(onClick = onEditSetup) {
                             Icon(
                                 imageVector = Icons.Outlined.Tune,
-                                contentDescription = "Edit plan setup (weight and frequency)",
+                                contentDescription = "Edit body weight",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -934,8 +992,34 @@ fun PlannedWorkoutsMainScreen(
                     }
                 }
 
+                // Empty day: no workouts selected yet for this date.
+                if (activeSection.exercises.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "No workouts planned for this day",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = "Add the workouts you want to do on this day.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF64748B),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
                 // Exercises List Header
-                item {
+                if (activeSection.exercises.isNotEmpty()) item {
                     Text(
                         text = "Scheduled Exercises",
                         style = MaterialTheme.typography.titleMedium,
@@ -969,7 +1053,7 @@ fun PlannedWorkoutsMainScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = "Edit workouts",
+                                text = if (activeSection.exercises.isEmpty()) "Add workouts" else "Edit workouts",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -978,7 +1062,7 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Material You 3 "Start Workout" Button
-                item {
+                if (activeSection.exercises.isNotEmpty()) item {
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
                         onClick = { onStartWorkout(activeSection) },
@@ -1621,7 +1705,7 @@ fun BodyWeightStepScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Your weight is shown on your plan page alongside your weekly goal.",
+                text = "Your weight is shown on your plan page.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF64748B)
             )
@@ -1715,23 +1799,23 @@ fun BodyWeightStepScreen(
     }
 }
 
-// MARK: - Step 2: Workout Frequency Screen ("How many days a week will you workout?")
+// MARK: - Step 2: Days Selection ("Which days do you want to plan?")
 
 @Composable
-fun WorkoutFrequencyStepScreen(
-    currentFrequency: Int,
+fun WorkoutDaysSelectionStepScreen(
+    initialSelectedDates: List<LocalDate>,
     onBack: () -> Unit,
-    onContinue: (Int) -> Unit
+    onConfirmPlan: (List<LocalDate>) -> Unit
 ) {
-    var selectedDays by remember { mutableIntStateOf(currentFrequency) }
+    val today = remember { LocalDate.now() }
+    val nextSevenDays = remember { (0..6).map { today.plusDays(it.toLong()) } }
 
-    val options = listOf(
-        Triple(2, "2 Days / Week", "Light maintenance & full body stimulation"),
-        Triple(3, "3 Days / Week", "Classic Push / Pull / Legs split (Recommended)"),
-        Triple(4, "4 Days / Week", "Upper / Lower split with optimal rest days"),
-        Triple(5, "5 Days / Week", "Dedicated body part focus & hypertrophy"),
-        Triple(6, "6 Days / Week", "High volume Push / Pull / Legs rotation")
-    )
+    // Pre-fill with the currently planned dates that fall in the next 7 days.
+    var selectedDates by remember {
+        mutableStateOf(initialSelectedDates.filter { it in nextSevenDays }.toSet())
+    }
+
+    BackHandler(onBack = onBack)
 
     Column(
         modifier = Modifier
@@ -1752,7 +1836,7 @@ fun WorkoutFrequencyStepScreen(
                 )
             }
             Text(
-                text = "Step 2: Training Frequency",
+                text = "Step 2: Select Days",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF64748B)
@@ -1767,7 +1851,7 @@ fun WorkoutFrequencyStepScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "How many days a week will you workout?",
+                text = "Which days do you want to plan?",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F172A)
@@ -1775,60 +1859,132 @@ fun WorkoutFrequencyStepScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = "Choose a realistic frequency you can stick with consistently throughout the week.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF64748B)
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Options List
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                options.forEach { (days, label, subtitle) ->
-                    val isSelected = selectedDays == days
+                Text(
+                    text = "Select the days you want to plan workouts for:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF64748B)
+                )
+                Surface(
+                    shape = CircleShape,
+                    color = if (selectedDates.isNotEmpty()) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+                ) {
+                    Text(
+                        text = "${selectedDates.size} selected",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedDates.isNotEmpty()) Color(0xFF16A34A) else Color(0xFFD97706),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Next 7 Days Selection List
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                nextSevenDays.forEach { date ->
+                    val isSelected = date in selectedDates
+                    val isToday = date == today
+                    val weekdayFormatted = date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault()))
+                    val dateFormatted = date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(14.dp),
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
                         shadowElevation = if (isSelected) 0.dp else 1.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedDays = days }
+                            .clickable {
+                                selectedDates = if (isSelected) {
+                                    selectedDates - date
+                                } else {
+                                    selectedDates + date
+                                }
+                            }
                             .then(
-                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
                                 else Modifier
                             )
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF1F5F9),
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Filled.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = Color(0xFF94A3B8),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = weekdayFormatted,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A)
+                                        )
+                                        if (isToday) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    text = "Today",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = dateFormatted,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+
                             Icon(
-                                imageVector = if (isSelected) Icons.Outlined.RadioButtonChecked else Icons.Outlined.RadioButtonUnchecked,
+                                imageVector = if (isSelected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                                 contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFCBD5E1),
                                 modifier = Modifier.size(22.dp)
                             )
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A)
-                                )
-                                Spacer(modifier = Modifier.height(1.dp))
-                                Text(
-                                    text = subtitle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color(0xFF64748B)
-                                )
-                            }
                         }
                     }
                 }
@@ -1837,9 +1993,13 @@ fun WorkoutFrequencyStepScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Continue Button
+        // Confirm Button
         Button(
-            onClick = { onContinue(selectedDays) },
+            onClick = {
+                val sorted = selectedDates.toList().sorted()
+                onConfirmPlan(sorted)
+            },
+            enabled = selectedDates.isNotEmpty(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -1850,11 +2010,10 @@ fun WorkoutFrequencyStepScreen(
             )
         ) {
             Text(
-                text = "Continue",
+                text = if (selectedDates.isNotEmpty()) "Continue" else "Select at least 1 day",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
         }
     }
 }
-
