@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Mail } from "lucide-react";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
 import AuthShell from "@/components/AuthShell";
 import ErrorBanner from "@/components/ErrorBanner";
 import { checkEmailExists, requestOtp } from "@/lib/auth";
@@ -39,17 +38,9 @@ export default function LoginCard() {
     <AuthShell
       eyebrow="Member & owner login"
       headline="Welcome back."
-      description="Sign in with Google or continue with your email — no password to remember."
+      description="Continue with your email — no password to remember."
     >
       <div className="mt-9 flex flex-col gap-5">
-        <GoogleSignInButton />
-
-        <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.13em] text-ink/40">
-          <span className="h-px flex-1 bg-ink/10" />
-          or
-          <span className="h-px flex-1 bg-ink/10" />
-        </div>
-
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <label className="flex flex-col gap-2">
             <span className="text-xs font-bold uppercase tracking-[0.13em] text-ink/50">
