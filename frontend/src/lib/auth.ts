@@ -213,7 +213,7 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
 }
 
 /**
- * For calls that issue a session (login / OTP verify / register / Google):
+ * For calls that issue a session (login / OTP verify / register):
  * `credentials: "include"` lets the browser store the httpOnly refresh cookie
  * the backend sets on the response.
  */
