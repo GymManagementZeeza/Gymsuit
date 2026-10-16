@@ -523,7 +523,7 @@ fun WorkoutsCalendarView(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA)),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Top Header Row with Title & Month Switcher
@@ -793,7 +793,7 @@ fun PlannedWorkoutsMainScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -894,8 +894,7 @@ fun PlannedWorkoutsMainScreen(
             // Empty state: the plan holds only user-selected workouts, and none are saved yet.
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -942,8 +941,7 @@ fun PlannedWorkoutsMainScreen(
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -1186,7 +1184,7 @@ fun PlanWorkoutPickerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1229,7 +1227,7 @@ fun PlanWorkoutPickerScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Search field
@@ -1478,7 +1476,7 @@ fun PlanWorkoutPickerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
+                .padding(top = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (!hasChanges) {
@@ -1755,7 +1753,7 @@ fun BodyWeightStepScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA))
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+            .padding(top = 8.dp, bottom = 100.dp)
     ) {
         // Top Back Row
         Row(
@@ -1929,7 +1927,7 @@ fun WorkoutDaysSelectionStepScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA))
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+            .padding(top = 8.dp, bottom = 100.dp)
     ) {
         // Top Back Row
         Row(
