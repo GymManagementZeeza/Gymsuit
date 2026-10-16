@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Points screen: balance, redeemable rupee value, redemption and history.
+/// Points screen: balance, in-app value, redemption and history.
 struct PointsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var pointsStore = PointsStore.shared
@@ -33,9 +33,9 @@ struct PointsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppColors.border, lineWidth: 1))
 
-                    // Redeemable value
+                    // In-app value
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Redeemable value")
+                        Text("In-app value")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         HStack(alignment: .firstTextBaseline) {
@@ -47,7 +47,10 @@ struct PointsView: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(AppColors.textSecondary)
                         }
-                        Text("Your \(pointsStore.balance) points can be redeemed for \(PointsConfig.formattedRupees(for: pointsStore.balance)) in real money.")
+                        Text("Your \(pointsStore.balance) points are worth \(PointsConfig.formattedRupees(for: pointsStore.balance)) of in-app value.")
+                            .font(.system(size: 13))
+                            .foregroundColor(AppColors.textSecondary)
+                        Text("Points are stored on this device only — reinstalling the app loses them.")
                             .font(.system(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                         Button(action: {
@@ -184,7 +187,7 @@ struct PointsView: View {
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
 
                 let amount = Int(redeemAmount) ?? 0
-                Text("You will receive \(PointsConfig.formattedRupees(for: amount))")
+                Text("This converts to \(PointsConfig.formattedRupees(for: amount)) of in-app value")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
 
@@ -223,7 +226,7 @@ struct PointsView: View {
     private func confirmRedeem() {
         guard let amount = Int(redeemAmount), amount > 0 else { return }
         if let rupees = pointsStore.redeem(points: amount) {
-            redeemMessage = String(format: "Redeemed %d points for \u{20B9}%.2f.", amount, rupees)
+            redeemMessage = String(format: "Redeemed %d points for \u{20B9}%.2f of in-app value.", amount, rupees)
             redeemAmount = ""
         } else {
             redeemMessage = "Not enough points for that amount."

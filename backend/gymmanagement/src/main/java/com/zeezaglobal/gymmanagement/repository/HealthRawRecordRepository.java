@@ -18,4 +18,6 @@ public interface HealthRawRecordRepository extends JpaRepository<HealthRawRecord
 
     List<HealthRawRecord> findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(
             Long userId, LocalDateTime start, LocalDateTime end);
+
+    void deleteAllByUserId(Long userId);
 }

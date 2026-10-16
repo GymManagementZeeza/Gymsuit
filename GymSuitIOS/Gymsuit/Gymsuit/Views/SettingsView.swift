@@ -1,36 +1,31 @@
 import SwiftUI
 
-enum AppearanceMode: String, CaseIterable {
-    case system = "System"
-    case forYou = "For You"
-    case dark = "Dark"
-    case light = "Light"
-    
-    var iconName: String {
-        switch self {
-        case .system: return "gearshape"
-        case .forYou: return "star"
-        case .dark: return "moon.fill"
-        case .light: return "sun.max.fill"
-        }
-    }
-}
-
 struct SettingsView: View {
     var onBack: () -> Void
     var onLogout: () -> Void
-    
-    @State private var selectedAppearance: AppearanceMode = .light
-    @State private var notificationsEnabled: Bool = true
-    @State private var healthSyncEnabled: Bool = true
+
+    @State private var healthSyncEnabled: Bool = BackgroundHealthSync.isEnabled
     @State private var showingLogoutAlert: Bool = false
-    
+    @State private var showingDeleteAccountAlert: Bool = false
+    @State private var deleteError: String? = nil
+    @State private var isDeletingAccount: Bool = false
+
     @ObservedObject private var authManager = AuthManager.shared
-    
+
+    /// Display name from the signed-in session; falls back to a generic
+    /// label instead of a fake name when the session has no name.
+    private var displayName: String {
+        guard let session = authManager.currentSession else { return "Athlete" }
+        let fullName = [session.firstName, session.lastName]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return fullName.isEmpty ? "Athlete" : fullName
+    }
+
     var body: some View {
         ZStack {
             AppColors.surface.ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 // Top Header
                 HStack {
@@ -43,21 +38,21 @@ struct SettingsView: View {
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
                     }
-                    
+
                     Spacer()
-                    
+
                     Text("Settings")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
-                    
+
                     Spacer()
-                    
+
                     Color.clear.frame(width: 44, height: 44)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 .padding(.bottom, 12)
-                
+
                 ScrollView {
                     VStack(spacing: 20) {
                         // Profile Banner Card
@@ -67,17 +62,21 @@ struct SettingsView: View {
                                 .scaledToFill()
                                 .frame(width: 60, height: 60)
                                 .clipShape(Circle())
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\(authManager.currentSession?.firstName ?? "Athlete") \(authManager.currentSession?.lastName ?? "")")
+                                Text(displayName)
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
-                                Text(authManager.currentSession?.email ?? "member@gymsuit.app")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppColors.textSecondary)
-                                Text(authManager.currentSession?.gymName ?? "GymSuit Elite Club")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(AppColors.primary)
+                                if let session = authManager.currentSession, !session.email.isEmpty {
+                                    Text(session.email)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                if let gymName = authManager.currentSession?.gymName, !gymName.isEmpty {
+                                    Text(gymName)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(AppColors.primary)
+                                }
                             }
                             Spacer()
                         }
@@ -85,42 +84,13 @@ struct SettingsView: View {
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 24))
                         .shadow(color: Color.black.opacity(0.03), radius: 6, y: 3)
-                        
-                        // Appearance Segmented
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Appearance")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(AppColors.textSecondary)
-                            
-                            HStack(spacing: 8) {
-                                ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                                    Button(action: { selectedAppearance = mode }) {
-                                        VStack(spacing: 6) {
-                                            Image(systemName: mode.iconName)
-                                                .font(.system(size: 16))
-                                            Text(mode.rawValue)
-                                                .font(.system(size: 12, weight: .medium))
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(selectedAppearance == mode ? AppColors.primary : Color.white)
-                                        .foregroundColor(selectedAppearance == mode ? .white : AppColors.textPrimary)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.border, lineWidth: 1))
-                                    }
-                                }
-                            }
-                        }
-                        .padding(20)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 24))
-                        
+
                         // Preferences Section
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Preferences")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
-                            
+
                             Toggle(isOn: $healthSyncEnabled) {
                                 HStack {
                                     Image(systemName: "heart.fill")
@@ -130,23 +100,45 @@ struct SettingsView: View {
                                         .foregroundColor(AppColors.textPrimary)
                                 }
                             }
-                            
-                            Divider()
-                            
-                            Toggle(isOn: $notificationsEnabled) {
-                                HStack {
-                                    Image(systemName: "bell.fill")
-                                        .foregroundColor(AppColors.warning)
-                                    Text("Daily Wellness Briefing")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundColor(AppColors.textPrimary)
+                        }
+                        .padding(20)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .onChange(of: healthSyncEnabled) { _, newValue in
+                            BackgroundHealthSync.isEnabled = newValue
+                            if newValue {
+                                BackgroundHealthSync.schedule()
+                            } else {
+                                BackgroundHealthSync.cancel()
+                            }
+                        }
+
+                        // Legal Section
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Legal")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(AppColors.textSecondary)
+
+                            if let privacyURL = URL(string: "https://gymsuit.app/privacy") {
+                                Link(destination: privacyURL) {
+                                    HStack {
+                                        Image(systemName: "lock.shield.fill")
+                                            .foregroundColor(AppColors.primary)
+                                        Text("Privacy Policy")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundColor(AppColors.textPrimary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(AppColors.textSecondary)
+                                    }
                                 }
                             }
                         }
                         .padding(20)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 24))
-                        
+
                         // Logout Button
                         Button(action: { showingLogoutAlert = true }) {
                             HStack {
@@ -162,6 +154,29 @@ struct SettingsView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
                         .padding(.top, 10)
+
+                        // Delete Account Button
+                        Button(action: { showingDeleteAccountAlert = true }) {
+                            HStack {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text(isDeletingAccount ? "Deleting Account…" : "Delete Account")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(AppColors.danger)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(AppColors.danger.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                        }
+                        .disabled(isDeletingAccount)
+
+                        if let deleteError {
+                            Text(deleteError)
+                                .font(.system(size: 13))
+                                .foregroundColor(AppColors.danger)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .padding(20)
                 }
@@ -176,5 +191,27 @@ struct SettingsView: View {
         } message: {
             Text("Are you sure you want to log out of GymSuit?")
         }
+        .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+        } message: {
+            Text("This permanently deletes your account and your synced health data. This cannot be undone.")
+        }
+    }
+
+    private func deleteAccount() async {
+        guard let token = authManager.getAccessToken() else { return }
+        isDeletingAccount = true
+        deleteError = nil
+        do {
+            try await MobileAuthApi.shared.deleteAccount(accessToken: token)
+            authManager.clear()
+            onLogout()
+        } catch {
+            deleteError = error.localizedDescription
+        }
+        isDeletingAccount = false
     }
 }

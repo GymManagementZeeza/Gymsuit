@@ -49,7 +49,9 @@ public class Challenge {
     private String inviteCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
+    // Nullable: when a user deletes their own account, challenges they created
+    // are retained for the other participants with the creator cleared.
+    @JoinColumn(name = "created_by")
     private User createdBy;
 
     @Column(nullable = false)

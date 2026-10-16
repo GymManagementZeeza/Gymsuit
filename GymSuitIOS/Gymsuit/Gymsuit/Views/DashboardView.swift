@@ -1,7 +1,6 @@
 import SwiftUI
 
 enum DashboardTab: String, CaseIterable {
-    case plan = "Plan"
     case workouts = "Workouts"
     case home = "Home"
     case challenges = "Challenges"
@@ -9,7 +8,6 @@ enum DashboardTab: String, CaseIterable {
     
     var iconName: String {
         switch self {
-        case .plan: return "calendar"
         case .workouts: return "dumbbell.fill"
         case .home: return "house.fill"
         case .challenges: return "person.3.fill"
@@ -155,8 +153,6 @@ struct DashboardView: View {
                     ChallengesView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
-                } else {
-                    placeholderContent(for: selectedTab)
                 }
             }
             .padding(.bottom, 74) // Space for bottom bar
@@ -390,22 +386,6 @@ struct DashboardView: View {
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-    }
-    
-    private func placeholderContent(for tab: DashboardTab) -> some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: tab.iconName)
-                .font(.system(size: 48))
-                .foregroundColor(AppColors.primary.opacity(0.4))
-            Text("\(tab.rawValue) Coming Soon")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(AppColors.textPrimary)
-            Text("GymSuit workout plans and schedules module.")
-                .font(.system(size: 14))
-                .foregroundColor(AppColors.textSecondary)
-            Spacer()
-        }
     }
     
     private var greetingText: String {

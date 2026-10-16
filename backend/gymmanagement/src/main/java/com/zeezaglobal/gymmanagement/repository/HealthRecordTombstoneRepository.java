@@ -12,4 +12,6 @@ public interface HealthRecordTombstoneRepository extends JpaRepository<HealthRec
             Long userId, Long serverVersion);
 
     boolean existsByUserIdAndCanonicalRecordId(Long userId, String canonicalRecordId);
+
+    void deleteAllByUserId(Long userId);
 }

@@ -15,4 +15,6 @@ public interface ChallengeParticipantRepository extends JpaRepository<ChallengeP
     long countByChallengeId(Long challengeId);
 
     List<ChallengeParticipant> findByUserId(Long userId);
+
+    void deleteAllByUserId(Long userId);
 }

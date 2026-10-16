@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Privacy Policy — GymSuite",
   description:
-    "How GymSuite collects, uses, and protects personal data for gym owners, staff, trainers, and members.",
+    "How GymSuite collects, uses, and protects personal data for gym owners, staff, trainers, and members, including health data synced from the GymSuit mobile app.",
 };
 
 const sections = [
@@ -17,6 +17,8 @@ const sections = [
       "Member records: gyms using GymSuite store member details such as contact information, date of birth, gender, photographs, membership plans, payment history, attendance, and health notes they choose to record.",
       "Payment information: we process subscription fees, joining fees, and other gym charges. Card and UPI details are handled by our payment partners; we store transaction references and amounts, not full card numbers.",
       "Usage data: we automatically collect device information, log data, and interaction analytics that help us keep the service reliable and improve it.",
+      "Health data (GymSuit mobile app): if you use the mobile app and connect Apple Health (iOS) or Health Connect (Android), the app syncs health data such as steps, heart rate, heart rate variability (HRV), sleep, weight, height, distance, workouts, and calories. You choose whether to grant health permissions, and you can revoke them at any time in your device settings.",
+      "Device data (GymSuit mobile app): when the mobile app registers your device for sync, we collect device identifiers, device model, operating system version, and app version to keep sync working and to troubleshoot issues.",
     ],
   },
   {
@@ -26,6 +28,7 @@ const sections = [
       "To send transactional messages such as payment confirmations, renewal reminders, and security alerts.",
       "To detect, prevent, and address fraud, abuse, and technical issues.",
       "To comply with legal obligations applicable in India.",
+      "Health data synced from the GymSuit mobile app is used only to power app features such as your dashboard, workout summaries, challenges, and health reports. Health data is never sold and is never used for advertising.",
     ],
   },
   {
@@ -41,12 +44,13 @@ const sections = [
     body: [
       "We use encryption in transit and at rest, access controls, and regular backups to protect personal data. No method of transmission over the internet is completely secure, but we work continuously to safeguard your information.",
       "We retain data for as long as an account is active or as needed to provide the service, and delete or anonymize it when it is no longer required, subject to legal retention requirements.",
+      "In the GymSuit mobile app, you can delete your account from Settings. Deleting your account deletes the account and your synced health data.",
     ],
   },
   {
     title: "5. Your rights",
     body: [
-      "You may request access to, correction of, or deletion of your personal data by contacting your gym or writing to us at info@gymmanagement.com.",
+      "You may request access to, correction of, or deletion of your personal data by contacting your gym or writing to us at support@zeezaglobal.ca.",
       "Members should note that some records (for example, payment receipts) may need to be retained for accounting and legal purposes even after a deletion request.",
     ],
   },
@@ -65,7 +69,7 @@ const sections = [
   {
     title: "8. Contact us",
     body: [
-      "For privacy questions or requests, write to info@gymmanagement.com.",
+      "For privacy questions or requests, write to support@zeezaglobal.ca.",
     ],
   },
 ];
@@ -90,7 +94,7 @@ export default function PrivacyPage() {
                 How GymSuite collects, uses, and protects personal data for gym
                 owners, staff, trainers, and members.
               </p>
-              <p className="mt-4 text-sm font-medium text-ink/50">Last updated: 22 September 2026</p>
+              <p className="mt-4 text-sm font-medium text-ink/50">Last updated: 15 October 2026</p>
             </div>
           </div>
         </section>
