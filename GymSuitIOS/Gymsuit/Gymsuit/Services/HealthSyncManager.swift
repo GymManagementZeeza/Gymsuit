@@ -211,16 +211,21 @@ public final class HealthSyncManager: ObservableObject {
                 }
 
                 if let steps = remote.steps, steps > localSteps {
-                    _ = await healthKitManager.writeSteps(count: steps, start: startOfDay, end: endOfDay, externalId: "sync_steps_\(remote.recordDate)")
+                    // Write back only the gap: HealthKit readers sum all samples, so
+                    // writing the full remote total on top of local samples would
+                    // double-count the day (mirrors Android's gap-only write-back).
+                    _ = await healthKitManager.writeSteps(count: steps - localSteps, start: startOfDay, end: endOfDay, externalId: "sync_steps_\(remote.recordDate)")
                 }
 
                 let localActiveKcal = (localCalories.hasData ? (localCalories.workoutKcal + localCalories.moveKcal) : 0.0)
                 if let calories = remote.activeCalories, calories > localActiveKcal {
-                    _ = await healthKitManager.writeActiveCalories(kcal: calories, start: startOfDay, end: endOfDay, externalId: "sync_cal_\(remote.recordDate)")
+                    // Gap only (see steps above).
+                    _ = await healthKitManager.writeActiveCalories(kcal: calories - localActiveKcal, start: startOfDay, end: endOfDay, externalId: "sync_cal_\(remote.recordDate)")
                 }
 
                 if let dist = remote.distanceMeters, dist > localDistance {
-                    _ = await healthKitManager.writeDistance(meters: dist, start: startOfDay, end: endOfDay, externalId: "sync_dist_\(remote.recordDate)")
+                    // Gap only (see steps above).
+                    _ = await healthKitManager.writeDistance(meters: dist - localDistance, start: startOfDay, end: endOfDay, externalId: "sync_dist_\(remote.recordDate)")
                 }
 
                 if let hr = remote.latestHeartRateBpm, hr > 0 {
