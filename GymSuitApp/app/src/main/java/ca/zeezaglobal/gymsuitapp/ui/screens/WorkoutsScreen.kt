@@ -1366,12 +1366,14 @@ fun PlanWorkoutPickerScreen(
             }
         }
 
-        // Save bar (pinned at the bottom)
+        // Save bar (pinned at the bottom). The bottom padding clears the
+        // floating bottom nav bar (same 120.dp convention as the calendar and
+        // plan page) so Save stays visible and tappable.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (!hasChanges) {
