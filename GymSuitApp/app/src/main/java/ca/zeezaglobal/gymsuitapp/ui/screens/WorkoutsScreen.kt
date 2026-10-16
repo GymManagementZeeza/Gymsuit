@@ -101,7 +101,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.filled.Photo
-import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
 
 private const val PREFS_NAME = "gymsuit_workout_plan"
 private const val KEY_SELECTED_WORKOUTS = "selected_workouts_json"
@@ -1515,7 +1514,7 @@ fun PlanWorkoutPickerScreen(
             }
             items(filtered, key = { it.id + it.name }) { exercise ->
                 val isSelected = draft.any { it.name == exercise.name }
-                val onToggle = {
+                val onToggle: () -> Unit = {
                     if (isSelected) {
                         draft.removeAll { it.name == exercise.name }
                     } else {
