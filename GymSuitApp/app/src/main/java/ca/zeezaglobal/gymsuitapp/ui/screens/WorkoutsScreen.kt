@@ -1867,7 +1867,10 @@ fun WorkoutDaysSelectionStepScreen(
                 Text(
                     text = "Select the days you want to plan workouts for:",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B),
+                    // Weight lets the counter pill keep its natural width instead of
+                    // being squeezed off the right edge.
+                    modifier = Modifier.weight(1f)
                 )
                 Surface(
                     shape = CircleShape,
@@ -1875,6 +1878,7 @@ fun WorkoutDaysSelectionStepScreen(
                 ) {
                     Text(
                         text = "${selectedDates.size} selected",
+                        maxLines = 1,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (selectedDates.isNotEmpty()) Color(0xFF16A34A) else Color(0xFFD97706),
