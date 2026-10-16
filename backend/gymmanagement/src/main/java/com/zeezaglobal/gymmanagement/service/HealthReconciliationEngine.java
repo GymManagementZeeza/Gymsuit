@@ -237,10 +237,10 @@ public class HealthReconciliationEngine {
             double sourceScore = reconciliationConfig.calculateSourceScore(
                     "STEPS", sample.getSourceDeviceType(), sample.getSourceManufacturer(), sample.getConfidence());
 
-            // Check if cumulative total is stored in 1 day-record or sum of disjoint chunks
-            double sumSteps = records.stream().mapToDouble(HealthRawRecord::getValue).sum();
-            double maxStep = records.stream().mapToDouble(HealthRawRecord::getValue).max().orElse(0.0);
-            double candidateTotal = (records.size() == 1 || maxStep > sumSteps * 0.7) ? maxStep : sumSteps;
+            // Each upload is a cumulative day-total snapshot from this source, not a
+            // disjoint chunk: repeated uploads of the same day must never be summed.
+            // The day's value for a source is its largest snapshot.
+            double candidateTotal = records.stream().mapToDouble(HealthRawRecord::getValue).max().orElse(0.0);
 
             // Combine source priority and total quantity
             double totalScore = sourceScore + (candidateTotal * 0.01);
@@ -309,7 +309,11 @@ public class HealthReconciliationEngine {
         if (!activeList.isEmpty()) {
             HealthRawRecord bestActive = pickBestRawRecord("CALORIES_ACTIVE", activeList);
             if (bestActive != null) {
-                double total = activeList.size() == 1 ? bestActive.getValue() : activeList.stream().mapToDouble(HealthRawRecord::getValue).sum();
+                // Same rule as steps: each upload is a cumulative day-total snapshot,
+                // so take the largest snapshot per source, then the largest across
+                // sources — never the sum. Two devices measuring the same day's
+                // activity are not additive.
+                double total = maxCumulativeSnapshot(activeList);
                 HealthCanonicalRecord can = saveOrUpdateCanonical(
                         user, "CALORIES_ACTIVE", date.atStartOfDay(), date.atTime(23, 59, 59), total, "kcal", null, bestActive);
                 changedRecords.add(can);
@@ -320,13 +324,28 @@ public class HealthReconciliationEngine {
         if (!totalList.isEmpty()) {
             HealthRawRecord bestTotal = pickBestRawRecord("CALORIES_TOTAL", totalList);
             if (bestTotal != null) {
-                double total = totalList.size() == 1 ? bestTotal.getValue() : totalList.stream().mapToDouble(HealthRawRecord::getValue).sum();
+                // Same rule as steps (see above): largest snapshot, never the sum.
+                double total = maxCumulativeSnapshot(totalList);
                 HealthCanonicalRecord can = saveOrUpdateCanonical(
                         user, "CALORIES_TOTAL", date.atStartOfDay(), date.atTime(23, 59, 59), total, "kcal", null, bestTotal);
                 changedRecords.add(can);
                 dailyRecord.setTotalCalories(total);
             }
         }
+    }
+
+    /**
+     * Largest cumulative day-total snapshot for a metric: max per source, then max
+     * across sources. Uploads are repeated snapshots of the same day's total, not
+     * disjoint chunks, so summing them (across syncs or across devices) inflates
+     * the day.
+     */
+    private double maxCumulativeSnapshot(List<HealthRawRecord> records) {
+        return records.stream()
+                .collect(Collectors.groupingBy(r -> r.getSourceSystem() != null ? r.getSourceSystem() : "UNKNOWN"))
+                .values().stream()
+                .mapToDouble(rs -> rs.stream().mapToDouble(HealthRawRecord::getValue).max().orElse(0.0))
+                .max().orElse(0.0);
     }
 
     private HealthRawRecord pickBestRawRecord(String metricType, List<HealthRawRecord> records) {
