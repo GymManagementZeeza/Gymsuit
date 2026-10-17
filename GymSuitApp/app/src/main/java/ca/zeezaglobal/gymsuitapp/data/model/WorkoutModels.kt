@@ -58,7 +58,8 @@ object ExerciseMedia {
         "barbell deadlift" to "deadlift.gif",
         "dumbbell biceps curl" to "dumbbell-curl.gif",
         "dumbbell hammer curl" to "hammer-curl.gif",
-        "lever seated fly" to "machine-chest-fly.gif"
+        "lever seated fly" to "machine-chest-fly.gif",
+        "dumbbell front raise" to "dumbbell-front-raise.gif"
     )
 
     fun localGifAsset(exerciseName: String): String? =
@@ -98,3 +99,4 @@ data class LoggedWorkout(
     val totalReps: Int get() = sets.sumOf { it.reps }
     val totalVolumeKg: Double get() = sets.sumOf { it.reps * it.weightKg }
 }
+
