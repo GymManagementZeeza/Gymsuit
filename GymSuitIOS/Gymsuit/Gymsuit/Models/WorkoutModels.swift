@@ -69,7 +69,8 @@ public enum ExerciseMedia {
         "barbell deadlift": "deadlift.gif",
         "dumbbell biceps curl": "dumbbell-curl.gif",
         "dumbbell hammer curl": "hammer-curl.gif",
-        "lever seated fly": "machine-chest-fly.gif"
+        "lever seated fly": "machine-chest-fly.gif",
+        "dumbbell lateral raise": "dumbbell-lateral-raise.gif"
     ]
 
     public static func localGIFFile(for exerciseName: String) -> String? {

@@ -58,7 +58,8 @@ object ExerciseMedia {
         "barbell deadlift" to "deadlift.gif",
         "dumbbell biceps curl" to "dumbbell-curl.gif",
         "dumbbell hammer curl" to "hammer-curl.gif",
-        "lever seated fly" to "machine-chest-fly.gif"
+        "lever seated fly" to "machine-chest-fly.gif",
+        "dumbbell lateral raise" to "dumbbell-lateral-raise.gif"
     )
 
     fun localGifAsset(exerciseName: String): String? =
