@@ -464,7 +464,8 @@ fun WorkoutsScreen(
                 plannedWorkoutsForSelectedDate = selections[selectedDate].orEmpty(),
                 onPlanWorkoutsClick = { startPlanFlow() },
                 onViewPlanClick = { currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN },
-                onEditDayPlan = { date -> openEditor(date, returnToPlan = false) }
+                onEditDayPlan = { date -> openEditor(date, returnToPlan = false) },
+                workoutStore = workoutStore
             )
         }
 
@@ -548,7 +549,8 @@ fun WorkoutsCalendarView(
     plannedWorkoutsForSelectedDate: List<PlannedExerciseItem>,
     onPlanWorkoutsClick: () -> Unit,
     onViewPlanClick: () -> Unit,
-    onEditDayPlan: (LocalDate) -> Unit
+    onEditDayPlan: (LocalDate) -> Unit,
+    workoutStore: WorkoutStore
 ) {
     LazyColumn(
         modifier = Modifier
@@ -611,6 +613,9 @@ fun WorkoutsCalendarView(
                 plannedDates = plannedDates
             )
         }
+
+        // Workout insights (local data only): body-part intensity + training graphs
+        workoutStatsItems(workoutStore)
 
         // Active Plan Banner if plan already generated
         item {
