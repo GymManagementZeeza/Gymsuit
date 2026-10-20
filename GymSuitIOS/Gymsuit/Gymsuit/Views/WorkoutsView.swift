@@ -128,7 +128,6 @@ struct WorkoutsView: View {
                 .background(AppColors.primaryLight)
                 .clipShape(Capsule())
             }
-            PointsPill()
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
