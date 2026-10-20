@@ -350,14 +350,18 @@ struct FoodLogView: View {
         scanning = true
         scanError = nil
         Task {
+            print("[FoodLogView] Starting food photo scan, image size: \(image.size)")
             guard let jpeg = image.foodScanJPEGData() else {
+                print("[FoodLogView] Failed to convert image to JPEG data")
                 scanError = "Couldn't read that photo. Try another one."
                 scanning = false
                 return
             }
+            print("[FoodLogView] Generated JPEG data: \(jpeg.count) bytes")
             scanImage = image
             do {
                 let result = try await FoodRecognitionApi.shared.recognize(jpegData: jpeg)
+                print("[FoodLogView] Received recognition result: dish='\(result.dish)', confidence=\(result.confidence)")
                 let ranked = result.probabilities
                     .sorted { $0.value > $1.value }
                     .prefix(3)
@@ -380,15 +384,20 @@ struct FoodLogView: View {
                         )
                     ]
                 }
+                print("[FoodLogView] Resolved \(candidates.count) dish candidates: \(candidates.map { "\($0.displayName) (\(String(format: "%.1f%%", $0.confidence * 100)))" })")
                 scanCandidates = candidates
                 activeSheet = .scanResult
             } catch FoodRecognitionError.unavailable {
+                print("[FoodLogView] Recognition failed: Server unavailable (503)")
                 scanError = "Food recognition is unavailable right now — the server is down. You can still add it manually."
             } catch FoodRecognitionError.unauthorized {
+                print("[FoodLogView] Recognition failed: Unauthorized (401)")
                 scanError = "Your session has expired. Please log in again to use food scanning."
             } catch FoodRecognitionError.failed(let message) {
+                print("[FoodLogView] Recognition failed: \(message)")
                 scanError = message
             } catch {
+                print("[FoodLogView] Recognition failed with unexpected error: \(error.localizedDescription) (\(error))")
                 scanError = "Couldn't reach the food recognition server. You can still add it manually."
             }
             scanning = false
@@ -875,21 +884,30 @@ private struct FoodChip: View {
 // MARK: - Image helpers
 
 extension UIImage {
-    /// Downscales to at most 1600px on a side (like Android's decodeBitmap)
-    /// and encodes as JPEG at quality 0.85 for the recognition upload.
-    /// jpegData bakes in the EXIF orientation, so no manual rotation is needed.
+    /// Downscales the image so its longest pixel dimension is at most 1024px
+    /// (matching Android's decodeBitmap sample sizing) and encodes as JPEG at quality 0.8.
+    /// Uses UIGraphicsImageRenderer with format.scale = 1.0 to ensure predictable pixel
+    /// dimensions regardless of device screen scale, and bakes in EXIF orientation upright.
     func foodScanJPEGData() -> Data? {
-        let maxDimension: CGFloat = 1600
-        var target = self
-        if size.width > maxDimension || size.height > maxDimension {
-            let scale = min(maxDimension / size.width, maxDimension / size.height)
-            let newSize = CGSize(width: size.width * scale, height: size.height * scale)
-            let renderer = UIGraphicsImageRenderer(size: newSize)
-            target = renderer.image { _ in
-                draw(in: CGRect(origin: .zero, size: newSize))
-            }
+        let maxDimension: CGFloat = 1024
+        let pixelWidth = size.width * scale
+        let pixelHeight = size.height * scale
+
+        let targetSize: CGSize
+        if pixelWidth > maxDimension || pixelHeight > maxDimension {
+            let ratio = min(maxDimension / pixelWidth, maxDimension / pixelHeight)
+            targetSize = CGSize(width: max(1, round(pixelWidth * ratio)), height: max(1, round(pixelHeight * ratio)))
+        } else {
+            targetSize = CGSize(width: max(1, round(pixelWidth)), height: max(1, round(pixelHeight)))
         }
-        return target.jpegData(compressionQuality: 0.85)
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let resized = renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return resized.jpegData(compressionQuality: 0.8)
     }
 }
 
