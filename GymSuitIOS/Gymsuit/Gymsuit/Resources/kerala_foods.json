@@ -1,0 +1,718 @@
+{
+ "version": 1,
+ "region": "Kerala",
+ "note": "Approximate typical-serving values, not lab-measured.",
+ "foods": [
+  {
+   "name": "Puttu",
+   "serving": "2 pieces (1 cup)",
+   "kcal": 210,
+   "proteinG": 4,
+   "carbsG": 42,
+   "fatG": 3,
+   "aliases": "steamed rice cake rice puttu"
+  },
+  {
+   "name": "Ragi puttu",
+   "serving": "2 pieces (1 cup)",
+   "kcal": 190,
+   "proteinG": 5,
+   "carbsG": 38,
+   "fatG": 2,
+   "aliases": "finger millet puttu"
+  },
+  {
+   "name": "Kadala curry",
+   "serving": "1 cup",
+   "kcal": 230,
+   "proteinG": 11,
+   "carbsG": 32,
+   "fatG": 7,
+   "aliases": "black chickpea curry puttu kadala"
+  },
+  {
+   "name": "Appam",
+   "serving": "1 piece",
+   "kcal": 120,
+   "proteinG": 2,
+   "carbsG": 24,
+   "fatG": 2,
+   "aliases": "palappam vellayappam"
+  },
+  {
+   "name": "Kallappam",
+   "serving": "1 piece",
+   "kcal": 130,
+   "proteinG": 2,
+   "carbsG": 25,
+   "fatG": 2,
+   "aliases": "toddy appam"
+  },
+  {
+   "name": "Vegetable stew",
+   "serving": "1 cup",
+   "kcal": 180,
+   "proteinG": 4,
+   "carbsG": 20,
+   "fatG": 9,
+   "aliases": "ishtu veg stew"
+  },
+  {
+   "name": "Chicken stew",
+   "serving": "1 cup",
+   "kcal": 280,
+   "proteinG": 22,
+   "carbsG": 14,
+   "fatG": 15,
+   "aliases": "kozhi stew ishtu"
+  },
+  {
+   "name": "Idiyappam",
+   "serving": "3 pieces",
+   "kcal": 230,
+   "proteinG": 4,
+   "carbsG": 48,
+   "fatG": 2,
+   "aliases": "string hoppers noolappam"
+  },
+  {
+   "name": "Kerala parotta",
+   "serving": "1 piece",
+   "kcal": 300,
+   "proteinG": 6,
+   "carbsG": 40,
+   "fatG": 13,
+   "aliases": "porotta paratha"
+  },
+  {
+   "name": "Beef ularthiyathu",
+   "serving": "1 cup",
+   "kcal": 380,
+   "proteinG": 30,
+   "carbsG": 8,
+   "fatG": 26,
+   "aliases": "beef roast beef fry"
+  },
+  {
+   "name": "Beef curry (Kerala)",
+   "serving": "1 cup",
+   "kcal": 320,
+   "proteinG": 28,
+   "carbsG": 7,
+   "fatG": 20,
+   "aliases": "beef masala"
+  },
+  {
+   "name": "Beef cutlet",
+   "serving": "1 piece",
+   "kcal": 180,
+   "proteinG": 10,
+   "carbsG": 14,
+   "fatG": 9,
+   "aliases": ""
+  },
+  {
+   "name": "Pathiri",
+   "serving": "2 pieces",
+   "kcal": 180,
+   "proteinG": 4,
+   "carbsG": 36,
+   "fatG": 2,
+   "aliases": "rice roti"
+  },
+  {
+   "name": "Vattayappam",
+   "serving": "1 piece",
+   "kcal": 150,
+   "proteinG": 2,
+   "carbsG": 32,
+   "fatG": 1,
+   "aliases": "steamed rice cake"
+  },
+  {
+   "name": "Neyyappam",
+   "serving": "2 pieces",
+   "kcal": 220,
+   "proteinG": 2,
+   "carbsG": 30,
+   "fatG": 10,
+   "aliases": ""
+  },
+  {
+   "name": "Unniyappam",
+   "serving": "3 pieces",
+   "kcal": 240,
+   "proteinG": 3,
+   "carbsG": 34,
+   "fatG": 10,
+   "aliases": ""
+  },
+  {
+   "name": "Pazham pori",
+   "serving": "2 pieces",
+   "kcal": 300,
+   "proteinG": 3,
+   "carbsG": 42,
+   "fatG": 13,
+   "aliases": "banana fritters ethakka appam"
+  },
+  {
+   "name": "Parippu vada",
+   "serving": "2 pieces",
+   "kcal": 200,
+   "proteinG": 8,
+   "carbsG": 20,
+   "fatG": 10,
+   "aliases": "dal vada"
+  },
+  {
+   "name": "Uzhunnu vada",
+   "serving": "2 pieces",
+   "kcal": 230,
+   "proteinG": 8,
+   "carbsG": 22,
+   "fatG": 12,
+   "aliases": "medu vada"
+  },
+  {
+   "name": "Sukhiyan",
+   "serving": "2 pieces",
+   "kcal": 220,
+   "proteinG": 6,
+   "carbsG": 30,
+   "fatG": 9,
+   "aliases": "sugiyan"
+  },
+  {
+   "name": "Kozhukatta",
+   "serving": "2 pieces",
+   "kcal": 200,
+   "proteinG": 3,
+   "carbsG": 38,
+   "fatG": 4,
+   "aliases": "modakam"
+  },
+  {
+   "name": "Ela ada",
+   "serving": "2 pieces",
+   "kcal": 220,
+   "proteinG": 3,
+   "carbsG": 40,
+   "fatG": 6,
+   "aliases": "ila ada"
+  },
+  {
+   "name": "Banana chips",
+   "serving": "30 g",
+   "kcal": 160,
+   "proteinG": 1,
+   "carbsG": 18,
+   "fatG": 10,
+   "aliases": "nenthrapazham chips"
+  },
+  {
+   "name": "Sharkara upperi",
+   "serving": "30 g",
+   "kcal": 140,
+   "proteinG": 1,
+   "carbsG": 20,
+   "fatG": 7,
+   "aliases": "jaggery banana chips"
+  },
+  {
+   "name": "Kappa (boiled tapioca)",
+   "serving": "1 cup",
+   "kcal": 330,
+   "proteinG": 1,
+   "carbsG": 80,
+   "fatG": 0,
+   "aliases": "kappa puzhukku tapioca cassava"
+  },
+  {
+   "name": "Kappa and meen curry",
+   "serving": "1 plate",
+   "kcal": 450,
+   "proteinG": 22,
+   "carbsG": 70,
+   "fatG": 9,
+   "aliases": "tapioca fish curry"
+  },
+  {
+   "name": "Matta rice",
+   "serving": "1 cup cooked",
+   "kcal": 215,
+   "proteinG": 5,
+   "carbsG": 45,
+   "fatG": 1,
+   "aliases": "kerala red rice rosematta"
+  },
+  {
+   "name": "Ghee rice",
+   "serving": "1 cup",
+   "kcal": 320,
+   "proteinG": 6,
+   "carbsG": 46,
+   "fatG": 12,
+   "aliases": "neychoru"
+  },
+  {
+   "name": "Malabar chicken biryani",
+   "serving": "1 plate",
+   "kcal": 600,
+   "proteinG": 30,
+   "carbsG": 68,
+   "fatG": 22,
+   "aliases": "thalassery biryani kozhi biryani"
+  },
+  {
+   "name": "Beef biryani (Kerala)",
+   "serving": "1 plate",
+   "kcal": 620,
+   "proteinG": 32,
+   "carbsG": 66,
+   "fatG": 24,
+   "aliases": ""
+  },
+  {
+   "name": "Fish biryani",
+   "serving": "1 plate",
+   "kcal": 520,
+   "proteinG": 28,
+   "carbsG": 64,
+   "fatG": 16,
+   "aliases": ""
+  },
+  {
+   "name": "Meen curry (Kerala)",
+   "serving": "1 cup",
+   "kcal": 240,
+   "proteinG": 24,
+   "carbsG": 8,
+   "fatG": 13,
+   "aliases": "fish curry meen vevichathu kudampuli"
+  },
+  {
+   "name": "Karimeen pollichathu",
+   "serving": "1 fish",
+   "kcal": 320,
+   "proteinG": 34,
+   "carbsG": 6,
+   "fatG": 18,
+   "aliases": "pearl spot fish"
+  },
+  {
+   "name": "Meen fry",
+   "serving": "1 piece",
+   "kcal": 200,
+   "proteinG": 22,
+   "carbsG": 5,
+   "fatG": 10,
+   "aliases": "fish fry"
+  },
+  {
+   "name": "Mathi fry (sardine)",
+   "serving": "2 pieces",
+   "kcal": 230,
+   "proteinG": 24,
+   "carbsG": 4,
+   "fatG": 13,
+   "aliases": "sardine chala fry"
+  },
+  {
+   "name": "Chemmeen roast",
+   "serving": "1 cup",
+   "kcal": 230,
+   "proteinG": 24,
+   "carbsG": 7,
+   "fatG": 12,
+   "aliases": "prawn roast shrimp"
+  },
+  {
+   "name": "Chemmeen curry",
+   "serving": "1 cup",
+   "kcal": 220,
+   "proteinG": 22,
+   "carbsG": 8,
+   "fatG": 11,
+   "aliases": "prawn curry"
+  },
+  {
+   "name": "Njandu roast",
+   "serving": "1 cup",
+   "kcal": 210,
+   "proteinG": 22,
+   "carbsG": 6,
+   "fatG": 11,
+   "aliases": "crab roast"
+  },
+  {
+   "name": "Kanava roast",
+   "serving": "1 cup",
+   "kcal": 200,
+   "proteinG": 20,
+   "carbsG": 8,
+   "fatG": 10,
+   "aliases": "squid roast"
+  },
+  {
+   "name": "Naadan chicken curry",
+   "serving": "1 cup",
+   "kcal": 320,
+   "proteinG": 26,
+   "carbsG": 8,
+   "fatG": 20,
+   "aliases": "nadan kozhi curry"
+  },
+  {
+   "name": "Chicken roast (Kerala)",
+   "serving": "1 cup",
+   "kcal": 340,
+   "proteinG": 28,
+   "carbsG": 8,
+   "fatG": 22,
+   "aliases": "kozhi varuthathu"
+  },
+  {
+   "name": "Duck roast",
+   "serving": "1 cup",
+   "kcal": 380,
+   "proteinG": 26,
+   "carbsG": 6,
+   "fatG": 28,
+   "aliases": "tharavu roast"
+  },
+  {
+   "name": "Mutton curry (Kerala)",
+   "serving": "1 cup",
+   "kcal": 400,
+   "proteinG": 28,
+   "carbsG": 8,
+   "fatG": 28,
+   "aliases": "aadu curry"
+  },
+  {
+   "name": "Mutton stew",
+   "serving": "1 cup",
+   "kcal": 350,
+   "proteinG": 26,
+   "carbsG": 12,
+   "fatG": 22,
+   "aliases": ""
+  },
+  {
+   "name": "Egg roast",
+   "serving": "2 eggs",
+   "kcal": 260,
+   "proteinG": 14,
+   "carbsG": 9,
+   "fatG": 18,
+   "aliases": "mutta roast"
+  },
+  {
+   "name": "Egg curry (Kerala)",
+   "serving": "2 eggs",
+   "kcal": 270,
+   "proteinG": 14,
+   "carbsG": 10,
+   "fatG": 19,
+   "aliases": "mutta curry"
+  },
+  {
+   "name": "Avial",
+   "serving": "1 cup",
+   "kcal": 180,
+   "proteinG": 4,
+   "carbsG": 16,
+   "fatG": 11,
+   "aliases": "aviyal"
+  },
+  {
+   "name": "Thoran (cabbage)",
+   "serving": "1/2 cup",
+   "kcal": 90,
+   "proteinG": 2,
+   "carbsG": 8,
+   "fatG": 6,
+   "aliases": "cabbage thoran"
+  },
+  {
+   "name": "Beans thoran",
+   "serving": "1/2 cup",
+   "kcal": 95,
+   "proteinG": 3,
+   "carbsG": 9,
+   "fatG": 6,
+   "aliases": ""
+  },
+  {
+   "name": "Cheera thoran",
+   "serving": "1/2 cup",
+   "kcal": 90,
+   "proteinG": 3,
+   "carbsG": 7,
+   "fatG": 6,
+   "aliases": "spinach amaranth thoran"
+  },
+  {
+   "name": "Beetroot thoran",
+   "serving": "1/2 cup",
+   "kcal": 100,
+   "proteinG": 2,
+   "carbsG": 11,
+   "fatG": 6,
+   "aliases": ""
+  },
+  {
+   "name": "Olan",
+   "serving": "1 cup",
+   "kcal": 150,
+   "proteinG": 4,
+   "carbsG": 14,
+   "fatG": 9,
+   "aliases": ""
+  },
+  {
+   "name": "Erissery",
+   "serving": "1 cup",
+   "kcal": 200,
+   "proteinG": 8,
+   "carbsG": 22,
+   "fatG": 9,
+   "aliases": "pumpkin erissery mathanga"
+  },
+  {
+   "name": "Kootu curry",
+   "serving": "1 cup",
+   "kcal": 230,
+   "proteinG": 9,
+   "carbsG": 28,
+   "fatG": 9,
+   "aliases": "koottu curry"
+  },
+  {
+   "name": "Parippu curry",
+   "serving": "1 cup",
+   "kcal": 170,
+   "proteinG": 9,
+   "carbsG": 24,
+   "fatG": 4,
+   "aliases": "dal sadya parippu"
+  },
+  {
+   "name": "Sambar (Kerala)",
+   "serving": "1 cup",
+   "kcal": 140,
+   "proteinG": 6,
+   "carbsG": 20,
+   "fatG": 4,
+   "aliases": ""
+  },
+  {
+   "name": "Pulissery",
+   "serving": "1 cup",
+   "kcal": 130,
+   "proteinG": 4,
+   "carbsG": 10,
+   "fatG": 8,
+   "aliases": "mango pulissery"
+  },
+  {
+   "name": "Moru curry",
+   "serving": "1 cup",
+   "kcal": 90,
+   "proteinG": 3,
+   "carbsG": 7,
+   "fatG": 5,
+   "aliases": "buttermilk curry"
+  },
+  {
+   "name": "Kichadi",
+   "serving": "1/2 cup",
+   "kcal": 90,
+   "proteinG": 3,
+   "carbsG": 8,
+   "fatG": 5,
+   "aliases": ""
+  },
+  {
+   "name": "Pineapple pachadi",
+   "serving": "1/2 cup",
+   "kcal": 110,
+   "proteinG": 1,
+   "carbsG": 20,
+   "fatG": 4,
+   "aliases": ""
+  },
+  {
+   "name": "Beetroot pachadi",
+   "serving": "1/2 cup",
+   "kcal": 100,
+   "proteinG": 2,
+   "carbsG": 12,
+   "fatG": 5,
+   "aliases": ""
+  },
+  {
+   "name": "Mezhukkupuratti",
+   "serving": "1/2 cup",
+   "kcal": 130,
+   "proteinG": 2,
+   "carbsG": 14,
+   "fatG": 8,
+   "aliases": "vegetable stir fry yam"
+  },
+  {
+   "name": "Coconut chutney",
+   "serving": "2 tbsp",
+   "kcal": 50,
+   "proteinG": 1,
+   "carbsG": 3,
+   "fatG": 4,
+   "aliases": "thengai chammanthi"
+  },
+  {
+   "name": "Pappadam (fried)",
+   "serving": "1 piece",
+   "kcal": 60,
+   "proteinG": 2,
+   "carbsG": 7,
+   "fatG": 3,
+   "aliases": "papad appalam"
+  },
+  {
+   "name": "Achar (pickle)",
+   "serving": "1 tsp",
+   "kcal": 15,
+   "proteinG": 0,
+   "carbsG": 1,
+   "fatG": 1,
+   "aliases": "pickle"
+  },
+  {
+   "name": "Palada payasam",
+   "serving": "1/2 cup",
+   "kcal": 230,
+   "proteinG": 4,
+   "carbsG": 36,
+   "fatG": 8,
+   "aliases": "palada pradhaman"
+  },
+  {
+   "name": "Ada pradhaman",
+   "serving": "1/2 cup",
+   "kcal": 260,
+   "proteinG": 3,
+   "carbsG": 40,
+   "fatG": 10,
+   "aliases": ""
+  },
+  {
+   "name": "Paruppu payasam",
+   "serving": "1/2 cup",
+   "kcal": 240,
+   "proteinG": 5,
+   "carbsG": 36,
+   "fatG": 8,
+   "aliases": ""
+  },
+  {
+   "name": "Semiya payasam",
+   "serving": "1/2 cup",
+   "kcal": 220,
+   "proteinG": 4,
+   "carbsG": 34,
+   "fatG": 7,
+   "aliases": "vermicelli payasam"
+  },
+  {
+   "name": "Banana halwa",
+   "serving": "1 piece",
+   "kcal": 220,
+   "proteinG": 2,
+   "carbsG": 40,
+   "fatG": 7,
+   "aliases": ""
+  },
+  {
+   "name": "Kerala sadya (full meal)",
+   "serving": "1 plate",
+   "kcal": 900,
+   "proteinG": 22,
+   "carbsG": 130,
+   "fatG": 30,
+   "aliases": "onam sadya"
+  },
+  {
+   "name": "Tender coconut water",
+   "serving": "1 glass",
+   "kcal": 45,
+   "proteinG": 1,
+   "carbsG": 9,
+   "fatG": 0,
+   "aliases": "elaneer karikku"
+  },
+  {
+   "name": "Sulaimani tea",
+   "serving": "1 cup",
+   "kcal": 30,
+   "proteinG": 0,
+   "carbsG": 7,
+   "fatG": 0,
+   "aliases": ""
+  },
+  {
+   "name": "Kerala tea with milk",
+   "serving": "1 cup",
+   "kcal": 90,
+   "proteinG": 3,
+   "carbsG": 13,
+   "fatG": 3,
+   "aliases": "chaya"
+  },
+  {
+   "name": "Sambharam",
+   "serving": "1 glass",
+   "kcal": 40,
+   "proteinG": 2,
+   "carbsG": 5,
+   "fatG": 1,
+   "aliases": "spiced buttermilk"
+  },
+  {
+   "name": "Coconut rice",
+   "serving": "1 cup",
+   "kcal": 320,
+   "proteinG": 5,
+   "carbsG": 44,
+   "fatG": 13,
+   "aliases": ""
+  },
+  {
+   "name": "Kerala porotta with beef curry",
+   "serving": "1 plate",
+   "kcal": 650,
+   "proteinG": 34,
+   "carbsG": 48,
+   "fatG": 34,
+   "aliases": ""
+  },
+  {
+   "name": "Puttu with kadala curry",
+   "serving": "1 plate",
+   "kcal": 440,
+   "proteinG": 15,
+   "carbsG": 74,
+   "fatG": 10,
+   "aliases": ""
+  },
+  {
+   "name": "Appam with vegetable stew",
+   "serving": "2 appam + 1 cup",
+   "kcal": 420,
+   "proteinG": 8,
+   "carbsG": 68,
+   "fatG": 13,
+   "aliases": ""
+  }
+ ]
+}
