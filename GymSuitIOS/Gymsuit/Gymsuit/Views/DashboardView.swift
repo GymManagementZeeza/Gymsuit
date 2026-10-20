@@ -256,6 +256,9 @@ struct DashboardView: View {
                     }
                 }
                 
+                // Step milestone badges
+                StepBadgesSectionView()
+
                 // Featured Gym Workout Section
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -295,6 +298,11 @@ struct DashboardView: View {
             .padding(.horizontal, 20)
             .padding(.top, 10)
             .padding(.bottom, 20)
+        }
+        .overlay(alignment: .topLeading) {
+            // Invisible host: presents the full-screen celebration overlay
+            // exactly once per newly earned badge.
+            BadgeCelebrationHostView()
         }
     }
     
