@@ -20,6 +20,7 @@ import com.zeezaglobal.gymmanagement.repository.OtpCodeRepository;
 import com.zeezaglobal.gymmanagement.repository.RefreshTokenRepository;
 import com.zeezaglobal.gymmanagement.repository.UserPointTransactionRepository;
 import com.zeezaglobal.gymmanagement.repository.UserRepository;
+import com.zeezaglobal.gymmanagement.repository.WorkoutRecordRepository;
 import com.zeezaglobal.gymmanagement.security.JwtService;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import com.zeezaglobal.gymmanagement.security.UserPrincipal;
