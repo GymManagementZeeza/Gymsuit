@@ -150,6 +150,7 @@ fun FoodLogScreen() {
                         displayName = dishDisplayName(dish),
                         confidence = confidence,
                         nutrition = resolveDishNutrition(context, dish)
+                            ?: (if (dish == result.dish) result.nutrition else null)
                     )
                 }
                 // Probabilities may be empty even when the top dish is set.
@@ -159,7 +160,7 @@ fun FoodLogScreen() {
                             dish = result.dish,
                             displayName = dishDisplayName(result.dish),
                             confidence = result.confidence,
-                            nutrition = resolveDishNutrition(context, result.dish)
+                            nutrition = resolveDishNutrition(context, result.dish) ?: result.nutrition
                         )
                     )
                 } else candidates

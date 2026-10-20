@@ -85,14 +85,35 @@ public struct FoodItem: Identifiable, Equatable {
 
 // MARK: - Recognition (mirrors Android FoodRecognitionResult)
 
-/// Response of POST /api/mobile/food/recognize: {dish, confidence, probabilities}.
+public struct FoodNutritionPayload: Decodable {
+    public let name: String?
+    public let serving: String?
+    public let kcal: Int?
+    public let proteinG: Int?
+    public let carbsG: Int?
+    public let fatG: Int?
+
+    public func toFoodItem() -> FoodItem {
+        FoodItem(
+            name: name ?? "Scanned Food",
+            serving: serving ?? "1 serving",
+            kcal: kcal ?? 0,
+            proteinG: proteinG ?? 0,
+            carbsG: carbsG ?? 0,
+            fatG: fatG ?? 0
+        )
+    }
+}
+
+/// Response of POST /api/mobile/food/recognize: {dish, confidence, probabilities, nutrition}.
 public struct FoodRecognitionResult: Decodable {
     public let dish: String
     public let confidence: Double
     public let probabilities: [String: Double]
+    public let nutrition: FoodNutritionPayload?
 
     private enum CodingKeys: String, CodingKey {
-        case dish, confidence, probabilities
+        case dish, confidence, probabilities, nutrition
     }
 
     public init(from decoder: Decoder) throws {
@@ -100,6 +121,7 @@ public struct FoodRecognitionResult: Decodable {
         dish = try container.decodeIfPresent(String.self, forKey: .dish) ?? ""
         confidence = try container.decodeIfPresent(Double.self, forKey: .confidence) ?? 0
         probabilities = try container.decodeIfPresent([String: Double].self, forKey: .probabilities) ?? [:]
+        nutrition = try container.decodeIfPresent(FoodNutritionPayload.self, forKey: .nutrition)
     }
 }
 
