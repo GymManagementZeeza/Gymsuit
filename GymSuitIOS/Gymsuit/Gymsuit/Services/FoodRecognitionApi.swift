@@ -23,7 +23,9 @@ public final class FoodRecognitionApi {
     public init() {}
 
     public func recognize(jpegData: Data) async throws -> FoodRecognitionResult {
+        print("[FoodRecognitionApi] Starting recognition with \(jpegData.count) bytes of JPEG data")
         guard AuthManager.shared.getAccessToken()?.isEmpty == false else {
+            print("[FoodRecognitionApi] Access token missing or empty, aborting with unauthorized")
             throw FoodRecognitionError.unauthorized
         }
 
@@ -32,18 +34,26 @@ public final class FoodRecognitionApi {
         } catch FoodRecognitionError.unauthorized {
             // Access token may simply have expired — refresh once and retry
             // before telling the user to log in again.
+            print("[FoodRecognitionApi] Received 401 Unauthorized, attempting to refresh session...")
             guard await AuthManager.shared.refreshSession() else {
+                print("[FoodRecognitionApi] Session refresh failed, throwing unauthorized")
                 throw FoodRecognitionError.unauthorized
             }
+            print("[FoodRecognitionApi] Session refresh succeeded, retrying request...")
             return try await send(jpegData: jpegData)
+        } catch {
+            print("[FoodRecognitionApi] Recognition failed: \(error)")
+            throw error
         }
     }
 
     private func send(jpegData: Data) async throws -> FoodRecognitionResult {
         guard let url = URL(string: endpoint) else {
+            print("[FoodRecognitionApi] Invalid URL: \(endpoint)")
             throw URLError(.badURL)
         }
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else {
+            print("[FoodRecognitionApi] No access token available for request")
             throw FoodRecognitionError.unauthorized
         }
 
@@ -62,31 +72,52 @@ public final class FoodRecognitionApi {
         append("\r\n--\(boundary)--\r\n", to: &body)
         request.httpBody = body
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        print("[FoodRecognitionApi] --> POST \(endpoint) (\(jpegData.count) bytes image, total body: \(body.count) bytes)")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            print("[FoodRecognitionApi] <-- Network request failed: \(error.localizedDescription) (\(error))")
+            throw error
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("[FoodRecognitionApi] <-- Invalid server response (not HTTP)")
             throw URLError(.badServerResponse)
         }
 
+        print("[FoodRecognitionApi] <-- HTTP \(httpResponse.statusCode)")
+
         if (200...299).contains(httpResponse.statusCode) {
+            let responseString = String(data: data, encoding: .utf8) ?? "<non-utf8 data: \(data.count) bytes>"
+            print("[FoodRecognitionApi] <-- Response Body: \(responseString)")
             do {
-                return try JSONDecoder().decode(FoodRecognitionResult.self, from: data)
+                let result = try JSONDecoder().decode(FoodRecognitionResult.self, from: data)
+                print("[FoodRecognitionApi] Decoded result successfully: dish='\(result.dish)', confidence=\(result.confidence), candidate probabilities=\(result.probabilities)")
+                return result
             } catch {
+                print("[FoodRecognitionApi] JSON decode error: \(error.localizedDescription). Raw response: \(responseString)")
                 throw FoodRecognitionError.failed("Could not understand the server response: \(error.localizedDescription)")
             }
         }
         if httpResponse.statusCode == 401 {
+            print("[FoodRecognitionApi] <-- 401 Unauthorized")
             throw FoodRecognitionError.unauthorized
         }
         if httpResponse.statusCode == 503 {
+            print("[FoodRecognitionApi] <-- 503 Service Unavailable (inference server down)")
             throw FoodRecognitionError.unavailable
         }
+        let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+        print("[FoodRecognitionApi] <-- Error Response Body: \(errorText)")
         if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let message = (errorJson["error"] as? String) ?? (errorJson["message"] as? String), !message.isEmpty {
+            if let message = (errorJson["message"] as? String) ?? (errorJson["error"] as? String), !message.isEmpty {
+                print("[FoodRecognitionApi] <-- Parsed Error: \(message)")
                 throw FoodRecognitionError.failed("Food recognition failed (\(httpResponse.statusCode)): \(message)")
             }
         }
-        let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
         throw FoodRecognitionError.failed("Food recognition failed (\(httpResponse.statusCode)): \(errorText)")
     }
 
