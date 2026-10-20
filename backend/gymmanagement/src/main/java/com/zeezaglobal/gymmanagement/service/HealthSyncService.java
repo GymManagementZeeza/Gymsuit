@@ -6,6 +6,7 @@ import com.zeezaglobal.gymmanagement.dto.HealthSyncResponse;
 import com.zeezaglobal.gymmanagement.dto.PointsSyncResponse;
 import com.zeezaglobal.gymmanagement.dto.WorkoutSyncDto;
 import com.zeezaglobal.gymmanagement.entity.DailyHealthRecord;
+import com.zeezaglobal.gymmanagement.entity.StepBadge;
 import com.zeezaglobal.gymmanagement.entity.User;
 import com.zeezaglobal.gymmanagement.entity.WorkoutRecord;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
@@ -34,6 +35,7 @@ public class HealthSyncService {
     private final UserRepository userRepository;
     private final HealthReconciliationEngine reconciliationEngine;
     private final PointsSyncService pointsSyncService;
+    private final StepBadgeService stepBadgeService;
 
     @Transactional
     public HealthSyncResponse sync(HealthSyncRequest request, UserPrincipal principal) {
@@ -192,6 +194,25 @@ public class HealthSyncService {
             } catch (Exception e) {
                 log.warn("Canonical engine sync caught non-fatal exception during legacy sync: {}", e.getMessage());
             }
+        }
+
+        // 1b. Award step milestone badges from the reconciled daily step totals.
+        // The badge service only ever creates a badge once per (user, threshold,
+        // date), so re-syncs of the same day can't double-award. One email covers
+        // every badge this sync created (mail failures can't break the sync).
+        List<StepBadge> newBadges = new ArrayList<>();
+        if (request.dailyRecords() != null) {
+            for (DailyHealthSyncDto dto : request.dailyRecords()) {
+                if (dto.recordDate() == null) continue;
+                Optional<DailyHealthRecord> reconciled = dailyHealthRecordRepository
+                        .findByUserIdAndRecordDate(user.getId(), dto.recordDate());
+                if (reconciled.isEmpty() || reconciled.get().getSteps() == null) continue;
+                newBadges.addAll(stepBadgeService.awardBadgesIfEarned(
+                        user, reconciled.get().getRecordDate(), reconciled.get().getSteps()));
+            }
+        }
+        if (!newBadges.isEmpty()) {
+            stepBadgeService.sendBadgeEmail(user, newBadges);
         }
 
         // 2. Ingest incoming workout logs with larger-data conflict resolution
