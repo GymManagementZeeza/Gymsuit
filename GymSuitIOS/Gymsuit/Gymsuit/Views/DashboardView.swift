@@ -4,6 +4,7 @@ enum DashboardTab: String, CaseIterable {
     case workouts = "Workouts"
     case home = "Home"
     case challenges = "Challenges"
+    case food = "Food"
     case settings = "Settings"
     
     var iconName: String {
@@ -11,6 +12,7 @@ enum DashboardTab: String, CaseIterable {
         case .workouts: return "dumbbell.fill"
         case .home: return "house.fill"
         case .challenges: return "person.3.fill"
+        case .food: return "fork.knife"
         case .settings: return "gearshape.fill"
         }
     }
@@ -155,6 +157,8 @@ struct DashboardView: View {
                         .environmentObject(workoutSession)
                 } else if selectedTab == .challenges {
                     ChallengesView()
+                } else if selectedTab == .food {
+                    FoodLogView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
                 }

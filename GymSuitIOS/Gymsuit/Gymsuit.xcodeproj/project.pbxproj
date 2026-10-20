@@ -257,6 +257,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, heart rate, heart rate variability, body mass, height, distance, and workout metrics.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "GymSuit uses the camera to photograph your meals so it can identify the dish and estimate its calories.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = fetch;
@@ -295,6 +296,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, heart rate, heart rate variability, body mass, height, distance, and workout metrics.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "GymSuit uses the camera to photograph your meals so it can identify the dish and estimate its calories.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = fetch;
