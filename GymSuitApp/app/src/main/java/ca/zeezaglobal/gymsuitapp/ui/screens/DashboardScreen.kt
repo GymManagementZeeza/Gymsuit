@@ -551,6 +551,14 @@ fun DashboardScreen(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
+                            // Step milestone badges section
+                            StepBadgesSection()
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            // One-time celebration overlay for newly earned badges
+                            BadgeCelebrationHost()
+
                             // AI Health Summary Section below the cards
                             AiSummaryCardWidget(
                                 uiState = aiSummaryState,

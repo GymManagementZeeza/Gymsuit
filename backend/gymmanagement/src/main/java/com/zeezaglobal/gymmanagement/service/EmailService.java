@@ -162,6 +162,58 @@ public class EmailService {
         }
     }
 
+    /**
+     * A single image embedded inline in the email body (referenced in the
+     * HTML as {@code <img src="cid:<contentId>">}).
+     */
+    public record InlineImage(String contentId, String filename, String contentType, byte[] content) {}
+
+    /**
+     * Sends an email with inline images and no file attachment.
+     * Same failure semantics as {@link #sendEmail}: throws
+     * {@link EmailDeliveryException} on API failure, skips quietly when no
+     * API key is configured.
+     */
+    public void sendEmailWithInlineImages(String to, String subject, String htmlContent,
+                                          List<InlineImage> inlineImages) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            log.warn("RESEND_API_KEY is not set. Skipping email dispatch to {}. Content subject: {}", to, subject);
+            return;
+        }
+
+        try {
+            List<Object> attachments = new ArrayList<>();
+            for (InlineImage image : inlineImages) {
+                attachments.add(Map.of(
+                        "content", Base64.getEncoder().encodeToString(image.content()),
+                        "filename", image.filename(),
+                        "content_type", image.contentType(),
+                        "content_id", image.contentId()
+                ));
+            }
+            Map<String, Object> body = Map.of(
+                    "from", fromEmail,
+                    "to", List.of(to),
+                    "subject", subject,
+                    "html", htmlContent,
+                    "attachments", attachments
+            );
+
+            restClient.post()
+                    .uri("/emails")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            log.info("Successfully sent email with {} inline image(s) via Resend to {}", inlineImages.size(), to);
+        } catch (Exception e) {
+            log.error("Failed to send email with inline images to {} via Resend API: {}", to, e.getMessage(), e);
+            throw new EmailDeliveryException("Failed to send email to " + to, e);
+        }
+    }
+
     public static String otpEmailHtml(String otpCode) {
         return "<div style=\"font-family: Arial, sans-serif; padding: 20px; color: #333;\">"
                 + "<h2>GymSuit Authentication Code</h2>"
