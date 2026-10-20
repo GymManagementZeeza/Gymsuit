@@ -111,7 +111,9 @@ Sweet lassi|1 glass|220|7|36|5|
 Salted lassi|1 glass|100|5|8|5|
 Buttermilk (Chaas)|1 glass|40|2|5|1|chaas moru
 Paneer|100 g|265|18|3|20|cottage cheese
+Tea|1 cup|60|2|8|2|chaya chai milk tea black tea
 Masala chai|1 cup|90|3|13|3|tea
+Coffee|1 cup|70|2|9|3|filter coffee black coffee
 Coffee with milk|1 cup|80|3|9|3|filter coffee
 Milk|1 cup|150|8|12|8|
 Ghee|1 tsp|45|0|0|5|clarified butter
