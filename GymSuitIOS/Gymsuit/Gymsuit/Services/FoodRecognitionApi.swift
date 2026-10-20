@@ -5,6 +5,7 @@ import Foundation
 /// server is down); anything else is a generic failure.
 public enum FoodRecognitionError: Error {
     case unavailable
+    case unauthorized
     case failed(String)
 }
 
@@ -22,15 +23,28 @@ public final class FoodRecognitionApi {
     public init() {}
 
     public func recognize(jpegData: Data) async throws -> FoodRecognitionResult {
+        guard AuthManager.shared.getAccessToken()?.isEmpty == false else {
+            throw FoodRecognitionError.unauthorized
+        }
+
+        do {
+            return try await send(jpegData: jpegData)
+        } catch FoodRecognitionError.unauthorized {
+            // Access token may simply have expired — refresh once and retry
+            // before telling the user to log in again.
+            guard await AuthManager.shared.refreshSession() else {
+                throw FoodRecognitionError.unauthorized
+            }
+            return try await send(jpegData: jpegData)
+        }
+    }
+
+    private func send(jpegData: Data) async throws -> FoodRecognitionResult {
         guard let url = URL(string: endpoint) else {
             throw URLError(.badURL)
         }
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else {
-            throw NSError(
-                domain: "FoodRecognitionApi",
-                code: 401,
-                userInfo: [NSLocalizedDescriptionKey: "You are not signed in. Please log in again."]
-            )
+            throw FoodRecognitionError.unauthorized
         }
 
         var request = URLRequest(url: url)
@@ -60,6 +74,9 @@ public final class FoodRecognitionApi {
             } catch {
                 throw FoodRecognitionError.failed("Could not understand the server response: \(error.localizedDescription)")
             }
+        }
+        if httpResponse.statusCode == 401 {
+            throw FoodRecognitionError.unauthorized
         }
         if httpResponse.statusCode == 503 {
             throw FoodRecognitionError.unavailable

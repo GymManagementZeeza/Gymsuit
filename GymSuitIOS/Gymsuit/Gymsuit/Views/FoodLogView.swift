@@ -44,17 +44,20 @@ struct FoodLogView: View {
     }
 
     var body: some View {
+        ZStack {
+            mainContent
+            if scanning {
+                ScanningOverlay()
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: scanning)
+    }
+
+    private var mainContent: some View {
         VStack(spacing: 0) {
             dateHeader
             remindersRow
                 .padding(.top, 4)
-
-            if scanning {
-                ProgressView()
-                    .progressViewStyle(.linear)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-            }
 
             if let scanError {
                 HStack(alignment: .top) {
@@ -147,7 +150,11 @@ struct FoodLogView: View {
             }
         }
         .task {
-            remindersOn = MealReminders.isEnabled && await MealReminders.hasAuthorization()
+            if MealReminders.isEnabled {
+                remindersOn = await MealReminders.hasAuthorization()
+            } else {
+                remindersOn = false
+            }
             MealReminders.restore()
         }
     }
@@ -377,6 +384,10 @@ struct FoodLogView: View {
                 activeSheet = .scanResult
             } catch FoodRecognitionError.unavailable {
                 scanError = "Food recognition is unavailable right now — the server is down. You can still add it manually."
+            } catch FoodRecognitionError.unauthorized {
+                scanError = "Your session has expired. Please log in again to use food scanning."
+            } catch FoodRecognitionError.failed(let message) {
+                scanError = message
             } catch {
                 scanError = "Couldn't reach the food recognition server. You can still add it manually."
             }
@@ -427,6 +438,30 @@ struct FoodLogView: View {
         prefill = nil
         // Re-arm reminders: the just-logged meal's slot is now skipped today.
         MealReminders.restore()
+    }
+}
+
+/// Full-screen blocking overlay shown while the photo is uploaded to
+/// FoodRecognitionApi and a result comes back.
+private struct ScanningOverlay: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+            VStack(spacing: 16) {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(.white)
+                    .scaleEffect(1.4)
+                Text("Analyzing your photo…")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .padding(28)
+            .background(Color.black.opacity(0.55))
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+        }
+        .transition(.opacity)
     }
 }
 
