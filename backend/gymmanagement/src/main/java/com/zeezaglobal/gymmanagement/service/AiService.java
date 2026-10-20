@@ -19,14 +19,23 @@ import java.util.Map;
 @Slf4j
 public class AiService {
 
-    @Value("${app.openrouter.api-key:}")
-    private String apiKey;
+    @Value("${app.openai.api-key:${OPENAI_API_KEY:}}")
+    private String openaiApiKey;
 
-    @Value("${app.openrouter.model:openrouter/free}")
-    private String model;
+    @Value("${app.openai.model:${OPENAI_MODEL:gpt-4o-mini}}")
+    private String openaiModel;
 
-    @Value("${app.openrouter.base-url:https://openrouter.ai/api/v1}")
-    private String baseUrl;
+    @Value("${app.openai.base-url:${OPENAI_BASE_URL:https://api.openai.com/v1}}")
+    private String openaiBaseUrl;
+
+    @Value("${app.openrouter.api-key:${OPENROUTER_API_KEY:}}")
+    private String openrouterApiKey;
+
+    @Value("${app.openrouter.model:${OPENROUTER_MODEL:google/gemini-2.5-flash}}")
+    private String openrouterModel;
+
+    @Value("${app.openrouter.base-url:${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}}")
+    private String openrouterBaseUrl;
 
     private final RestClient restClient;
     private final Gson gson;
@@ -37,9 +46,24 @@ public class AiService {
     }
 
     public String summarize(Object data) {
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            log.error("OPENROUTER_API_KEY is not configured.");
-            throw new BadRequestException("AI service is not configured. OPENROUTER_API_KEY is missing.");
+        final String activeApiKey;
+        final String activeModel;
+        final String activeBaseUrl;
+        final String providerName;
+
+        if (openaiApiKey != null && !openaiApiKey.trim().isEmpty()) {
+            activeApiKey = openaiApiKey.trim();
+            activeModel = (openaiModel != null && !openaiModel.trim().isEmpty()) ? openaiModel.trim() : "gpt-4o-mini";
+            activeBaseUrl = (openaiBaseUrl != null && !openaiBaseUrl.trim().isEmpty()) ? openaiBaseUrl.trim() : "https://api.openai.com/v1";
+            providerName = "OpenAI";
+        } else if (openrouterApiKey != null && !openrouterApiKey.trim().isEmpty()) {
+            activeApiKey = openrouterApiKey.trim();
+            activeModel = (openrouterModel != null && !openrouterModel.trim().isEmpty()) ? openrouterModel.trim() : "google/gemini-2.5-flash";
+            activeBaseUrl = (openrouterBaseUrl != null && !openrouterBaseUrl.trim().isEmpty()) ? openrouterBaseUrl.trim() : "https://openrouter.ai/api/v1";
+            providerName = "OpenRouter";
+        } else {
+            log.error("Neither OPENAI_API_KEY nor OPENROUTER_API_KEY is configured.");
+            throw new BadRequestException("AI service is not configured. OPENAI_API_KEY is missing.");
         }
 
         try {
@@ -48,7 +72,7 @@ public class AiService {
                     : gson.toJson(data);
 
             Map<String, Object> requestPayload = Map.of(
-                    "model", model,
+                    "model", activeModel,
                     "messages", List.of(
                             Map.of(
                                     "role", "system",
@@ -76,15 +100,15 @@ public class AiService {
             String requestBodyJson = gson.toJson(requestPayload);
 
             String responseBody = restClient.post()
-                    .uri(baseUrl + "/chat/completions")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim())
+                    .uri(activeBaseUrl + "/chat/completions")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + activeApiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBodyJson)
                     .retrieve()
                     .body(String.class);
 
             if (responseBody == null || responseBody.isBlank()) {
-                throw new BadRequestException("Empty response received from OpenRouter AI service.");
+                throw new BadRequestException("Empty response received from " + providerName + " AI service.");
             }
 
             JsonObject root = gson.fromJson(responseBody, JsonObject.class);
@@ -111,13 +135,13 @@ public class AiService {
                 }
             }
 
-            log.error("Unexpected OpenRouter response format: {}", responseBody);
+            log.error("Unexpected {} response format: {}", providerName, responseBody);
             throw new BadRequestException("Failed to parse completion message from AI response.");
 
         } catch (BadRequestException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Error calling OpenRouter AI API: {}", e.getMessage(), e);
+            log.error("Error calling {} AI API: {}", providerName, e.getMessage(), e);
             throw new BadRequestException("AI summarization failed: " + e.getMessage());
         }
     }
