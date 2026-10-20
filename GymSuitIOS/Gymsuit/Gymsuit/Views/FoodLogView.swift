@@ -366,23 +366,32 @@ struct FoodLogView: View {
                     .sorted { $0.value > $1.value }
                     .prefix(3)
                 var candidates = ranked.map { pair in
-                    DishCandidate(
+                    let isTopMatch = (pair.key.caseInsensitiveCompare(result.dish) == .orderedSame) || (pair.key == ranked.first?.key)
+                    let apiNutrition = isTopMatch ? result.nutrition?.toFoodItem() : nil
+                    let finalNutrition = apiNutrition ?? FoodSearch.resolveNutrition(forDish: pair.key)
+                    let name = (isTopMatch ? result.nutrition?.name : nil) ?? dishDisplayName(pair.key)
+                    return DishCandidate(
                         dish: pair.key,
-                        displayName: dishDisplayName(pair.key),
+                        displayName: name,
                         confidence: pair.value,
-                        nutrition: FoodSearch.resolveNutrition(forDish: pair.key) ?? (pair.key == result.dish ? result.nutrition?.toFoodItem() : nil)
+                        nutrition: finalNutrition
                     )
                 }
-                // Probabilities may be empty even when the top dish is set.
-                if candidates.isEmpty && !result.dish.trimmingCharacters(in: .whitespaces).isEmpty {
-                    candidates = [
-                        DishCandidate(
-                            dish: result.dish,
-                            displayName: dishDisplayName(result.dish),
-                            confidence: result.confidence,
-                            nutrition: FoodSearch.resolveNutrition(forDish: result.dish) ?? result.nutrition?.toFoodItem()
+                // Ensure the primary recognized dish is present as the first candidate
+                let trimmedDish = result.dish.trimmingCharacters(in: .whitespaces)
+                if !trimmedDish.isEmpty {
+                    let hasTopDish = candidates.contains { $0.dish.caseInsensitiveCompare(trimmedDish) == .orderedSame }
+                    if !hasTopDish {
+                        candidates.insert(
+                            DishCandidate(
+                                dish: trimmedDish,
+                                displayName: result.nutrition?.name ?? dishDisplayName(trimmedDish),
+                                confidence: result.confidence,
+                                nutrition: result.nutrition?.toFoodItem() ?? FoodSearch.resolveNutrition(forDish: trimmedDish)
+                            ),
+                            at: 0
                         )
-                    ]
+                    }
                 }
                 print("[FoodLogView] Resolved \(candidates.count) dish candidates: \(candidates.map { "\($0.displayName) (\(String(format: "%.1f%%", $0.confidence * 100)))" })")
                 scanCandidates = candidates

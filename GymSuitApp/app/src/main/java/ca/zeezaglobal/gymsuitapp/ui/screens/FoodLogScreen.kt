@@ -144,26 +144,34 @@ fun FoodLogScreen() {
                 }
                 val result = recognitionApi.recognize(jpeg)
                 val ranked = result.probabilities.entries.sortedByDescending { it.value }.take(3)
-                val candidates = ranked.map { (dish, confidence) ->
+                val candidatesList = ranked.map { (dish, confidence) ->
+                    val isTopMatch = dish.equals(result.dish, ignoreCase = true) || (dish == ranked.firstOrNull()?.key)
+                    val apiNutrition = if (isTopMatch) result.nutrition else null
+                    val name = if (isTopMatch && !result.nutrition?.name.isNullOrBlank()) result.nutrition!!.name else dishDisplayName(dish)
                     DishCandidate(
                         dish = dish,
-                        displayName = dishDisplayName(dish),
+                        displayName = name,
                         confidence = confidence,
-                        nutrition = resolveDishNutrition(context, dish)
-                            ?: (if (dish == result.dish) result.nutrition else null)
+                        nutrition = apiNutrition ?: resolveDishNutrition(context, dish)
                     )
-                }
-                // Probabilities may be empty even when the top dish is set.
-                scanCandidates = if (candidates.isEmpty() && result.dish.isNotBlank()) {
-                    listOf(
-                        DishCandidate(
-                            dish = result.dish,
-                            displayName = dishDisplayName(result.dish),
-                            confidence = result.confidence,
-                            nutrition = resolveDishNutrition(context, result.dish) ?: result.nutrition
+                }.toMutableList()
+
+                // Ensure the primary recognized dish is present as the first candidate
+                if (result.dish.isNotBlank()) {
+                    val hasTopDish = candidatesList.any { it.dish.equals(result.dish, ignoreCase = true) }
+                    if (!hasTopDish) {
+                        candidatesList.add(
+                            0,
+                            DishCandidate(
+                                dish = result.dish,
+                                displayName = if (!result.nutrition?.name.isNullOrBlank()) result.nutrition!!.name else dishDisplayName(result.dish),
+                                confidence = result.confidence,
+                                nutrition = result.nutrition ?: resolveDishNutrition(context, result.dish)
+                            )
                         )
-                    )
-                } else candidates
+                    }
+                }
+                scanCandidates = candidatesList
                 showScanResult = true
             } catch (e: FoodRecognitionUnavailableException) {
                 scanError = "Food recognition is unavailable right now — the server is down. You can still add it manually."
