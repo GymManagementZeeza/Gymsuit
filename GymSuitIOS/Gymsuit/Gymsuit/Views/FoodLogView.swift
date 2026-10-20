@@ -370,7 +370,7 @@ struct FoodLogView: View {
                         dish: pair.key,
                         displayName: dishDisplayName(pair.key),
                         confidence: pair.value,
-                        nutrition: FoodSearch.resolveNutrition(forDish: pair.key)
+                        nutrition: FoodSearch.resolveNutrition(forDish: pair.key) ?? (pair.key == result.dish ? result.nutrition?.toFoodItem() : nil)
                     )
                 }
                 // Probabilities may be empty even when the top dish is set.
@@ -380,7 +380,7 @@ struct FoodLogView: View {
                             dish: result.dish,
                             displayName: dishDisplayName(result.dish),
                             confidence: result.confidence,
-                            nutrition: FoodSearch.resolveNutrition(forDish: result.dish)
+                            nutrition: FoodSearch.resolveNutrition(forDish: result.dish) ?? result.nutrition?.toFoodItem()
                         )
                     ]
                 }

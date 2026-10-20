@@ -6,6 +6,7 @@ import ca.zeezaglobal.gymsuitapp.data.local.AuthManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import ca.zeezaglobal.gymsuitapp.data.food.FoodItem
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -17,7 +18,8 @@ class FoodRecognitionUnavailableException(message: String) : Exception(message)
 data class FoodRecognitionResult(
     val dish: String,
     val confidence: Double,
-    val probabilities: Map<String, Double>
+    val probabilities: Map<String, Double>,
+    val nutrition: FoodItem? = null
 )
 
 /**
@@ -98,10 +100,23 @@ class FoodRecognitionApi(private val context: Context) {
                 probabilities[key] = probsJson.optDouble(key)
             }
         }
+        val nutritionJson = json.optJSONObject("nutrition")
+        val nutrition = if (nutritionJson != null) {
+            FoodItem(
+                name = nutritionJson.optString("name", json.optString("dish")),
+                serving = nutritionJson.optString("serving", "1 serving"),
+                kcal = nutritionJson.optInt("kcal", 0),
+                proteinG = nutritionJson.optInt("proteinG", 0),
+                carbsG = nutritionJson.optInt("carbsG", 0),
+                fatG = nutritionJson.optInt("fatG", 0)
+            )
+        } else null
+
         return FoodRecognitionResult(
             dish = json.optString("dish"),
             confidence = json.optDouble("confidence"),
-            probabilities = probabilities
+            probabilities = probabilities,
+            nutrition = nutrition
         )
     }
 }
