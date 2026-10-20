@@ -108,19 +108,19 @@ public class FoodRecognitionService {
         final String activeBaseUrl;
         final String providerName;
 
-        if (openaiApiKey != null && !openaiApiKey.trim().isEmpty()) {
+        if (isValidApiKey(openaiApiKey)) {
             activeApiKey = openaiApiKey.trim();
             activeModel = (openaiModel != null && !openaiModel.trim().isEmpty()) ? openaiModel.trim() : "gpt-4o-mini";
             activeBaseUrl = (openaiBaseUrl != null && !openaiBaseUrl.trim().isEmpty()) ? openaiBaseUrl.trim() : "https://api.openai.com/v1";
             providerName = "OpenAI";
-        } else if (openrouterApiKey != null && !openrouterApiKey.trim().isEmpty()) {
+        } else if (isValidApiKey(openrouterApiKey)) {
             activeApiKey = openrouterApiKey.trim();
             activeModel = (openrouterModel != null && !openrouterModel.trim().isEmpty()) ? openrouterModel.trim() : "google/gemini-2.5-flash";
             activeBaseUrl = (openrouterBaseUrl != null && !openrouterBaseUrl.trim().isEmpty()) ? openrouterBaseUrl.trim() : "https://openrouter.ai/api/v1";
             providerName = "OpenRouter";
         } else {
-            log.error("Neither OPENAI_API_KEY nor OPENROUTER_API_KEY is configured.");
-            throw new BadRequestException("AI food recognition service is not configured. OPENAI_API_KEY is missing.");
+            log.error("Neither a valid OPENAI_API_KEY nor OPENROUTER_API_KEY is configured.");
+            throw new BadRequestException("AI food recognition service is not configured with a valid API key. Please check the OPENAI_API_KEY credential in Jenkins.");
         }
 
         byte[] imageBytes = image.getBytes();
@@ -266,6 +266,12 @@ public class FoodRecognitionService {
                 dish, calories, proteinG, carbsG, fatG, serving);
 
         return new FoodRecognitionResponse(dish, confidence, probabilities, nutrition);
+    }
+
+    private boolean isValidApiKey(String key) {
+        if (key == null || key.isBlank()) return false;
+        String trimmed = key.trim();
+        return !trimmed.contains("\n") && !trimmed.contains("\r") && !trimmed.contains(" ") && trimmed.length() > 10;
     }
 
     /** Retained for backwards compatibility with controller exception handling. */
