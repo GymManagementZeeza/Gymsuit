@@ -70,7 +70,8 @@ public enum ExerciseMedia {
         "dumbbell biceps curl": "dumbbell-curl.gif",
         "dumbbell hammer curl": "hammer-curl.gif",
         "lever seated fly": "machine-chest-fly.gif",
-        "dumbbell lateral raise": "dumbbell-lateral-raise.gif"
+        "dumbbell front raise": "dumbbell-front-raise.gif",
+        "cable pulldown": "cable-pulldown.gif"
     ]
 
     public static func localGIFFile(for exerciseName: String) -> String? {
@@ -135,3 +136,4 @@ public struct LoggedWorkout: Codable, Identifiable {
         sets.reduce(0) { $0 + Double($1.reps) * $1.weightKg }
     }
 }
+

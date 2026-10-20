@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Search
@@ -47,6 +49,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +61,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +75,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -407,6 +412,22 @@ fun WorkoutsScreen(
         }
     }
 
+    /**
+     * Copies one day's planned workouts onto other planned days, replacing
+     * whatever was planned there. Powers the "Copy to other days" action so a
+     * full week can be planned from a single day.
+     */
+    fun copyDayPlan(from: LocalDate, toDates: List<LocalDate>) {
+        val source = selections[from].orEmpty()
+        if (source.isEmpty() || toDates.isEmpty()) return
+        val updated = selections.toMutableMap()
+        toDates.forEach { target -> updated[target] = source.toList() }
+        selections = updated
+        persistPlan()
+        selectedSectionTabIndex =
+            selectedSectionTabIndex.coerceIn(0, (plannedDates.size - 1).coerceAtLeast(0))
+    }
+
     /** Saves one day's selection and shows the plan page on that day's tab. */
     fun saveDayPlan(date: LocalDate, items: List<PlannedExerciseItem>) {
         val updatedSelections = selections.toMutableMap()
@@ -464,7 +485,8 @@ fun WorkoutsScreen(
                 plannedWorkoutsForSelectedDate = selections[selectedDate].orEmpty(),
                 onPlanWorkoutsClick = { startPlanFlow() },
                 onViewPlanClick = { currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN },
-                onEditDayPlan = { date -> openEditor(date, returnToPlan = false) }
+                onEditDayPlan = { date -> openEditor(date, returnToPlan = false) },
+                workoutStore = workoutStore
             )
         }
 
@@ -527,7 +549,9 @@ fun WorkoutsScreen(
                     session.start(daySection.bodyParts)
                 },
                 bodyWeightKg = setupWeightKg,
-                onEditSetup = { openSetupFromPlanPage() }
+                onEditSetup = { openSetupFromPlanPage() },
+                allPlannedDates = plannedDates.sorted(),
+                onCopyDay = { from, to -> copyDayPlan(from, to) }
             )
         }
         }
@@ -548,7 +572,8 @@ fun WorkoutsCalendarView(
     plannedWorkoutsForSelectedDate: List<PlannedExerciseItem>,
     onPlanWorkoutsClick: () -> Unit,
     onViewPlanClick: () -> Unit,
-    onEditDayPlan: (LocalDate) -> Unit
+    onEditDayPlan: (LocalDate) -> Unit,
+    workoutStore: WorkoutStore
 ) {
     LazyColumn(
         modifier = Modifier
@@ -611,6 +636,9 @@ fun WorkoutsCalendarView(
                 plannedDates = plannedDates
             )
         }
+
+        // Workout insights (local data only): body-part intensity + training graphs
+        workoutStatsItems(workoutStore)
 
         // Active Plan Banner if plan already generated
         item {
@@ -815,7 +843,9 @@ fun PlannedWorkoutsMainScreen(
     onEditDay: (LocalDate) -> Unit,
     onStartWorkout: (PlannedDaySection) -> Unit,
     bodyWeightKg: Double? = null,
-    onEditSetup: () -> Unit = {}
+    onEditSetup: () -> Unit = {},
+    allPlannedDates: List<LocalDate> = emptyList(),
+    onCopyDay: (from: LocalDate, to: List<LocalDate>) -> Unit = { _, _ -> }
 ) {
     val activeSection = plan.sections.getOrNull(selectedTabIndex) ?: plan.sections.firstOrNull()
 
@@ -994,6 +1024,7 @@ fun PlannedWorkoutsMainScreen(
                 label = "plan-day"
             ) { section ->
                 val day = section ?: return@AnimatedContent
+                var showCopyDialog by remember(day.scheduledDate) { mutableStateOf(false) }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -1126,6 +1157,34 @@ fun PlannedWorkoutsMainScreen(
                     }
                 }
 
+                // Copy this day's workouts onto other planned days
+                if (day.exercises.isNotEmpty()) item {
+                    OutlinedButton(
+                        onClick = { showCopyDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Copy to other days",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
                 // Material You 3 "Start Workout" Button
                 if (day.exercises.isNotEmpty()) item {
                     Spacer(modifier = Modifier.height(6.dp))
@@ -1158,6 +1217,119 @@ fun PlannedWorkoutsMainScreen(
                         }
                     }
                 }
+                }
+            if (showCopyDialog) {
+                CopyDayDialog(
+                    sourceDate = day.scheduledDate,
+                    targetDates = allPlannedDates.filter { it != day.scheduledDate },
+                    onDismiss = { showCopyDialog = false },
+                    onCopy = { targets ->
+                        onCopyDay(day.scheduledDate, targets)
+                        showCopyDialog = false
+                    }
+                )
+            }
+            }
+        }
+    }
+}
+
+/**
+ * Dialog for the weekly planner's "Copy to other days" action. Lists the other
+ * planned dates with checkboxes; copying replaces the target days' workouts
+ * with a copy of the source day's list.
+ */
+@Composable
+private fun CopyDayDialog(
+    sourceDate: LocalDate,
+    targetDates: List<LocalDate>,
+    onDismiss: () -> Unit,
+    onCopy: (List<LocalDate>) -> Unit
+) {
+    var selected by remember { mutableStateOf(setOf<LocalDate>()) }
+    val dateFmt = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())
+    Dialog(onDismissRequest = onDismiss) {
+        ElevatedCard(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Copy workouts",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+                Text(
+                    text = "Copy ${sourceDate.format(dateFmt)}'s workouts to:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF334155)
+                )
+                Text(
+                    text = "This will replace workouts on the selected days.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B)
+                )
+                if (targetDates.isEmpty()) {
+                    Text(
+                        text = "No other planned days yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF64748B)
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        targetDates.forEach { date ->
+                            val checked = date in selected
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selected = if (checked) selected - date else selected + date
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = {
+                                        selected = if (it) selected + date else selected - date
+                                    }
+                                )
+                                Text(
+                                    text = date.format(dateFmt),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF0F172A),
+                                    modifier = Modifier.padding(start = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onCopy(selected.toList()) },
+                        enabled = selected.isNotEmpty(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Copy")
+                    }
                 }
             }
         }
