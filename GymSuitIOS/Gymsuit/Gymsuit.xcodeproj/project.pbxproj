@@ -254,6 +254,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = ca.zeezaglobal.Gymsuit.healthsync;
 				INFOPLIST_KEY_CFBundleDisplayName = GymSuit;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, heart rate, heart rate variability, body mass, height, distance, and workout metrics.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -291,6 +292,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = ca.zeezaglobal.Gymsuit.healthsync;
 				INFOPLIST_KEY_CFBundleDisplayName = GymSuit;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "GymSuit uses Apple Health to display your daily steps, active calorie burn, sleep stages, heart rate, heart rate variability, body mass, height, distance, and workout metrics.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

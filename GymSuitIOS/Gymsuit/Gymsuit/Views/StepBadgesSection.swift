@@ -228,12 +228,11 @@ private struct ConfettiBurstView: View {
                         .truncatingRemainder(dividingBy: 1) * size.width
                     let alpha = 1 - t * t
 
-                    context.saveGState()
-                    context.translateBy(x: x, y: y)
-                    context.rotate(by: .degrees(p.spin * t * 360))
+                    var ctx = context
+                    ctx.translateBy(x: x, y: y)
+                    ctx.rotate(by: .degrees(p.spin * t * 360))
                     let rect = CGRect(x: -p.size / 2, y: -p.size / 4, width: p.size, height: p.size / 2)
-                    context.fill(Path(rect), with: .color(p.color.opacity(alpha)))
-                    context.restoreGState()
+                    ctx.fill(Path(rect), with: .color(p.color.opacity(alpha)))
                 }
             }
         }

@@ -16,6 +16,8 @@ struct PointsPill: View {
                 Text("\(pointsStore.balance)")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .contentTransition(.numericText())
                     .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pointsStore.balance)
             }
@@ -27,6 +29,8 @@ struct PointsPill: View {
             .shadow(color: Color.black.opacity(0.06), radius: 4, y: 2)
             .scaleEffect(popScale)
         }
+        .fixedSize()
+        .layoutPriority(1)
         .onChange(of: pointsStore.balance) { _, _ in
             withAnimation(.spring(response: 0.35, dampingFraction: 0.45)) {
                 popScale = 1.22
