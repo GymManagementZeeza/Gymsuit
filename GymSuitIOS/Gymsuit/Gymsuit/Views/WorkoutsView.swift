@@ -13,6 +13,12 @@ struct WorkoutsView: View {
     @State private var searchQuery = ""
     @State private var selectedGroup: String? = nil
     @State private var showingHistory = false
+    @State private var detailWorkout: LoggedWorkout? = nil
+
+    // Persisted weight display unit (stored values are always kg).
+    @AppStorage(WeightUnits.storageKey) private var weightUnitRaw = WeightUnit.kg.rawValue
+    private var weightUnit: WeightUnit { WeightUnitPreference.unit(from: weightUnitRaw) }
+    private var otherUnit: WeightUnit { WeightUnits.other(weightUnit) }
 
     @State private var selectedCalendarDate = Date()
     @State private var aiRecommendation: WorkoutRecommendation? = nil
@@ -105,6 +111,14 @@ struct WorkoutsView: View {
             }
         }
         .sheet(isPresented: $showingHistory) { historySheet }
+        .sheet(item: $detailWorkout) { workout in
+            WorkoutDetailView(
+                workout: workout,
+                allWorkouts: store.loggedWorkouts,
+                exercises: store.exercises,
+                unit: weightUnit
+            )
+        }
     }
 
     // MARK: - Header
@@ -139,6 +153,7 @@ struct WorkoutsView: View {
         ScrollView {
             VStack(spacing: 16) {
                 weeklyCalendarStrip
+                MusclesTrainedCard()
                 aiRecommendationCard
                 bodyPartsPickerCard
                 splitPresetsSection
@@ -509,7 +524,7 @@ struct WorkoutsView: View {
                     .lineLimit(2)
                 HStack(spacing: 8) {
                     targetPill("\(item.targetReps) Reps")
-                    targetPill(item.targetWeightKg > 0 ? "\(formatKg(item.targetWeightKg)) kg" : "Bodyweight")
+                    targetPill(item.targetWeightKg > 0 ? WeightUnits.label(kg: item.targetWeightKg, unit: weightUnit) : "Bodyweight")
                 }
             }
             .padding(16)
@@ -770,9 +785,12 @@ struct WorkoutsView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text("\(workout.totalVolumeKg, specifier: "%g") kg")
+                Text(WeightUnits.label(kg: workout.totalVolumeKg, unit: weightUnit))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(AppColors.primary)
+                Text("≈ \(WeightUnits.label(kg: workout.totalVolumeKg, unit: otherUnit))")
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textTertiary)
                 HStack(spacing: 6) {
                     Text("\(workout.sets.count) sets")
                         .font(.system(size: 12))
@@ -797,6 +815,7 @@ struct WorkoutsView: View {
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+        .onTapGesture { detailWorkout = workout }
     }
 
     // MARK: - AI recommendation

@@ -68,6 +68,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import ca.zeezaglobal.gymsuitapp.data.WeightUnits
 import ca.zeezaglobal.gymsuitapp.data.model.Exercise
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSet
@@ -334,6 +336,11 @@ fun SetBySetLogPage(
 ) {
     BackHandler(onBack = onBack)
 
+    // Weight entry unit (lb/kg). Stored values are always kg; the entry is
+    // converted on save and stored values are converted for display.
+    val (weightUnit, setWeightUnit) = rememberWeightUnit()
+    val otherUnit = WeightUnits.other(weightUnit)
+
     var totalSets by remember(exercise.id) { mutableIntStateOf(DEFAULT_SET_COUNT) }
     val completed = remember(exercise.id) { mutableStateListOf<WorkoutSet>() }
     var phase by remember(exercise.id) { mutableStateOf(SetPhase.WORKING) }
@@ -434,6 +441,21 @@ fun SetBySetLogPage(
             )
         }
 
+        // Weight unit toggle: entry + displays follow the selected unit
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Weight unit",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            WeightUnitToggle(unit = weightUnit, onSelect = setWeightUnit)
+        }
+
         // Set progress
         Text(
             text = if (allDone) "All $totalSets sets done" else "Set $currentSet of $totalSets",
@@ -479,11 +501,19 @@ fun SetBySetLogPage(
                             onValueChange = { v ->
                                 weightText = v.filter { it.isDigit() || it == '.' }.take(6)
                             },
-                            label = { Text("Weight (kg)") },
+                            label = { Text("Weight (${weightUnit.symbol})") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+                    val enteredWeight = weightText.toDoubleOrNull() ?: 0.0
+                    if (enteredWeight > 0.0) {
+                        Text(
+                            text = "≈ ${WeightUnits.format(WeightUnits.kgToDisplay(WeightUnits.displayToKg(enteredWeight, weightUnit), otherUnit))} ${otherUnit.symbol}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF94A3B8)
                         )
                     }
                     Button(
@@ -491,7 +521,10 @@ fun SetBySetLogPage(
                             completed.add(
                                 WorkoutSet(
                                     reps = repsText.toIntOrNull() ?: 0,
-                                    weightKg = weightText.toDoubleOrNull() ?: 0.0
+                                    weightKg = WeightUnits.displayToKg(
+                                        weightText.toDoubleOrNull() ?: 0.0,
+                                        weightUnit
+                                    )
                                 )
                             )
                             if (completed.size < totalSets) {
@@ -604,13 +637,20 @@ fun SetBySetLogPage(
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(start = 10.dp).weight(1f)
                             )
-                            Text(
-                                text = "${set.reps} reps × ${
-                                    if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg
-                                } kg",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "${set.reps} reps × ${WeightUnits.label(set.weightKg, weightUnit)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (set.weightKg > 0.0) {
+                                    Text(
+                                        text = "≈ ${WeightUnits.label(set.weightKg, otherUnit)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

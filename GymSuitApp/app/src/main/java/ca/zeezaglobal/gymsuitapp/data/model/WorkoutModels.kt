@@ -99,5 +99,6 @@ data class LoggedWorkout(
 ) {
     val totalReps: Int get() = sets.sumOf { it.reps }
     val totalVolumeKg: Double get() = sets.sumOf { it.reps * it.weightKg }
+    val maxWeightKg: Double get() = sets.maxOfOrNull { it.weightKg } ?: 0.0
 }
 
