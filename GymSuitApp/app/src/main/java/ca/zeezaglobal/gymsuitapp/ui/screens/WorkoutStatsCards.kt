@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.sp
+import ca.zeezaglobal.gymsuitapp.data.WeightUnit
+import ca.zeezaglobal.gymsuitapp.data.WeightUnits
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
@@ -352,6 +354,10 @@ private fun computeWorkoutStats(workoutStore: WorkoutStore): WorkoutStats {
     )
 }
 
+/** Volume label in the user's selected weight unit (stored values are kg). */
+private fun formatVolume(kg: Double, unit: WeightUnit): String =
+    "${formatKg(WeightUnits.kgToDisplay(kg, unit))} ${unit.symbol}"
+
 private fun formatKg(kg: Double): String = when {
     kg >= 1000 -> String.format(Locale.getDefault(), "%.1fk", kg / 1000)
     kg >= 100 -> kg.toInt().toString()
@@ -366,15 +372,16 @@ private fun formatKg(kg: Double): String = when {
 fun LazyListScope.workoutStatsItems(workoutStore: WorkoutStore) {
     item(key = "workout_stats_cards") {
         val stats = remember { computeWorkoutStats(workoutStore) }
+        val (unit, _) = rememberWeightUnit()
         var openDetail by remember { mutableStateOf<StatsDetail?>(null) }
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (!stats.hasData) {
                 EmptyStatsCard()
             } else {
                 BodyPartIntensityCard(stats, onClick = { openDetail = StatsDetail.INTENSITY })
-                VolumeTrendCard(stats, onClick = { openDetail = StatsDetail.VOLUME })
+                VolumeTrendCard(stats, unit, onClick = { openDetail = StatsDetail.VOLUME })
                 SessionsWeekCard(stats, onClick = { openDetail = StatsDetail.SESSIONS })
-                StatsGridCard(stats, onClick = { openDetail = StatsDetail.GRID })
+                StatsGridCard(stats, unit, onClick = { openDetail = StatsDetail.GRID })
                 TopExercisesCard(stats, onClick = { openDetail = StatsDetail.EXERCISES })
             }
         }
@@ -382,6 +389,7 @@ fun LazyListScope.workoutStatsItems(workoutStore: WorkoutStore) {
             StatsDetailDialog(
                 detail = detail,
                 stats = stats,
+                unit = unit,
                 onDismiss = { openDetail = null }
             )
         }
@@ -560,10 +568,10 @@ private fun BodyPartIntensityCard(stats: WorkoutStats, onClick: () -> Unit) {
 }
 
 @Composable
-private fun VolumeTrendCard(stats: WorkoutStats, onClick: () -> Unit) {
+private fun VolumeTrendCard(stats: WorkoutStats, unit: WeightUnit, onClick: () -> Unit) {
     StatsCardContainer(
         title = "Training Volume",
-        subtitle = "Total kg lifted per week · last 8 weeks · tap for details",
+        subtitle = "Total ${unit.symbol} lifted per week · last 8 weeks · tap for details",
         icon = Icons.Filled.BarChart,
         iconTint = Color(0xFF6366F1),
         onClick = onClick
@@ -606,7 +614,7 @@ private fun VolumeTrendCard(stats: WorkoutStats, onClick: () -> Unit) {
             }
         }
         Text(
-            text = "This week so far: ${formatKg(volumes.lastOrNull() ?: 0.0)} kg",
+            text = "This week so far: ${formatVolume(volumes.lastOrNull() ?: 0.0, unit)}",
             style = MaterialTheme.typography.bodySmall,
             color = MutedColor
         )
@@ -677,11 +685,11 @@ private fun SessionsWeekCard(stats: WorkoutStats, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StatsGridCard(stats: WorkoutStats, onClick: () -> Unit) {
+private fun StatsGridCard(stats: WorkoutStats, unit: WeightUnit, onClick: () -> Unit) {
     val tiles = listOf(
         QuadTile(Icons.Filled.Timer, "Total Workouts", stats.totalWorkouts.toString(), Color(0xFF8B5CF6)),
         QuadTile(Icons.Filled.FitnessCenter, "Sets · 7 days", stats.setsLast7Days.toString(), Color(0xFF10B981)),
-        QuadTile(Icons.Filled.BarChart, "Volume · 7 days", "${formatKg(stats.volumeLast7DaysKg)} kg", Color(0xFF6366F1)),
+        QuadTile(Icons.Filled.BarChart, "Volume · 7 days", formatVolume(stats.volumeLast7DaysKg, unit), Color(0xFF6366F1)),
         QuadTile(Icons.Filled.EmojiEvents, "Day Streak", stats.dayStreak.toString(), Color(0xFFF59E0B))
     )
     Column(
@@ -844,6 +852,7 @@ private fun TopExercisesCard(stats: WorkoutStats, onClick: () -> Unit) {
 private fun StatsDetailDialog(
     detail: StatsDetail,
     stats: WorkoutStats,
+    unit: WeightUnit,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -894,11 +903,11 @@ private fun StatsDetailDialog(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     when (detail) {
-                        StatsDetail.INTENSITY -> IntensityDetailContent(stats)
-                        StatsDetail.VOLUME -> VolumeDetailContent(stats)
+                        StatsDetail.INTENSITY -> IntensityDetailContent(stats, unit)
+                        StatsDetail.VOLUME -> VolumeDetailContent(stats, unit)
                         StatsDetail.SESSIONS -> SessionsDetailContent(stats)
-                        StatsDetail.GRID -> GridDetailContent(stats)
-                        StatsDetail.EXERCISES -> ExercisesDetailContent(stats)
+                        StatsDetail.GRID -> GridDetailContent(stats, unit)
+                        StatsDetail.EXERCISES -> ExercisesDetailContent(stats, unit)
                     }
                     Spacer(modifier = Modifier.height(80.dp))
                 }
@@ -982,7 +991,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 @Composable
-private fun IntensityDetailContent(stats: WorkoutStats) {
+private fun IntensityDetailContent(stats: WorkoutStats, unit: WeightUnit) {
     DetailSectionCard(title = "Last 7 days by body part") {
         val details = stats.bodyPartDetail
         if (details.isEmpty()) {
@@ -1025,7 +1034,7 @@ private fun IntensityDetailContent(stats: WorkoutStats) {
                     ) {
                         Text("${d.sets} sets", style = MaterialTheme.typography.bodySmall, color = MutedColor)
                         Text("${d.reps} reps", style = MaterialTheme.typography.bodySmall, color = MutedColor)
-                        Text("${formatKg(d.volumeKg)} kg", style = MaterialTheme.typography.bodySmall, color = MutedColor)
+                        Text(formatVolume(d.volumeKg, unit), style = MaterialTheme.typography.bodySmall, color = MutedColor)
                         Text(
                             "${d.sharePct.toInt()}%",
                             style = MaterialTheme.typography.bodySmall,
@@ -1043,7 +1052,7 @@ private fun IntensityDetailContent(stats: WorkoutStats) {
 }
 
 @Composable
-private fun VolumeDetailContent(stats: WorkoutStats) {
+private fun VolumeDetailContent(stats: WorkoutStats, unit: WeightUnit) {
     DetailSectionCard(title = "Weekly volume · last 8 weeks") {
         val details = stats.weeklyDetail
         if (details.isEmpty() || details.all { it.volumeKg <= 0 && it.sessions == 0 }) {
@@ -1066,7 +1075,7 @@ private fun VolumeDetailContent(stats: WorkoutStats) {
                             color = InkColor
                         )
                         Text(
-                            text = "${formatKg(w.volumeKg)} kg",
+                            text = formatVolume(w.volumeKg, unit),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF6366F1)
@@ -1083,7 +1092,7 @@ private fun VolumeDetailContent(stats: WorkoutStats) {
                         )
                         val avg = if (w.sessions > 0) w.volumeKg / w.sessions else 0.0
                         Text(
-                            text = "Avg ${formatKg(avg)} kg / session",
+                            text = "Avg ${formatVolume(avg, unit)} / session",
                             style = MaterialTheme.typography.bodySmall,
                             color = MutedColor
                         )
@@ -1165,7 +1174,7 @@ private fun SessionsDetailContent(stats: WorkoutStats) {
 }
 
 @Composable
-private fun GridDetailContent(stats: WorkoutStats) {
+private fun GridDetailContent(stats: WorkoutStats, unit: WeightUnit) {
     val a = stats.allTime
     DetailSectionCard(title = "All-time totals") {
         DetailRow("Workouts logged", a.workouts.toString())
@@ -1174,7 +1183,7 @@ private fun GridDetailContent(stats: WorkoutStats) {
         HorizontalDivider(color = TrackColor, thickness = 1.dp)
         DetailRow("Total reps", a.reps.toString())
         HorizontalDivider(color = TrackColor, thickness = 1.dp)
-        DetailRow("Total volume", "${formatKg(a.volumeKg)} kg")
+        DetailRow("Total volume", formatVolume(a.volumeKg, unit))
         HorizontalDivider(color = TrackColor, thickness = 1.dp)
         val avgDur = if (a.avgDurationMin > 0) "${a.avgDurationMin.toInt()} min / workout" else "—"
         DetailRow("Average duration", avgDur)
@@ -1220,7 +1229,7 @@ private fun GridDetailContent(stats: WorkoutStats) {
 }
 
 @Composable
-private fun ExercisesDetailContent(stats: WorkoutStats) {
+private fun ExercisesDetailContent(stats: WorkoutStats, unit: WeightUnit) {
     DetailSectionCard(title = "All exercises · last 7 days") {
         val details = stats.exerciseDetail
         if (details.isEmpty()) {
@@ -1292,7 +1301,7 @@ private fun ExercisesDetailContent(stats: WorkoutStats) {
                             color = MutedColor
                         )
                         Text(
-                            text = "${formatKg(e.volumeKg)} kg",
+                            text = formatVolume(e.volumeKg, unit),
                             style = MaterialTheme.typography.bodySmall,
                             color = MutedColor
                         )
