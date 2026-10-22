@@ -313,6 +313,9 @@ private enum SetPhase { case working, resting }
 /// Expects `WorkoutSessionState` as an environment object.
 struct SetBySetLogPage: View {
     @EnvironmentObject var session: WorkoutSessionState
+    // Weight entry unit (lb/kg). Stored values are always kg; the entry is
+    // converted on save and stored values are converted for display.
+    @AppStorage(WeightUnits.storageKey) private var weightUnitRaw = WeightUnit.kg.rawValue
     let exercise: Exercise
     let onBack: () -> Void
     let onFinished: (LoggedWorkout) -> Void
@@ -335,6 +338,12 @@ struct SetBySetLogPage: View {
         exercise.name.prefix(1).uppercased() + String(exercise.name.dropFirst())
     }
 
+    private var weightUnit: WeightUnit { WeightUnitPreference.unit(from: weightUnitRaw) }
+    private var weightUnitBinding: Binding<WeightUnit> {
+        Binding(get: { weightUnit }, set: { weightUnitRaw = $0.rawValue })
+    }
+    private var otherUnit: WeightUnit { WeightUnits.other(weightUnit) }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
@@ -352,6 +361,8 @@ struct SetBySetLogPage: View {
                         .background(Color.gray.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
+
+                unitToggleRow
 
                 setProgressSection
 
@@ -439,6 +450,20 @@ struct SetBySetLogPage: View {
         .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
     }
 
+    private var unitToggleRow: some View {
+        HStack {
+            Text("Weight unit")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(AppColors.textPrimary)
+            Spacer()
+            WeightUnitToggle(unit: weightUnitBinding)
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+    }
+
     // MARK: Working card
 
     private var workingCard: some View {
@@ -452,7 +477,12 @@ struct SetBySetLogPage: View {
                 .monospacedDigit()
             HStack(spacing: 12) {
                 numberField(title: "Reps", text: $repsText, allowDecimal: false)
-                numberField(title: "Weight (kg)", text: $weightText, allowDecimal: true)
+                numberField(title: "Weight (\(weightUnit.symbol))", text: $weightText, allowDecimal: true)
+            }
+            if let entered = Double(weightText), entered > 0 {
+                Text("≈ \(WeightUnits.format(WeightUnits.kgToDisplay(WeightUnits.displayToKg(entered, unit: weightUnit), unit: otherUnit))) \(otherUnit.symbol)")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppColors.textSecondary)
             }
             Button(action: completeCurrentSet) {
                 HStack(spacing: 8) {
@@ -563,9 +593,16 @@ struct SetBySetLogPage: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                     Spacer()
-                    Text("\(completed[index].reps) reps × \(formatSetWeight(completed[index].weightKg)) kg")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppColors.textSecondary)
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("\(completed[index].reps) reps × \(WeightUnits.format(WeightUnits.kgToDisplay(completed[index].weightKg, unit: weightUnit))) \(weightUnit.symbol)")
+                            .font(.system(size: 14))
+                            .foregroundColor(AppColors.textSecondary)
+                        if completed[index].weightKg > 0 {
+                            Text("≈ \(WeightUnits.label(kg: completed[index].weightKg, unit: otherUnit))")
+                                .font(.system(size: 12))
+                                .foregroundColor(AppColors.textTertiary)
+                        }
+                    }
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(AppColors.success)
                         .font(.system(size: 16))
@@ -631,7 +668,10 @@ struct SetBySetLogPage: View {
     // MARK: Actions
 
     private func completeCurrentSet() {
-        completed.append(WorkoutSet(reps: Int(repsText) ?? 0, weightKg: Double(weightText) ?? 0.0))
+        completed.append(WorkoutSet(
+            reps: Int(repsText) ?? 0,
+            weightKg: WeightUnits.displayToKg(Double(weightText) ?? 0.0, unit: weightUnit)
+        ))
         if completed.count < totalSets {
             restLeft = restTotal
             phase = .resting

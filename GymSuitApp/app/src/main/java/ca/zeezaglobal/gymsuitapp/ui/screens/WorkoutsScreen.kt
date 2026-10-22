@@ -640,6 +640,9 @@ fun WorkoutsCalendarView(
         // Workout insights (local data only): body-part intensity + training graphs
         workoutStatsItems(workoutStore)
 
+        // Muscles trained (silhouette) + recent workouts with radar charts
+        workoutInsightItems(workoutStore)
+
         // Active Plan Banner if plan already generated
         item {
             AnimatedVisibility(

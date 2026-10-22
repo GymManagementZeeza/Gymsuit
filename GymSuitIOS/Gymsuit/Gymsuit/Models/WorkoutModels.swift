@@ -135,5 +135,9 @@ public struct LoggedWorkout: Codable, Identifiable {
     public var totalVolumeKg: Double {
         sets.reduce(0) { $0 + Double($1.reps) * $1.weightKg }
     }
+
+    public var maxWeightKg: Double {
+        sets.map(\.weightKg).max() ?? 0
+    }
 }
 
