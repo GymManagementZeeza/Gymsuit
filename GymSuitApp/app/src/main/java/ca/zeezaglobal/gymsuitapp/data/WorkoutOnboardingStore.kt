@@ -36,6 +36,9 @@ class WorkoutOnboardingStore(context: Context) {
         const val KEY_BIRTH_YEAR = "workout_user_birth_year"
         const val KEY_DAYS_PER_WEEK = "workout_user_days_per_week"
 
+        /** iOS `@AppStorage("workout_personal_best_days")` used by the streak card. */
+        const val KEY_PERSONAL_BEST_DAYS = "workout_personal_best_days"
+
         const val DEFAULT_GOAL = "lose_weight"
         const val DEFAULT_HEIGHT_CM = 172.72
         const val DEFAULT_WEIGHT_KG = 74.526
@@ -84,6 +87,18 @@ class WorkoutOnboardingStore(context: Context) {
         get() = prefs.getInt(KEY_DAYS_PER_WEEK, DEFAULT_DAYS_PER_WEEK)
         set(value) {
             prefs.edit().putInt(KEY_DAYS_PER_WEEK, value).apply()
+        }
+
+    /**
+     * Longest workout streak ever recorded (iOS `workout_personal_best_days`,
+     * default 0). Written by the workouts page streak card whenever the
+     * computed personal best exceeds the stored value, exactly like iOS.
+     * Not cleared by [clearOnboardingData] — iOS keeps it across a reset.
+     */
+    var personalBestDays: Int
+        get() = prefs.getInt(KEY_PERSONAL_BEST_DAYS, 0)
+        set(value) {
+            prefs.edit().putInt(KEY_PERSONAL_BEST_DAYS, value).apply()
         }
 
     /**
