@@ -18,6 +18,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -114,8 +117,17 @@ fun DashboardScreen(
     var selectedTab by remember { mutableStateOf(DashboardTab.HOME) }
     // Lives here so an active workout survives tab changes and locks navigation
     val workoutSession = remember { WorkoutSessionState() }
-    if (workoutSession.active && selectedTab != DashboardTab.WORKOUTS) {
-        selectedTab = DashboardTab.WORKOUTS
+
+    // Workouts opens as a full-screen cover (the iOS fullScreenCover): the
+    // bottom-nav Workouts tap presents it instead of selecting the tab, and
+    // the underlying tab stays on Home. An active guided session forces the
+    // cover open -- iOS blocks tab switching while a session runs, and the
+    // session can only be ended from inside the cover.
+    var isWorkoutFullscreenPresented by remember { mutableStateOf(false) }
+    LaunchedEffect(workoutSession.active) {
+        if (workoutSession.active) {
+            isWorkoutFullscreenPresented = true
+        }
     }
     // Back from any other tab returns to Home (inner workout back handlers take priority)
     BackHandler(enabled = selectedTab != DashboardTab.HOME && !workoutSession.active) {
@@ -199,6 +211,7 @@ fun DashboardScreen(
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
     val appComponent = remember { AppComponent.from(context) }
+    val workoutOnboardingApi = remember(context) { WorkoutOnboardingApi(context) }
     val viewModel = remember(appComponent) {
         appComponent.dashboardViewModelFactory.create(DashboardViewModel::class.java)
     }
@@ -234,6 +247,9 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         appComponent.healthSyncManager.sync()
         healthConnectManager.logAllHealthDataAsJson()
+        // Mirror of iOS ContentView.onAppear -> syncPendingOnboardingIfNeeded():
+        // re-syncs the stored onboarding answers when setup is complete.
+        workoutOnboardingApi.syncPendingOnboardingIfNeeded(coroutineScope)
     }
 
     fun triggerSync() {
@@ -510,7 +526,7 @@ fun DashboardScreen(
                                         days = days,
                                         syncTrigger = syncKey,
                                         onClick = {
-                                            selectedTab = DashboardTab.WORKOUTS
+                                            isWorkoutFullscreenPresented = true
                                         }
                                     )
                                     SleepWidget(
@@ -575,7 +591,11 @@ fun DashboardScreen(
                         SettingsPageContent(
                             avatarResId = userAvatarResId,
                             onBackClick = { selectedTab = DashboardTab.HOME },
-                            onLogoutClick = onLogout
+                            onLogoutClick = onLogout,
+                            onRestartWorkoutOnboarding = {
+                                selectedTab = DashboardTab.HOME
+                                isWorkoutFullscreenPresented = true
+                            }
                         )
                     }
                     DashboardTab.WORKOUTS -> {
@@ -608,7 +628,33 @@ fun DashboardScreen(
             if (!workoutSession.active) {
                 DashboardFloatingNavBar(
                     selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it }
+                    onTabSelected = { tab ->
+                        // iOS: the Workouts tab tap presents the workouts
+                        // full-screen cover instead of switching tabs.
+                        if (tab == DashboardTab.WORKOUTS) {
+                            isWorkoutFullscreenPresented = true
+                        } else {
+                            selectedTab = tab
+                        }
+                    }
+                )
+            }
+        }
+
+        // Workouts full-screen cover: the onboarding wizard until setup
+        // completes, then the workouts page. Covers the bottom bar; exits
+        // only via the in-cover back affordances, like the iOS cover.
+        if (isWorkoutFullscreenPresented) {
+            Dialog(
+                onDismissRequest = { },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false
+                )
+            ) {
+                WorkoutOnboardingFlow(
+                    session = workoutSession,
+                    onClose = { isWorkoutFullscreenPresented = false }
                 )
             }
         }
