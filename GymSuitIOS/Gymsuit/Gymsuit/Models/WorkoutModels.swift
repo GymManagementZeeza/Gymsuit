@@ -36,8 +36,14 @@ public struct Exercise: Codable, Identifiable, Hashable {
     /// Nil when this exercise has no GIF yet — the old Gym Visual remote
     /// GIFs are no longer used.
     public var gifURL: URL? {
-        guard let file = ExerciseMedia.localGIFFile(for: name) else { return nil }
-        return URL(string: ExerciseMedia.gifBaseURL + file)
+        if let file = ExerciseMedia.localGIFFile(for: name) {
+            return URL(string: ExerciseMedia.gifBaseURL + file)
+        }
+        if !gif.isEmpty {
+            let filename = gif.hasSuffix(".gif") ? gif : "\(gif).gif"
+            return URL(string: ExerciseMedia.gifBaseURL + filename)
+        }
+        return nil
     }
 
     public var imageURL: URL? {
@@ -66,13 +72,17 @@ public enum ExerciseMedia {
     private static let localGIFs: [String: String] = [
         "barbell bench press": "bench-press.gif",
         "barbell full squat": "weighted-squat.gif",
+        "weighted squat": "weighted-squat.gif",
         "barbell deadlift": "deadlift.gif",
         "dumbbell biceps curl": "dumbbell-curl.gif",
         "dumbbell hammer curl": "hammer-curl.gif",
         "lever seated fly": "machine-chest-fly.gif",
         "dumbbell front raise": "dumbbell-front-raise.gif",
+        "dumbbell lateral raise": "dumbbell-lateral-raise.gif",
         "cable pulldown": "cable-pulldown.gif",
-        "cable lat pulldown full range of motion": "cable-lat-pulldown-full-range-of-motion.gif"
+        "cable lat pulldown full range of motion": "cable-lat-pulldown-full-range-of-motion.gif",
+        "bodyweight squat": "squat.gif",
+        "squat": "squat.gif"
     ]
 
     public static func localGIFFile(for exerciseName: String) -> String? {
