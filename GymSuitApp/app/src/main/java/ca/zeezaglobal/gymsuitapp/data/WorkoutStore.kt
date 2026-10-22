@@ -118,6 +118,11 @@ class WorkoutStore(private val context: Context) {
         return updated
     }
 
+    /** Removes every logged workout (iOS `WorkoutStore.clearAllWorkouts()`). */
+    fun clearAllWorkouts() {
+        persist(emptyList())
+    }
+
     private fun persist(workouts: List<LoggedWorkout>) {
         try {
             val arr = JSONArray()
