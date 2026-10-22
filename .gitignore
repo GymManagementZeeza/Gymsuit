@@ -16,3 +16,8 @@ xcuserdata/
 *.moved-aside
 DerivedData/
 *.xcuserstate
+
+# Secrets & Keys
+*.p8
+*firebase-adminsdk*.json
+firebase-service-account.json

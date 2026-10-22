@@ -15,12 +15,21 @@ public final class AuthManager: ObservableObject {
     private let keyMemberId = "member_id"
     private let keyGymId = "gym_id"
     private let keyGymName = "gym_name"
+    private let keyFcmToken = "fcm_token"
 
     @Published public var currentSession: UserSession?
 
     public init() {
         migrateTokensToKeychainIfNeeded()
         self.currentSession = getSession()
+    }
+
+    public func saveFcmToken(_ token: String) {
+        defaults.set(token, forKey: keyFcmToken)
+    }
+
+    public func getFcmToken() -> String? {
+        return defaults.string(forKey: keyFcmToken)
     }
 
     /// One-time migration: move tokens previously stored in plaintext

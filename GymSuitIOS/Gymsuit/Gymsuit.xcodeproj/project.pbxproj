@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA707DEA308AC0BF00C51367 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = DA707DE9308AC0BF00C51367 /* FirebaseMessaging */; };
 		DA860E2B30894D930074CF6F /* GymsuitKit Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = DA860E2130894D910074CF6F /* GymsuitKit Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -59,6 +60,7 @@
 		DA8E07BC306B7C910056A8B8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				DA707DEA308AC0BF00C51367 /* FirebaseMessaging in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -121,6 +123,9 @@
 				DA8E07C1306B7C910056A8B8 /* Gymsuit */,
 			);
 			name = Gymsuit;
+			packageProductDependencies = (
+				DA707DE9308AC0BF00C51367 /* FirebaseMessaging */,
+			);
 			productName = Gymsuit;
 			productReference = DA8E07BF306B7C910056A8B8 /* Gymsuit.app */;
 			productType = "com.apple.product-type.application";
@@ -157,6 +162,9 @@
 			);
 			mainGroup = DA8E07B6306B7C910056A8B8;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				DA707DE8308AC0BF00C51367 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DA8E07C0306B7C910056A8B8 /* Products */;
 			projectDirPath = "";
@@ -206,7 +214,7 @@
 		DA860E2D30894D930074CF6F /* Debug configuration for PBXNativeTarget "GymsuitKit Watch App" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -239,7 +247,7 @@
 		DA860E2E30894D930074CF6F /* Release configuration for PBXNativeTarget "GymsuitKit Watch App" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -409,7 +417,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIBackgroundModes = fetch;
+				INFOPLIST_KEY_UIBackgroundModes = "fetch remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -448,7 +456,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "GymSuit records fitness activities and calorie metrics to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIBackgroundModes = fetch;
+				INFOPLIST_KEY_UIBackgroundModes = "fetch remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -496,6 +504,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DA707DE8308AC0BF00C51367 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.1.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DA707DE9308AC0BF00C51367 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DA707DE8308AC0BF00C51367 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DA8E07B7306B7C910056A8B8 /* Project object */;
 	validationLevel = 1;

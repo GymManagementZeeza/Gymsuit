@@ -45,6 +45,18 @@ public class HealthV1SyncController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/devices/fcm-token")
+    public ResponseEntity<Void> updateFcmToken(
+            @RequestBody java.util.Map<String, String> payload,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        String deviceId = payload.get("deviceId");
+        String fcmToken = payload.get("fcmToken");
+        User user = userRepository.findById(principal.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        deviceService.updateFcmToken(user, deviceId, fcmToken);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/health/sync")
     public ResponseEntity<HealthV1SyncResponse> syncHealthData(
             @RequestBody HealthV1SyncRequest request,

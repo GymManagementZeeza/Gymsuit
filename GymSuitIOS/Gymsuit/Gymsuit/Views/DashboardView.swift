@@ -30,6 +30,7 @@ struct DashboardView: View {
     var onNavigateToSleepDetail: (Date) -> Void
     var onNavigateToHeartRateDetail: (Date) -> Void
     var onNavigateToCaloriesDetail: (Date) -> Void
+    var onNavigateToStepsDetail: (Date) -> Void = { _ in }
     
     @StateObject private var viewModel = DashboardViewModel()
     @ObservedObject private var authManager = AuthManager.shared
@@ -220,14 +221,17 @@ struct DashboardView: View {
                     }
                     
                     // Steps Card
-                    MetricDashboardCard(
-                        title: "Steps",
-                        value: viewModel.isLoadingMetrics ? "…" : "\(viewModel.stepsCount.formatted())",
-                        unit: "steps",
-                        subtitle: "Goal: 10,000 steps",
-                        icon: "figure.walk",
-                        tint: AppColors.steps
-                    )
+                    Button(action: { onNavigateToStepsDetail(viewModel.selectedDate) }) {
+                        MetricDashboardCard(
+                            title: "Steps",
+                            value: viewModel.isLoadingMetrics ? "…" : "\(viewModel.stepsCount.formatted())",
+                            unit: "steps",
+                            subtitle: "Goal: 10,000 steps",
+                            icon: "figure.walk",
+                            tint: AppColors.steps
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
                     
                     // Sleep Card
                     Button(action: { onNavigateToSleepDetail(viewModel.selectedDate) }) {

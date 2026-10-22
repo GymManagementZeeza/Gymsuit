@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "332113180668",
+    "project_id": "gymsuit-14411",
+    "storage_bucket": "gymsuit-14411.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:332113180668:android:7a87d329fc5c88b126e479",
+        "android_client_info": {
+          "package_name": "ca.zeezaglobal.gymsuitapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQGUdFsnpRiw4xdzx-E-QBOrDGzi-2hqE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
