@@ -11,6 +11,7 @@ public final class WorkoutStore: ObservableObject {
     @Published public private(set) var loggedWorkouts: [LoggedWorkout] = []
 
     private let logFileName = "logged_workouts.json"
+    private let remoteExercisesFileName = "remote_exercises_cache.json"
 
     private init() {
         loadExercises()
@@ -19,13 +20,51 @@ public final class WorkoutStore: ObservableObject {
 
     // MARK: - Exercise catalog
 
+    private var remoteExercisesFileURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(remoteExercisesFileName)
+    }
+
     private func loadExercises() {
+        // 1. Try to load previously cached remote exercises
+        if let data = try? Data(contentsOf: remoteExercisesFileURL),
+           let decoded = try? JSONDecoder().decode([Exercise].self, from: data),
+           !decoded.isEmpty {
+            exercises = decoded
+            return
+        }
+
+        // 2. Fall back to bundled initial exercises.json
         guard let url = Bundle.main.url(forResource: "exercises", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let decoded = try? JSONDecoder().decode([Exercise].self, from: data) else {
             return
         }
         exercises = decoded
+    }
+
+    /// Fetches the latest dynamic exercise GIFs from the backend API.
+    /// Called whenever the workout screen is opened to ensure daily newly
+    /// uploaded GIFs are immediately available in the app.
+    public func fetchLatestExercisesFromBackend() async {
+        guard let url = URL(string: ExerciseMedia.gifBaseURL) else { return }
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 10
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200, !data.isEmpty {
+                let decoded = try JSONDecoder().decode([Exercise].self, from: data)
+                if !decoded.isEmpty {
+                    await MainActor.run {
+                        self.exercises = decoded
+                    }
+                    try? data.write(to: self.remoteExercisesFileURL, options: .atomic)
+                }
+            }
+        } catch {
+            print("Notice: using cached exercises: \(error.localizedDescription)")
+        }
     }
 
     public func filteredExercises(query: String, muscleGroup: String?) -> [Exercise] {

@@ -233,6 +233,9 @@ struct WorkoutsView: View {
                 setupStep = .goal
             }
         }
+        .task {
+            await WorkoutStore.shared.fetchLatestExercisesFromBackend()
+        }
     }
 
     private func syncOnboardingToBackend(targetDate: Date) {
