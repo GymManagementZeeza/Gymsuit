@@ -8,5 +8,6 @@ public record DeviceRegistrationRequest(
         String model,
         String osVersion,
         String appVersion,
-        String healthSource
+        String healthSource,
+        String fcmToken
 ) {}

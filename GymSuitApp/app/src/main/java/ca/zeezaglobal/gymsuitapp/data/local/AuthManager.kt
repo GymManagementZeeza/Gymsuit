@@ -33,9 +33,16 @@ class AuthManager(context: Context) {
         private const val KEY_MEMBER_ID = "member_id"
         private const val KEY_GYM_ID = "gym_id"
         private const val KEY_GYM_NAME = "gym_name"
+        private const val KEY_FCM_TOKEN = "fcm_token"
 
         val unauthorizedEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     }
+
+    fun saveFcmToken(token: String) {
+        prefs.edit().putString(KEY_FCM_TOKEN, token).apply()
+    }
+
+    fun getFcmToken(): String? = prefs.getString(KEY_FCM_TOKEN, null)
 
     fun saveSession(session: UserSession) {
         prefs.edit()

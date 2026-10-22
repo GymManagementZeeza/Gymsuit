@@ -42,6 +42,9 @@ public class HealthDeviceService {
         device.setOsVersion(request.osVersion());
         device.setAppVersion(request.appVersion());
         device.setHealthSource(request.healthSource() != null ? request.healthSource().toUpperCase() : "MANUAL_INPUT");
+        if (request.fcmToken() != null && !request.fcmToken().isBlank()) {
+            device.setFcmToken(request.fcmToken().trim());
+        }
         device.setActive(true);
         device.setUpdatedAt(now);
 
@@ -49,6 +52,28 @@ public class HealthDeviceService {
         log.info("Registered health device: {} for user: {}", deviceId, user.getId());
 
         return new DeviceRegistrationResponse(deviceId, true, "Device registered successfully");
+    }
+
+    @Transactional
+    public void updateFcmToken(User user, String deviceId, String token) {
+        if (deviceId == null || deviceId.isBlank() || token == null || token.isBlank()) {
+            return;
+        }
+        HealthDevice device = deviceRepository.findById(deviceId).orElseGet(() -> {
+            HealthDevice d = new HealthDevice();
+            d.setDeviceId(deviceId);
+            d.setUser(user);
+            d.setPlatform("OTHER");
+            d.setDeviceType("PHONE");
+            d.setRegisteredAt(LocalDateTime.now());
+            return d;
+        });
+        device.setUser(user);
+        device.setFcmToken(token.trim());
+        device.setActive(true);
+        device.setUpdatedAt(LocalDateTime.now());
+        deviceRepository.save(device);
+        log.info("Updated FCM token for device {} user {}", deviceId, user.getId());
     }
 
     @Transactional

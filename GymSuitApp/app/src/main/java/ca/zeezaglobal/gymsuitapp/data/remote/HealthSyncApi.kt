@@ -49,12 +49,38 @@ class HealthSyncApi(private val context: Context) {
                 put("osVersion", android.os.Build.VERSION.RELEASE)
                 put("appVersion", appVer)
                 put("healthSource", "HEALTH_CONNECT")
+                authManager.getFcmToken()?.let { fcmToken ->
+                    if (fcmToken.isNotBlank()) {
+                        put("fcmToken", fcmToken)
+                    }
+                }
             }
 
             postJson("https://api.gymsuit.app/api/v1/devices", payload)
             true
         } catch (e: Exception) {
             Log.w(TAG, "Device registration caught: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun updateFcmToken(fcmToken: String): Boolean = withContext(Dispatchers.IO) {
+        val token = authManager.getAccessToken() ?: return@withContext false
+        try {
+            val deviceId = try {
+                android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+            } catch (e: Exception) {
+                null
+            } ?: android.os.Build.SERIAL ?: "android-device"
+
+            val payload = JSONObject().apply {
+                put("deviceId", deviceId)
+                put("fcmToken", fcmToken)
+            }
+            postJson("https://api.gymsuit.app/api/v1/devices/fcm-token", payload)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "FCM token update caught: ${e.message}")
             false
         }
     }

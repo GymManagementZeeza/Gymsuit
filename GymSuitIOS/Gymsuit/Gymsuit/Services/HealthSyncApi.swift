@@ -18,7 +18,7 @@ public final class HealthSyncApi {
         let model = UIDevice.current.model
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "deviceId": deviceId,
             "platform": "IOS",
             "deviceType": "PHONE",
@@ -27,6 +27,30 @@ public final class HealthSyncApi {
             "osVersion": systemVersion,
             "appVersion": appVersion,
             "healthSource": "HEALTH_KIT"
+        ]
+        if let fcmToken = AuthManager.shared.getFcmToken(), !fcmToken.isEmpty {
+            body["fcmToken"] = fcmToken
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 10.0
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
+    public func updateFcmToken(_ fcmToken: String) async {
+        guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return }
+        guard let url = URL(string: "https://api.gymsuit.app/api/v1/devices/fcm-token") else { return }
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+
+        let body: [String: Any] = [
+            "deviceId": deviceId,
+            "fcmToken": fcmToken
         ]
 
         var request = URLRequest(url: url)

@@ -54,6 +54,9 @@ public class HealthDevice {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
     @Column(name = "last_sync_at")
     private LocalDateTime lastSyncAt;
 

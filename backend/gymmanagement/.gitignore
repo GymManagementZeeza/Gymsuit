@@ -34,3 +34,5 @@ build/
 
 ### Local dev secrets ###
 application-local.properties
+*firebase-adminsdk*.json
+firebase-service-account.json

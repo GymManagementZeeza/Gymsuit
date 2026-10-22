@@ -66,6 +66,7 @@ public class ChallengeService {
     private final ChallengeInviteRepository inviteRepository;
     private final UserRepository userRepository;
     private final EventPublisher eventPublisher;
+    private final PushNotificationService pushNotificationService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -194,10 +195,16 @@ public class ChallengeService {
 
     @Transactional
     public String submitProgress(Long challengeId, ChallengeProgressRequest request, UserPrincipal principal) {
+        Challenge challenge = getChallenge(challengeId);
         Long userId = principal.getUserId();
         ChallengeParticipant participant = participantRepository
                 .findByChallengeIdAndUserId(challengeId, userId)
                 .orElseThrow(() -> new AccessDeniedException("You are not a participant of this challenge"));
+
+        // Capture previous leaderboard state before updating
+        List<ChallengeParticipant> prevParticipants = participantRepository.findByChallengeId(challengeId);
+        List<LeaderboardEntryDto> prevLeaderboard = buildLeaderboard(challenge, prevParticipants);
+        Integer oldRank = findMyRank(prevLeaderboard, userId);
 
         // Absolute totals over the challenge date range, computed by the client.
         // A null field means "not reported" and leaves the stored total unchanged.
@@ -216,7 +223,51 @@ public class ChallengeService {
         participant.setLastProgressAt(Instant.now());
         participantRepository.save(participant);
 
+        // Calculate new ranks to detect overtakes
+        if (oldRank != null) {
+            List<ChallengeParticipant> newParticipants = participantRepository.findByChallengeId(challengeId);
+            List<LeaderboardEntryDto> newLeaderboard = buildLeaderboard(challenge, newParticipants);
+            Integer newRank = findMyRank(newLeaderboard, userId);
+
+            if (newRank != null && newRank < oldRank) {
+                checkAndNotifyOvertakes(challenge, participant.getUser(), prevLeaderboard, newLeaderboard, oldRank, newRank);
+            }
+        }
+
         return "Progress updated";
+    }
+
+    private void checkAndNotifyOvertakes(Challenge challenge,
+                                         User overtakingUser,
+                                         List<LeaderboardEntryDto> oldLeaderboard,
+                                         List<LeaderboardEntryDto> newLeaderboard,
+                                         int oldRank,
+                                         int newRank) {
+        java.util.Map<Long, Integer> oldRankMap = new java.util.HashMap<>();
+        for (LeaderboardEntryDto entry : oldLeaderboard) {
+            oldRankMap.put(entry.userId(), entry.rank());
+        }
+
+        for (LeaderboardEntryDto newEntry : newLeaderboard) {
+            Long otherUserId = newEntry.userId();
+            if (otherUserId.equals(overtakingUser.getId())) continue;
+
+            Integer prevOtherRank = oldRankMap.get(otherUserId);
+            if (prevOtherRank != null) {
+                // If they were ranked ahead before and are now ranked behind the overtaking user
+                if (prevOtherRank < oldRank && newEntry.rank() > newRank) {
+                    userRepository.findById(otherUserId).ifPresent(overtakenUser ->
+                            pushNotificationService.notifyOvertakenParticipant(
+                                    challenge,
+                                    overtakingUser,
+                                    overtakenUser,
+                                    prevOtherRank,
+                                    newEntry.rank()
+                            )
+                    );
+                }
+            }
+        }
     }
 
     @Transactional
