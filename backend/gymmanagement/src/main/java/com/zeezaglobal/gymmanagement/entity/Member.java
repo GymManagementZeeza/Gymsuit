@@ -64,6 +64,12 @@ public class Member {
 
     private LocalDate goalTargetDate;
 
+    @Column(name = "workout_goal")
+    private String workoutGoal;
+
+    @Column(name = "workout_days_per_week")
+    private Integer workoutDaysPerWeek;
+
     private String bloodGroup;
 
     @Column(columnDefinition = "TEXT")

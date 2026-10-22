@@ -84,4 +84,9 @@ public final class WorkoutStore: ObservableObject {
         loggedWorkouts.removeAll { $0.id == id }
         persistLog()
     }
+
+    public func clearAllWorkouts() {
+        loggedWorkouts.removeAll()
+        persistLog()
+    }
 }

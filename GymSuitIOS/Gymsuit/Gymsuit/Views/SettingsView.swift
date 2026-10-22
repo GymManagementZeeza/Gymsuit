@@ -3,12 +3,15 @@ import SwiftUI
 struct SettingsView: View {
     var onBack: () -> Void
     var onLogout: () -> Void
+    var onRestartWorkoutOnboarding: (() -> Void)? = nil
 
     @State private var healthSyncEnabled: Bool = BackgroundHealthSync.isEnabled
     @State private var showingLogoutAlert: Bool = false
     @State private var showingDeleteAccountAlert: Bool = false
+    @State private var showingDeleteWorkoutAlert: Bool = false
     @State private var deleteError: String? = nil
     @State private var isDeletingAccount: Bool = false
+    @State private var isDeletingWorkout: Bool = false
 
     @ObservedObject private var authManager = AuthManager.shared
 
@@ -113,6 +116,48 @@ struct SettingsView: View {
                             }
                         }
 
+                        // Workout Section
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Workout")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(AppColors.textSecondary)
+
+                            Button(action: { showingDeleteWorkoutAlert = true }) {
+                                HStack(spacing: 14) {
+                                    Image(systemName: "figure.run.circle.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(Color(hex: 0xFFEF4444))
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Delete Workout Data")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(Color(hex: 0xFFEF4444))
+                                        Text("Clears fitness goals, body metrics & restarts onboarding")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(AppColors.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    if isDeletingWorkout {
+                                        ProgressView()
+                                            .scaleEffect(0.85)
+                                    } else {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(Color(hex: 0xFFEF4444))
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isDeletingWorkout)
+                        }
+                        .padding(20)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .shadow(color: Color.black.opacity(0.03), radius: 6, y: 3)
+
                         // Legal Section
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Legal")
@@ -198,6 +243,31 @@ struct SettingsView: View {
             }
         } message: {
             Text("This permanently deletes your account and your synced health data. This cannot be undone.")
+        }
+        .alert("Delete Workout Data", isPresented: $showingDeleteWorkoutAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete & Restart", role: .destructive) {
+                Task { await deleteWorkoutData() }
+            }
+        } message: {
+            Text("This will permanently delete your workout goals, target weight, body metrics, and workout logs from the cloud database. Workout onboarding will restart immediately.")
+        }
+    }
+
+    private func deleteWorkoutData() async {
+        isDeletingWorkout = true
+        deleteError = nil
+        do {
+            try await WorkoutOnboardingApi.shared.deleteOnboardingData()
+            await MainActor.run {
+                isDeletingWorkout = false
+                onRestartWorkoutOnboarding?()
+            }
+        } catch {
+            await MainActor.run {
+                isDeletingWorkout = false
+                deleteError = error.localizedDescription
+            }
         }
     }
 
