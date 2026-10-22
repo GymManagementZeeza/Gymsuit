@@ -67,7 +67,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawText
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -730,7 +730,7 @@ private fun OnboardingHeightStep(
                     Spacer(modifier = Modifier.height(12.dp))
                     Box(
                         modifier = Modifier
-                            .width(maxWidth - 80.dp)
+                            .width(this@BoxWithConstraints.maxWidth - 80.dp)
                             .height(2.5.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(OnbBlue)
@@ -845,9 +845,7 @@ private fun HeightRulerCanvas(
                                 )
                                 val layout = textMeasurer.measure(label, style)
                                 drawText(
-                                    textMeasurer = textMeasurer,
-                                    text = label,
-                                    style = style,
+                                    textLayoutResult = layout,
                                     topLeft = Offset(
                                         x = startX - with(density) { 14.dp.toPx() } - layout.size.width / 2f,
                                         y = y - layout.size.height / 2f
@@ -892,9 +890,7 @@ private fun HeightRulerCanvas(
                                 )
                                 val layout = textMeasurer.measure(label, style)
                                 drawText(
-                                    textMeasurer = textMeasurer,
-                                    text = label,
-                                    style = style,
+                                    textLayoutResult = layout,
                                     topLeft = Offset(
                                         x = startX - with(density) { 14.dp.toPx() } - layout.size.width / 2f,
                                         y = y - layout.size.height / 2f
@@ -1196,9 +1192,7 @@ private fun OnboardingWeightRuler(
                             )
                             val layout = textMeasurer.measure(label, style)
                             drawText(
-                                textMeasurer = textMeasurer,
-                                text = label,
-                                style = style,
+                                textLayoutResult = layout,
                                 topLeft = Offset(
                                     x = x - layout.size.width / 2f,
                                     y = startY + with(density) { 28.dp.toPx() } + with(density) { 16.dp.toPx() } - layout.size.height / 2f
@@ -2109,9 +2103,7 @@ private fun OnboardingProjectionGraph(
         }
         drawPath(path = pointer, color = OnbBlue)
         drawText(
-            textMeasurer = textMeasurer,
-            text = tooltipText,
-            style = tooltipStyle,
+            textLayoutResult = tooltipLayout,
             topLeft = Offset(bubbleLeft + bubblePadH, bubbleTop + bubblePadV)
         )
 
@@ -2124,9 +2116,7 @@ private fun OnboardingProjectionGraph(
             )
             val layout = textMeasurer.measure(text, style)
             drawText(
-                textMeasurer = textMeasurer,
-                text = text,
-                style = style,
+                textLayoutResult = layout,
                 topLeft = Offset(
                     x = centerX - layout.size.width / 2f,
                     y = height - with(density) { 14.dp.toPx() } - layout.size.height / 2f
