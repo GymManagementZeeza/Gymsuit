@@ -1,14 +1,26 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-
 package ca.zeezaglobal.gymsuitapp.ui.screens
 
-import android.content.Context
-import androidx.activity.compose.BackHandler
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,261 +28,168 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.MonitorWeight
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.EditCalendar
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.Scale
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import ca.zeezaglobal.gymsuitapp.data.HealthWorkoutSession
+import ca.zeezaglobal.gymsuitapp.data.WorkoutOnboardingStore
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import ca.zeezaglobal.gymsuitapp.data.model.Exercise
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
-import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
-import org.json.JSONArray
-import org.json.JSONObject
+import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
+import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.material.icons.filled.Photo
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.roundToInt
 
-private const val PREFS_NAME = "gymsuit_workout_plan"
-private const val KEY_SELECTED_WORKOUTS = "selected_workouts_json"
+// ============================================================================
+// Workouts main page — Android rebuild mirroring the from-scratch iOS page
+// (`WorkoutsView` completed state) section for section:
+//
+//   1. WorkoutStreakCardView        → week strip + day streak / personal best
+//   2. WorkoutDaySummaryCardView    → Workout / Kcal / Minute for selected day
+//   3. WorkoutBodyFocusSectionView  → focus pills + exercise GIF grid
+//   4. WorkoutProgressProjectionCardView → weight projection graph + the
+//      Record Weight sheet
+//
+// The page is hosted by the workout onboarding cover (PR #77) once
+// `workout_goal_setup_completed` is true; the cover draws the back chevron,
+// this screen draws only the page content, exactly like iOS.
+// ============================================================================
 
-/** Planned dates set (the days the user chose in the days step). */
-private const val KEY_PLANNED_DATES = "planned_dates_json"
-/** Legacy keys from removed flows; cleared on load. */
-private const val KEY_HAS_PLAN = "has_plan"
-/** Frequency step was removed; its key is dead and cleared on load. */
-private const val KEY_DAYS_PER_WEEK = "days_per_week"
-private const val KEY_SCHEDULED_DATES = "scheduled_dates"
-private const val KEY_USER_WEIGHT = "user_body_weight_kg"
+// Design tokens copied from the iOS workout views.
+private val WpBackground = Color(0xFFFAFBFD)
+private val WpInk = Color(0xFF0F172A)
+private val WpSlate = Color(0xFF64748B)
+private val WpMuted = Color(0xFF94A3B8)
+private val WpBlue = Color(0xFF0062FF)
+private val WpPaleBlue = Color(0xFFEFF6FF)
+private val WpBorder = Color(0xFFF1F5F9)
+private val WpLightFill = Color(0xFFF1F5F9)
+private val WpGifBackground = Color(0xFFF8FAFC)
+private val WpFlameRed = Color(0xFFEF4444)
+private val WpFlameOff = Color(0xFFCBD5E1)
+private val WpHeaderGray = Color(0xFF8E8E93)
+private val WpIconBlue = Color(0xFF93C5FD)
+private val WpDashedLine = Color(0xFFCBD5E1)
 
-/** Default sets/reps for a workout picked from the exercise catalog. */
-private const val DEFAULT_PLANNED_SETS_REPS = "3 sets × 10 reps"
-
-/** Parses "N sets × M reps" back to (sets, reps); anything else -> the default (3, 10). */
-private fun parseSetsReps(setsReps: String): Pair<Int, Int> {
-    val numbers = Regex("\\d+").findAll(setsReps).mapNotNull { it.value.toIntOrNull() }.toList()
-    val sets = numbers.getOrNull(0)?.takeIf { it in 1..100 } ?: 3
-    val reps = numbers.getOrNull(1)?.takeIf { it in 1..100 } ?: 10
-    return sets to reps
-}
-
-private fun formatSetsReps(sets: Int, reps: Int): String = "$sets sets × $reps reps"
+/** iOS `Exercise.localGIFName` table, used by the Body Focus grid. */
+private val FOCUS_LOCAL_GIF_FILES = mapOf(
+    "barbell bench press" to "bench-press.gif",
+    "barbell full squat" to "weighted-squat.gif",
+    "weighted squat" to "weighted-squat.gif",
+    "barbell deadlift" to "deadlift.gif",
+    "dumbbell biceps curl" to "dumbbell-curl.gif",
+    "dumbbell hammer curl" to "hammer-curl.gif",
+    "lever seated fly" to "machine-chest-fly.gif",
+    "dumbbell front raise" to "dumbbell-front-raise.gif",
+    "dumbbell lateral raise" to "dumbbell-lateral-raise.gif",
+    "cable pulldown" to "cable-pulldown.gif",
+    "cable lat pulldown full range of motion" to
+        "cable-lat-pulldown-full-range-of-motion.gif",
+    "bodyweight squat" to "squat.gif",
+    "squat" to "squat.gif"
+)
 
 /**
- * Screen navigation modes for the Workout tab:
- * CALENDAR -> Monthly overview; planned days are marked, tapping a day shows its planned workouts
- * PLAN_EDITOR -> Search + multi-select workouts for one day, then Save
- * SETUP_WEIGHT -> Body-weight step, asked first in the plan flow when not yet recorded
- * SELECT_DAYS -> Next-7-days selection, asked in the plan flow after weight
- * PLANNED_WORKOUTS_MAIN -> Plan page: one tab per planned date, each with its selected workouts
+ * iOS `Exercise.gifURL`: a backend-provided `gif` filename wins, then the
+ * local name table. Android's shared `Exercise.gifUrl` only knows the local
+ * table (and a shorter one), so the Body Focus grid resolves URLs with this
+ * iOS-identical helper instead of changing the shared model.
  */
-enum class WorkoutsViewMode {
-    CALENDAR,
-    PLAN_EDITOR,
-    SETUP_WEIGHT,
-    SELECT_DAYS,
-    PLANNED_WORKOUTS_MAIN
+private fun focusGifUrl(exercise: Exercise): String? {
+    if (exercise.gif.isNotEmpty()) {
+        val raw = exercise.gif.trim()
+        val filename = if (raw.endsWith(".gif")) raw else "$raw.gif"
+        return ExerciseMedia.GIF_BASE_URL + filename
+    }
+    val localFile = FOCUS_LOCAL_GIF_FILES[exercise.name.lowercase().trim()]
+        ?: return null
+    return ExerciseMedia.GIF_BASE_URL + localFile
 }
 
-data class PlannedExerciseItem(
-    val name: String,
-    val targetMuscle: String,
-    val setsReps: String,
-    val suggestedWeightKg: Double?,
-    val note: String,
-    /** Catalog body part (e.g. "chest") — used to start a session from this day. */
-    val bodyPart: String = ""
-)
-
-data class PlannedDaySection(
-    val dayNumber: Int,
-    val title: String,
-    val scheduledDate: LocalDate,
-    val bodyParts: List<String>,
-    val exercises: List<PlannedExerciseItem>
-)
-
-/** A plan is exactly the workouts the user selected, keyed by date. */
-data class WorkoutPlanData(
-    val sections: List<PlannedDaySection>
+/** The white card shared by iOS sections 1, 2 and 4 (r20, #F1F5F9 border, soft shadow). */
+@Composable
+private fun IosSectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
 ) {
-    val totalExercises: Int get() = sections.sumOf { it.exercises.size }
-}
-
-/** Catalog exercise -> a planned item with the default sets/reps. */
-private fun Exercise.toPlannedItem(): PlannedExerciseItem = PlannedExerciseItem(
-    name = name,
-    targetMuscle = primaryMuscleLabel,
-    setsReps = DEFAULT_PLANNED_SETS_REPS,
-    suggestedWeightKg = null,
-    note = "",
-    bodyPart = bodyPart
-)
-
-/**
- * Builds the plan page sections from the planned dates (sorted), each with
- * that day's selected workouts (possibly empty — empty days get an empty tab).
- */
-private fun buildPlanFromSelections(
-    plannedDates: Set<LocalDate>,
-    selections: Map<LocalDate, List<PlannedExerciseItem>>
-): WorkoutPlanData {
-    val sections = plannedDates.sorted().mapIndexed { index, date ->
-        val exercises = selections[date].orEmpty()
-        PlannedDaySection(
-            dayNumber = index + 1,
-            title = date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())),
-            scheduledDate = date,
-            bodyParts = exercises.mapNotNull { it.bodyPart.takeIf { part -> part.isNotBlank() } }.distinct(),
-            exercises = exercises
-        )
-    }
-    return WorkoutPlanData(sections)
-}
-
-/** Serializes per-day selections: {"2026-10-20": [{name, muscle, setsReps, weight, note, bodyPart}, ...]}. */
-private fun selectionsToJson(selections: Map<LocalDate, List<PlannedExerciseItem>>): String {
-    val root = JSONObject()
-    selections.forEach { (date, items) ->
-        if (items.isNotEmpty()) {
-            val arr = JSONArray()
-            items.forEach { item ->
-                arr.put(JSONObject().apply {
-                    put("name", item.name)
-                    put("muscle", item.targetMuscle)
-                    put("setsReps", item.setsReps)
-                    put("weight", item.suggestedWeightKg ?: JSONObject.NULL)
-                    put("note", item.note)
-                    put("bodyPart", item.bodyPart)
-                })
-            }
-            root.put(date.toString(), arr)
-        }
-    }
-    return root.toString()
-}
-
-/** Parses [selectionsToJson] output; malformed or missing data yields an empty plan (never a crash). */
-private fun selectionsFromJson(raw: String?): Map<LocalDate, List<PlannedExerciseItem>> {
-    if (raw.isNullOrBlank()) return emptyMap()
-    return try {
-        val root = JSONObject(raw)
-        val out = mutableMapOf<LocalDate, List<PlannedExerciseItem>>()
-        root.keys().forEach { key ->
-            val date = try { LocalDate.parse(key) } catch (_: Exception) { null } ?: return@forEach
-            val arr = root.optJSONArray(key) ?: return@forEach
-            val items = List(arr.length()) { i ->
-                val o = arr.getJSONObject(i)
-                PlannedExerciseItem(
-                    name = o.optString("name"),
-                    targetMuscle = o.optString("muscle"),
-                    setsReps = o.optString("setsReps", DEFAULT_PLANNED_SETS_REPS),
-                    suggestedWeightKg = if (o.isNull("weight")) null else o.optDouble("weight"),
-                    note = o.optString("note"),
-                    bodyPart = o.optString("bodyPart")
-                )
-            }.filter { it.name.isNotBlank() }
-            if (items.isNotEmpty()) out[date] = items
-        }
-        out
-    } catch (_: Exception) {
-        emptyMap()
-    }
-}
-
-/** Serializes the planned dates set: ["2026-10-20", ...] (sorted). */
-private fun plannedDatesToJson(dates: Set<LocalDate>): String {
-    val arr = JSONArray()
-    dates.sorted().forEach { arr.put(it.toString()) }
-    return arr.toString()
-}
-
-/** Parses [plannedDatesToJson] output; malformed data yields an empty set (never a crash). */
-private fun plannedDatesFromJson(raw: String?): Set<LocalDate> {
-    if (raw.isNullOrBlank()) return emptySet()
-    return try {
-        val arr = JSONArray(raw)
-        List(arr.length()) { i ->
-            try { LocalDate.parse(arr.getString(i)) } catch (_: Exception) { null }
-        }.filterNotNull().toSet()
-    } catch (_: Exception) {
-        emptySet()
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 4.dp,
+        border = BorderStroke(1.dp, WpBorder)
+    ) {
+        content()
     }
 }
 
@@ -278,2167 +197,1468 @@ private fun plannedDatesFromJson(raw: String?): Set<LocalDate> {
 fun WorkoutsScreen(
     session: WorkoutSessionState = remember { WorkoutSessionState() }
 ) {
+    // `session` is part of the integration contract with the onboarding
+    // cover and the dashboard tab (both call sites pass it); iOS receives
+    // the same session object via the environment, and the rebuilt page
+    // does not drive any of its UI from it.
     val context = LocalContext.current
     val workoutStore = remember { WorkoutStore(context) }
+    val onboardingStore = remember { WorkoutOnboardingStore(context) }
     val healthConnectManager = remember { HealthConnectManager(context) }
-    val planPrefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
-    // Screen State
-    var currentViewMode by remember { mutableStateOf(WorkoutsViewMode.CALENDAR) }
-
-    // Calendar State
-    var selectedYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var completedDates by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
-
-    // The plan: exactly the workouts the user selected, keyed by date.
-    var selections by remember { mutableStateOf<Map<LocalDate, List<PlannedExerciseItem>>>(emptyMap()) }
-    var selectedSectionTabIndex by remember { mutableIntStateOf(0) }
-
-    // Day currently open in the editor, and where Back should return to.
-    var editingDate by remember { mutableStateOf<LocalDate?>(null) }
-    var editorReturnToPlan by remember { mutableStateOf(false) }
-
-    // The planned dates: the days the user chose in the days step. The plan
-    // page shows one tab per planned date, including dates with no workouts yet.
-    // Invariant: selections keys are always a subset of plannedDates.
-    var plannedDates by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
-
-    // Body weight, asked first in the plan flow. Null = not yet recorded.
-    var setupWeightKg by remember { mutableStateOf<Double?>(null) }
-    // True when the weight step was opened from the plan page (tune icon):
-    // Back/Continue from the weight step returns to the plan page.
-    var setupReturnToPlan by remember { mutableStateOf(false) }
-    // True when the days step was reached via the weight step (Back goes to weight).
-    var daysBackToWeight by remember { mutableStateOf(false) }
-
-    val activePlan = buildPlanFromSelections(plannedDates, selections)
-
-    fun refreshCompletedDates() {
-        val zone = ZoneId.systemDefault()
-        val fromStore = workoutStore.getLoggedWorkouts().map {
-            Instant.ofEpochMilli(it.timestampMillis).atZone(zone).toLocalDate()
-        }.toSet()
-
-        val prefs = context.getSharedPreferences("gymsuit_workouts", Context.MODE_PRIVATE)
-        val fromPrefs = (prefs.getStringSet("completed_dates", emptySet()) ?: emptySet()).mapNotNull {
-            try { LocalDate.parse(it) } catch (_: Exception) { null }
-        }.toSet()
-
-        completedDates = fromStore + fromPrefs
+    var loggedWorkouts by remember {
+        mutableStateOf<List<LoggedWorkout>>(emptyList())
     }
+    var healthSessions by remember {
+        mutableStateOf<List<HealthWorkoutSession>>(emptyList())
+    }
+    var storedPersonalBest by remember {
+        mutableIntStateOf(onboardingStore.personalBestDays)
+    }
+    var selectedFocus by remember { mutableStateOf("Forearm") }
 
-    // Loads the saved plan + weight on startup. Dead legacy keys (has_plan,
-    // scheduled_dates, days_per_week) are dropped. Plans saved before the
-    // planned-dates set existed derive it from their workout dates.
-    fun loadSavedSelections() {
-        val loadedSelections = selectionsFromJson(planPrefs.getString(KEY_SELECTED_WORKOUTS, null))
-        val loadedDates = if (planPrefs.contains(KEY_PLANNED_DATES)) {
-            plannedDatesFromJson(planPrefs.getString(KEY_PLANNED_DATES, null))
-        } else {
-            loadedSelections.keys
-        }
-        plannedDates = loadedDates
-        selections = loadedSelections.filterKeys { it in loadedDates }
-        setupWeightKg = planPrefs.getFloat(KEY_USER_WEIGHT, 0f).toDouble().takeIf { it > 0 }
-        if (planPrefs.contains(KEY_HAS_PLAN) || planPrefs.contains(KEY_SCHEDULED_DATES) ||
-            planPrefs.contains(KEY_DAYS_PER_WEEK)
+    // iOS: `loadRealWorkouts` on appear (WorkoutStreakCardView) plus
+    // `.task(id: selectedDate)` in the day summary — one reload covers both.
+    LaunchedEffect(selectedDate) {
+        loggedWorkouts = workoutStore.getLoggedWorkouts()
+        if (healthConnectManager.isAvailable() &&
+            healthConnectManager.hasExercisePermission()
         ) {
-            planPrefs.edit()
-                .remove(KEY_HAS_PLAN)
-                .remove(KEY_SCHEDULED_DATES)
-                .remove(KEY_DAYS_PER_WEEK)
-                .apply()
+            healthSessions = healthConnectManager
+                .readRecentWorkoutSessions(90L)
+        }
+        // iOS persists a new personal best as soon as one is computed.
+        val days = loggedDaysOf(loggedWorkouts) +
+            healthSessions.map { it.date }.toSet()
+        val best = max(
+            max(computeCurrentStreak(days, LocalDate.now()),
+                computeLongestStreak(days)),
+            onboardingStore.personalBestDays
+        )
+        if (best > onboardingStore.personalBestDays) {
+            onboardingStore.personalBestDays = best
+            storedPersonalBest = best
         }
     }
 
-    /** Persists the planned dates + per-day selections together. */
-    fun persistPlan() {
-        planPrefs.edit()
-            .putString(KEY_PLANNED_DATES, plannedDatesToJson(plannedDates))
-            .putString(KEY_SELECTED_WORKOUTS, selectionsToJson(selections))
-            .apply()
+    val exercises = remember { workoutStore.exercises }
+    val filteredExercises = remember(exercises, selectedFocus) {
+        val matches = exercises.filter { matchesBodyFocus(it, selectedFocus) }
+        // iOS: an empty filter result shows the whole catalog.
+        if (matches.isEmpty()) exercises else matches
     }
 
-    /**
-     * Starts the plan flow: body weight first (skipped when already recorded),
-     * then the next-7-days selection, then the plan page.
-     */
-    fun startPlanFlow() {
-        setupReturnToPlan = false
-        if (setupWeightKg == null) {
-            currentViewMode = WorkoutsViewMode.SETUP_WEIGHT
-        } else {
-            daysBackToWeight = false
-            currentViewMode = WorkoutsViewMode.SELECT_DAYS
-        }
-    }
-
-    /** Re-opens the weight step from the plan page's tune icon. */
-    fun openSetupFromPlanPage() {
-        setupReturnToPlan = true
-        currentViewMode = WorkoutsViewMode.SETUP_WEIGHT
-    }
-
-    /**
-     * Confirms the days selection: the planned set keeps dates outside the
-     * next 7 days and takes the chosen dates inside it; workouts for
-     * de-selected dates are dropped.
-     */
-    fun confirmPlannedDays(dates: List<LocalDate>) {
-        val today = LocalDate.now()
-        val nextSevenDays = (0..6).map { today.plusDays(it.toLong()) }.toSet()
-        val newDates = (plannedDates - nextSevenDays) + dates.toSet()
-        plannedDates = newDates
-        selections = selections.filterKeys { it in newDates }
-        persistPlan()
-        selectedSectionTabIndex = 0
-        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
-    }
-
-    /** Opens the editor for a day. `returnToPlan` keeps Back on the plan page. */
-    fun openEditor(date: LocalDate, returnToPlan: Boolean) {
-        editingDate = date
-        editorReturnToPlan = returnToPlan
-        currentViewMode = WorkoutsViewMode.PLAN_EDITOR
-    }
-
-    fun closeEditor() {
-        editingDate = null
-        currentViewMode = if (editorReturnToPlan) {
-            WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
-        } else {
-            WorkoutsViewMode.CALENDAR
-        }
-    }
-
-    /**
-     * Copies one day's planned workouts onto other planned days, replacing
-     * whatever was planned there. Powers the "Copy to other days" action so a
-     * full week can be planned from a single day.
-     */
-    fun copyDayPlan(from: LocalDate, toDates: List<LocalDate>) {
-        val source = selections[from].orEmpty()
-        if (source.isEmpty() || toDates.isEmpty()) return
-        val updated = selections.toMutableMap()
-        toDates.forEach { target -> updated[target] = source.toList() }
-        selections = updated
-        persistPlan()
-        selectedSectionTabIndex =
-            selectedSectionTabIndex.coerceIn(0, (plannedDates.size - 1).coerceAtLeast(0))
-    }
-
-    /** Saves one day's selection and shows the plan page on that day's tab. */
-    fun saveDayPlan(date: LocalDate, items: List<PlannedExerciseItem>) {
-        val updatedSelections = selections.toMutableMap()
-        if (items.isEmpty()) {
-            updatedSelections.remove(date)
-            plannedDates = plannedDates - date
-        } else {
-            updatedSelections[date] = items
-            plannedDates = plannedDates + date
-        }
-        selections = updatedSelections
-        persistPlan()
-        selectedSectionTabIndex = plannedDates.sorted().indexOf(date).coerceAtLeast(0)
-        editingDate = null
-        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
-    }
-
-    LaunchedEffect(Unit) {
-        refreshCompletedDates()
-        try {
-            if (healthConnectManager.isAvailable() && healthConnectManager.hasExercisePermission()) {
-                val hcDates = healthConnectManager.readWorkoutDays()
-                completedDates = completedDates + hcDates
-            }
-        } catch (_: Exception) {}
-
-        loadSavedSelections()
-    }
-
-    // View Switching, animated: screens fade + slide in as the user moves
-    // through the flow (calendar <-> plan <-> editor <-> steps).
-    AnimatedContent(
-        targetState = currentViewMode,
-        transitionSpec = {
-            (fadeIn(animationSpec = tween(250)) + slideInHorizontally(
-                animationSpec = tween(250),
-                initialOffsetX = { it / 8 }
-            )) togetherWith (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
-                animationSpec = tween(200),
-                targetOffsetX = { -it / 8 }
-            ))
-        },
-        label = "workouts-view"
-    ) { viewMode ->
-        when (viewMode) {
-        WorkoutsViewMode.CALENDAR -> {
-            WorkoutsCalendarView(
-                selectedYearMonth = selectedYearMonth,
-                onYearMonthChange = { selectedYearMonth = it },
-                completedDates = completedDates,
+    // iOS page: #FAFBFD, sections stacked with 20pt spacing, 20pt side
+    // padding, 8pt top / 24pt bottom.
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WpBackground),
+        contentPadding = PaddingValues(
+            start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp
+        )
+    ) {
+        item {
+            WorkoutStreakCard(
                 selectedDate = selectedDate,
                 onSelectDate = { selectedDate = it },
-                activePlan = activePlan.takeIf { it.sections.isNotEmpty() },
-                plannedDates = plannedDates,
-                plannedWorkoutsForSelectedDate = selections[selectedDate].orEmpty(),
-                onPlanWorkoutsClick = { startPlanFlow() },
-                onViewPlanClick = { currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN },
-                onEditDayPlan = { date -> openEditor(date, returnToPlan = false) },
-                workoutStore = workoutStore
+                allWorkoutDays = loggedDaysOf(loggedWorkouts) +
+                    healthSessions.map { it.date }.toSet(),
+                storedPersonalBest = storedPersonalBest
             )
         }
-
-        WorkoutsViewMode.PLAN_EDITOR -> {
-            val date = editingDate ?: selectedDate
-            PlanWorkoutPickerScreen(
-                date = date,
-                initialSelection = selections[date].orEmpty(),
-                workoutStore = workoutStore,
-                onBack = { closeEditor() },
-                onSave = { items -> saveDayPlan(date, items) }
+        item { Spacer(Modifier.height(20.dp)) }
+        item {
+            WorkoutDaySummaryCard(
+                selectedDate = selectedDate,
+                loggedWorkouts = loggedWorkouts,
+                healthSessions = healthSessions
             )
         }
-
-        WorkoutsViewMode.SETUP_WEIGHT -> {
-            BackHandler {
-                currentViewMode = if (setupReturnToPlan) WorkoutsViewMode.PLANNED_WORKOUTS_MAIN else WorkoutsViewMode.CALENDAR
-            }
-            BodyWeightStepScreen(
-                initialWeight = setupWeightKg ?: 0.0,
-                onBack = {
-                    currentViewMode = if (setupReturnToPlan) WorkoutsViewMode.PLANNED_WORKOUTS_MAIN else WorkoutsViewMode.CALENDAR
-                },
-                onContinue = { weight ->
-                    setupWeightKg = weight
-                    planPrefs.edit().putFloat(KEY_USER_WEIGHT, weight.toFloat()).apply()
-                    if (setupReturnToPlan) {
-                        currentViewMode = WorkoutsViewMode.PLANNED_WORKOUTS_MAIN
-                    } else {
-                        daysBackToWeight = true
-                        currentViewMode = WorkoutsViewMode.SELECT_DAYS
-                    }
-                }
+        // iOS adds 4pt of top padding before sections 3 and 4 (24 total).
+        item { Spacer(Modifier.height(24.dp)) }
+        bodyFocusItems(
+            exercises = filteredExercises,
+            selectedFocus = selectedFocus,
+            onSelectFocus = { selectedFocus = it }
+        )
+        item { Spacer(Modifier.height(8.dp)) }
+        item {
+            WorkoutProgressProjectionCard(
+                onboardingStore = onboardingStore,
+                healthConnectManager = healthConnectManager
             )
-        }
-
-        WorkoutsViewMode.SELECT_DAYS -> {
-            WorkoutDaysSelectionStepScreen(
-                initialSelectedDates = plannedDates.toList(),
-                onBack = {
-                    currentViewMode = if (daysBackToWeight) {
-                        WorkoutsViewMode.SETUP_WEIGHT
-                    } else {
-                        WorkoutsViewMode.CALENDAR
-                    }
-                },
-                onConfirmPlan = { dates -> confirmPlannedDays(dates) }
-            )
-        }
-
-        WorkoutsViewMode.PLANNED_WORKOUTS_MAIN -> {
-            BackHandler { currentViewMode = WorkoutsViewMode.CALENDAR }
-            PlannedWorkoutsMainScreen(
-                plan = activePlan,
-                selectedTabIndex = selectedSectionTabIndex,
-                onTabSelect = { selectedSectionTabIndex = it },
-                onBackToCalendar = { currentViewMode = WorkoutsViewMode.CALENDAR },
-                onEditDay = { date -> openEditor(date, returnToPlan = true) },
-                onStartWorkout = { daySection ->
-                    session.start(daySection.bodyParts)
-                },
-                bodyWeightKg = setupWeightKg,
-                onEditSetup = { openSetupFromPlanPage() },
-                allPlannedDates = plannedDates.sorted(),
-                onCopyDay = { from, to -> copyDayPlan(from, to) }
-            )
-        }
         }
     }
 }
 
-// MARK: - Calendar Screen with Material You 3 "Plan Workouts" Button
+// ----------------------------------------------------------------------------
+// Section 1 — streak card (iOS WorkoutStreakCardView)
+// ----------------------------------------------------------------------------
+
+private fun loggedDaysOf(workouts: List<LoggedWorkout>): Set<LocalDate> =
+    workouts.map {
+        Instant.ofEpochMilli(it.timestampMillis)
+            .atZone(ZoneId.systemDefault()).toLocalDate()
+    }.toSet()
+
+/**
+ * iOS `calculateCurrentStreak`: consecutive workout days ending today, or
+ * ending yesterday when today has no workout yet; otherwise 0.
+ */
+private fun computeCurrentStreak(days: Set<LocalDate>, today: LocalDate): Int {
+    if (days.isEmpty()) return 0
+    var cursor = when {
+        days.contains(today) -> today
+        days.contains(today.minusDays(1)) -> today.minusDays(1)
+        else -> return 0
+    }
+    var streak = 0
+    while (days.contains(cursor)) {
+        streak++
+        cursor = cursor.minusDays(1)
+    }
+    return streak
+}
+
+/** iOS `calculateMaxStreak`: longest run of consecutive days in the set. */
+private fun computeLongestStreak(days: Set<LocalDate>): Int {
+    if (days.isEmpty()) return 0
+    var longest = 0
+    var current = 0
+    var last: LocalDate? = null
+    for (day in days.sorted()) {
+        val previous = last
+        current = when {
+            previous == null -> 1
+            previous.plusDays(1) == day -> current + 1
+            previous == day -> current
+            else -> 1
+        }
+        if (current > longest) longest = current
+        last = day
+    }
+    return longest
+}
 
 @Composable
-fun WorkoutsCalendarView(
-    selectedYearMonth: YearMonth,
-    onYearMonthChange: (YearMonth) -> Unit,
-    completedDates: Set<LocalDate>,
+private fun WorkoutStreakCard(
     selectedDate: LocalDate,
     onSelectDate: (LocalDate) -> Unit,
-    activePlan: WorkoutPlanData?,
-    plannedDates: Set<LocalDate>,
-    plannedWorkoutsForSelectedDate: List<PlannedExerciseItem>,
-    onPlanWorkoutsClick: () -> Unit,
-    onViewPlanClick: () -> Unit,
-    onEditDayPlan: (LocalDate) -> Unit,
-    workoutStore: WorkoutStore
+    allWorkoutDays: Set<LocalDate>,
+    storedPersonalBest: Int
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA)),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // Top Header Row with Title & Month Switcher
-        item {
+    val today = LocalDate.now()
+    val currentStreak = computeCurrentStreak(allWorkoutDays, today)
+    val personalBest = max(
+        max(currentStreak, computeLongestStreak(allWorkoutDays)),
+        storedPersonalBest
+    )
+    // Current week, Sunday first (iOS `currentWeekDays`).
+    // DayOfWeek.value is Mon=1..Sun=7, so value % 7 is days since Sunday.
+    val sunday = today.minusDays((today.dayOfWeek.value % 7).toLong())
+    val weekDays = (0..6).map { sunday.plusDays(it.toLong()) }
+    val headerLetters = listOf("S", "M", "T", "W", "T", "F", "S")
+
+    IosSectionCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Week grid (iOS top padding 4 above the columns).
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+            ) {
+                weekDays.forEachIndexed { index, date ->
+                    StreakDayCell(
+                        header = headerLetters[index],
+                        date = date,
+                        isSelected = date == selectedDate,
+                        isToday = date == today,
+                        hasWorkout = allWorkoutDays.contains(date),
+                        onClick = { onSelectDate(date) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            // Divider (iOS: 18pt gap + 4pt extra top padding).
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 22.dp)
+                    .height(1.dp)
+                    .background(WpBorder)
+            )
+            // Stats row.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 4.dp, top = 18.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
                 Column {
                     Text(
-                        text = "Workouts",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        text = "Day Streak",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = WpSlate
                     )
-                    Text(
-                        text = selectedYearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF64748B)
-                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Whatshot,
+                            contentDescription = null,
+                            tint = if (currentStreak > 0) WpFlameRed
+                            else WpFlameOff,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = currentStreak.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WpInk
+                        )
+                    }
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { onYearMonthChange(selectedYearMonth.minusMonths(1)) }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Previous Month",
-                            tint = Color(0xFF475569)
-                        )
-                    }
-                    IconButton(
-                        onClick = { onYearMonthChange(selectedYearMonth.plusMonths(1)) }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next Month",
-                            tint = Color(0xFF475569)
-                        )
-                    }
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Personal Best",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = WpSlate
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = if (personalBest == 1) "1 day"
+                        else "$personalBest days",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WpInk
+                    )
                 }
             }
         }
+    }
+}
 
-        // Monthly Workout Calendar Card (matches the uploaded design with pink circles and checkmarks)
-        item {
-            MonthlyWorkoutCalendarCard(
-                yearMonth = selectedYearMonth,
-                completedDates = completedDates,
-                selectedDate = selectedDate,
-                onSelectDate = onSelectDate,
-                plannedDates = plannedDates
+@Composable
+private fun StreakDayCell(
+    header: String,
+    date: LocalDate,
+    isSelected: Boolean,
+    isToday: Boolean,
+    hasWorkout: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isFuture = date.isAfter(LocalDate.now())
+    Column(
+        modifier = modifier.clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = header,
+            fontSize = 15.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = if (isSelected) WpBlue else WpHeaderGray
+        )
+        Spacer(Modifier.height(12.dp))
+        // 44pt tap slot; the visible circle/ring inside is 36pt.
+        Box(
+            modifier = Modifier.size(44.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (hasWorkout && isSelected && !isToday) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .border(
+                            3.dp,
+                            WpBlue.copy(alpha = 0.35f),
+                            CircleShape
+                        )
+                )
+            }
+            when {
+                hasWorkout -> {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(WpBlue, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                isToday -> {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .border(
+                                2.dp,
+                                WpBlue.copy(alpha = 0.85f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = date.dayOfMonth.toString(),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WpBlue
+                        )
+                    }
+                }
+                isSelected -> {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .border(
+                                2.dp,
+                                WpBlue.copy(alpha = 0.6f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = date.dayOfMonth.toString(),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WpBlue
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = date.dayOfMonth.toString(),
+                        fontSize = 18.sp,
+                        fontWeight = if (isFuture) FontWeight.SemiBold
+                        else FontWeight.Bold,
+                        color = if (isFuture) WpMuted else WpInk
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Section 2 — day summary card (iOS WorkoutDaySummaryCardView)
+// ----------------------------------------------------------------------------
+
+@Composable
+private fun WorkoutDaySummaryCard(
+    selectedDate: LocalDate,
+    loggedWorkouts: List<LoggedWorkout>,
+    healthSessions: List<HealthWorkoutSession>
+) {
+    val zone = ZoneId.systemDefault()
+    val dayLogged = loggedWorkouts.filter {
+        Instant.ofEpochMilli(it.timestampMillis)
+            .atZone(zone).toLocalDate() == selectedDate
+    }
+    // iOS separates logged workouts already synced to the health store from
+    // unsynced ones, whose values are estimated so nothing double-counts.
+    val unsyncedLogged = dayLogged.filter { !it.syncedToHealth }
+    val daySessions = healthSessions.filter { it.date == selectedDate }
+
+    val workoutCount = daySessions.size + unsyncedLogged.size
+    val healthMinutes = daySessions.sumOf { it.durationMinutes }
+    val unsyncedMinutes = unsyncedLogged.sumOf { it.durationMinutes }.toLong()
+    val totalMinutes = healthMinutes + unsyncedMinutes
+    // iOS adds the HealthKit sessions' real kcal to an estimate for unsynced
+    // logged workouts (duration × 7.5 kcal/min). Android writes its Health
+    // Connect sessions without calories and Health Connect exposes no
+    // per-session kcal, so the same 7.5 kcal/min estimate covers the synced
+    // sessions too; counts and minutes are exact real data.
+    val totalKcal = (totalMinutes * 7.5).roundToInt()
+
+    IosSectionCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(vertical = 22.dp, horizontal = 16.dp)
+        ) {
+            DaySummaryMetric(
+                icon = { tint ->
+                    Icon(
+                        imageVector = Icons.Filled.MilitaryTech,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                value = workoutCount.toString(),
+                label = "Workout",
+                modifier = Modifier.weight(1f)
+            )
+            DaySummaryMetric(
+                icon = { tint ->
+                    Icon(
+                        imageVector = Icons.Filled.Whatshot,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                value = totalKcal.toString(),
+                label = "Kcal",
+                modifier = Modifier.weight(1f)
+            )
+            DaySummaryMetric(
+                icon = { tint ->
+                    Icon(
+                        imageVector = Icons.Filled.Schedule,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                value = totalMinutes.toString(),
+                label = "Minute",
+                modifier = Modifier.weight(1f)
             )
         }
+    }
+}
 
-        // Workout insights (local data only): body-part intensity + training graphs
-        workoutStatsItems(workoutStore)
+@Composable
+private fun DaySummaryMetric(
+    icon: @Composable (Color) -> Unit,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // SF Symbol over a soft blue dot offset to the bottom-trailing corner
+        // (iOS: 17pt #93C5FD circle at 85% opacity, offset 3,3, icon on top).
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .padding(bottom = 2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(17.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 3.dp, y = 3.dp)
+                    .background(
+                        WpIconBlue.copy(alpha = 0.85f),
+                        CircleShape
+                    )
+            )
+            icon(WpInk)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = value,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = WpInk
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = WpSlate
+        )
+    }
+}
 
-        // Muscles trained (silhouette) + recent workouts with radar charts
-        workoutInsightItems(workoutStore)
+// ----------------------------------------------------------------------------
+// Section 3 — Body Focus (iOS WorkoutBodyFocusSectionView)
+// ----------------------------------------------------------------------------
 
-        // Active Plan Banner if plan already generated
-        item {
-            AnimatedVisibility(
-                visible = activePlan != null,
-                enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
-                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
-            ) {
-                activePlan?.let { plan ->
-                    ElevatedCard(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Active Workout Plan",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "${plan.sections.size} planned days • ${plan.totalExercises} workouts",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                )
+private val BODY_FOCUS_OPTIONS = listOf(
+    "Abs", "Arm", "Forearm", "Chest", "Leg", "Back", "Shoulders"
+)
+
+/** Direct port of the iOS `matchesFocus(_:focus:)` filter. */
+private fun matchesBodyFocus(exercise: Exercise, focus: String): Boolean {
+    val name = exercise.name.lowercase()
+    val bodyPart = exercise.bodyPart.lowercase()
+    val primary = exercise.primaryMuscle.lowercase()
+    val secondary = exercise.secondaryMuscles.map { it.lowercase() }
+    return when (focus) {
+        "Chest" -> bodyPart.contains("chest") ||
+            primary.contains("chest") || primary.contains("pectoral")
+        "Arm" -> bodyPart.contains("arm") ||
+            primary.contains("biceps") || primary.contains("triceps") ||
+            primary.contains("brachii")
+        "Forearm" -> name.contains("hammer") ||
+            primary.contains("forearm") ||
+            primary.contains("brachioradialis") ||
+            secondary.contains("forearms")
+        "Back" -> bodyPart.contains("back") ||
+            primary.contains("lat") || primary.contains("trapezius") ||
+            name.contains("pulldown") || name.contains("deadlift")
+        "Leg" -> bodyPart.contains("leg") ||
+            primary.contains("quad") || primary.contains("glute") ||
+            primary.contains("hamstring") ||
+            name.contains("squat") || name.contains("deadlift")
+        "Shoulders" -> bodyPart.contains("shoulder") ||
+            primary.contains("deltoid") || name.contains("raise")
+        "Abs" -> bodyPart.contains("waist") ||
+            primary.contains("abs") || secondary.contains("abs") ||
+            name.contains("squat")
+        else -> true
+    }
+}
+
+/**
+ * Swift `.capitalized` approximation for catalog names/equipment:
+ * first letter of each word uppercased, the rest lowercased.
+ */
+private fun titleCaseWords(value: String): String =
+    value.split(" ").joinToString(" ") { word ->
+        word.lowercase().replaceFirstChar { it.uppercaseChar() }
+    }
+
+private fun LazyListScope.bodyFocusItems(
+    exercises: List<Exercise>,
+    selectedFocus: String,
+    onSelectFocus: (String) -> Unit
+) {
+    item {
+        Text(
+            text = "Body Focus",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = WpInk,
+            modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)
+        )
+    }
+    item {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 18.dp)
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp)
+        ) {
+            BODY_FOCUS_OPTIONS.forEach { option ->
+                val isSelected = option == selectedFocus
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (isSelected) WpPaleBlue else WpLightFill)
+                        .then(
+                            if (isSelected) {
+                                Modifier.border(1.5.dp, WpBlue, CircleShape)
+                            } else {
+                                Modifier
                             }
+                        )
+                        .clickable { onSelectFocus(option) }
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = option,
+                        fontSize = 15.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold
+                        else FontWeight.Medium,
+                        color = if (isSelected) WpBlue else WpMuted
+                    )
+                }
+            }
+        }
+    }
+    items(exercises.chunked(2)) { rowExercises ->
+        Row(
+            modifier = Modifier.padding(bottom = 16.dp),
+            horizontalArrangement =
+                Arrangement.spacedBy(14.dp)
+        ) {
+            rowExercises.forEach { exercise ->
+                BodyFocusExerciseCard(
+                    exercise = exercise,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (rowExercises.size == 1) {
+                Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
 
-                            OutlinedButton(
-                                onClick = onViewPlanClick,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("View plan", fontSize = 12.sp)
+@Composable
+private fun BodyFocusExerciseCard(
+    exercise: Exercise,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        shadowElevation = 3.dp,
+        border = BorderStroke(1.dp, WpBorder)
+    ) {
+        Column(modifier = Modifier.clip(RoundedCornerShape(18.dp))) {
+            BodyFocusGifView(
+                url = focusGifUrl(exercise),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(135.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = titleCaseWords(exercise.name),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WpInk,
+                    maxLines = 2,
+                    modifier = Modifier.height(38.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "${exercise.muscleGroup} • " +
+                        titleCaseWords(exercise.equipment),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = WpSlate,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+/**
+ * iOS `AnimatedGIFView`: shimmer while the GIF loads, the animated GIF when
+ * ready, and the "Exercise Demo" placeholder on failure or missing URL.
+ * Android renders the GIF in a WebView (same approach as the app's existing
+ * `GifWebView`); the WebView's HTTP cache stands in for iOS's memory cache.
+ */
+@Composable
+private fun BodyFocusGifView(url: String?, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.background(WpGifBackground)) {
+        if (url == null) {
+            GifPlaceholder()
+            return@Box
+        }
+        var isLoading by remember(url) { mutableStateOf(true) }
+        var hasError by remember(url) { mutableStateOf(false) }
+        if (isLoading && !hasError) {
+            ShimmerBox(Modifier.fillMaxSize())
+        }
+        AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    isVerticalScrollBarEnabled = false
+                    isHorizontalScrollBarEnabled = false
+                    overScrollMode = WebView.OVER_SCROLL_NEVER
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(
+                            view: WebView?,
+                            finishedUrl: String?
+                        ) {
+                            isLoading = false
+                        }
+
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?
+                        ) {
+                            if (request?.isForMainFrame == true) {
+                                hasError = true
+                                isLoading = false
                             }
                         }
                     }
+                    loadUrl(url)
+                }
+            },
+            update = { webView ->
+                if (webView.url != url) webView.loadUrl(url)
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        if (hasError) {
+            GifPlaceholder()
+        }
+    }
+}
+
+@Composable
+private fun GifPlaceholder() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WpGifBackground),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement =
+            Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.FitnessCenter,
+            contentDescription = null,
+            tint = WpMuted,
+            modifier = Modifier.size(30.dp)
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Exercise Demo",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = WpMuted
+        )
+    }
+}
+
+/** The iOS loading shimmer: a 1.3s diagonal gradient sweep. */
+@Composable
+private fun ShimmerBox(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "gifShimmer")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1300, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gifShimmerProgress"
+    )
+    Box(
+        modifier = modifier.drawBehind {
+            val t = progress
+            val startX = (-1.8f + 2.8f * t) * size.width
+            val startY = (-1.2f + 2.2f * t) * size.height
+            val endX = (0f + 2.8f * t) * size.width
+            val endY = (-0.2f + 2.4f * t) * size.height
+            drawRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFFF1F5F9),
+                        Color.White.copy(alpha = 0.85f),
+                        Color(0xFFE2E8F0)
+                    ),
+                    start = Offset(startX, startY),
+                    end = Offset(endX, endY)
+                )
+            )
+        }
+    )
+}
+
+// ----------------------------------------------------------------------------
+// Section 4 — progress projection card (iOS WorkoutProgressProjectionCardView)
+// ----------------------------------------------------------------------------
+
+private fun parseIsoDate(value: String?): LocalDate? {
+    if (value.isNullOrBlank()) return null
+    return try {
+        LocalDate.parse(
+            value,
+            DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
+        )
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun formatWeightKg(value: Double): String =
+    String.format(Locale.US, "%.1f kg", value)
+
+private fun formatMonthDay(date: LocalDate): String =
+    date.format(
+        DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
+    )
+
+@Composable
+private fun WorkoutProgressProjectionCard(
+    onboardingStore: WorkoutOnboardingStore,
+    healthConnectManager: HealthConnectManager
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val api = remember { WorkoutOnboardingApi(context) }
+    var backendCurrentWeightKg by remember { mutableStateOf<Double?>(null) }
+    var backendTargetWeightKg by remember { mutableStateOf<Double?>(null) }
+    var backendTargetDate by remember { mutableStateOf<LocalDate?>(null) }
+    var currentWeightKg by remember {
+        mutableStateOf(onboardingStore.weightKg)
+    }
+    var targetWeightKg by remember {
+        mutableStateOf(onboardingStore.targetWeightKg)
+    }
+    var showRecordSheet by remember { mutableStateOf(false) }
+
+    // iOS `loadBackendData`: backend onboarding values win over local ones
+    // and are written back locally, exactly like the @AppStorage writes.
+    suspend fun loadBackendData() {
+        api.fetchOnboarding().onSuccess { data ->
+            data.targetWeightKg?.takeIf { it > 0 }?.let { value ->
+                backendTargetWeightKg = value
+                targetWeightKg = value
+                onboardingStore.targetWeightKg = value
+            }
+            data.weightKg?.takeIf { it > 0 }?.let { value ->
+                backendCurrentWeightKg = value
+                currentWeightKg = value
+                onboardingStore.weightKg = value
+            }
+            parseIsoDate(data.targetDate)?.let { backendTargetDate = it }
+        }
+    }
+    LaunchedEffect(Unit) { loadBackendData() }
+
+    val effectiveCurrent = backendCurrentWeightKg ?: currentWeightKg
+    val effectiveTarget = backendTargetWeightKg ?: targetWeightKg
+    val isGaining = effectiveTarget > effectiveCurrent
+    val diffKg = abs(effectiveCurrent - effectiveTarget)
+    val projectionDays = max(ceil(max(diffKg, 0.5) * 7).toInt(), 14)
+    val today = LocalDate.now()
+    val effectiveTargetDate = backendTargetDate
+        ?: today.plusDays(projectionDays.toLong())
+
+    IosSectionCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Based on your body data, you'll reach",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = WpSlate,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = formatWeightKg(effectiveTarget),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WpInk,
+                        modifier = Modifier.alignByBaseline()
+                    )
+                    Text(
+                        text = "on",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = WpInk,
+                        modifier = Modifier.alignByBaseline()
+                    )
+                    Text(
+                        text = formatMonthDay(effectiveTargetDate),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WpBlue,
+                        modifier = Modifier.alignByBaseline()
+                    )
                 }
             }
+            Spacer(Modifier.height(24.dp))
+            ProjectionGraph(
+                currentWeightKg = effectiveCurrent,
+                targetWeightKg = effectiveTarget,
+                isGaining = isGaining,
+                targetDateLabel = formatMonthDay(effectiveTargetDate),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+            )
+            Spacer(Modifier.height(20.dp))
+            // "Record Weight" button.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(WpPaleBlue)
+                    .border(
+                        1.dp,
+                        WpBlue.copy(alpha = 0.18f),
+                        RoundedCornerShape(14.dp)
+                    )
+                    .clickable { showRecordSheet = true }
+                    .padding(vertical = 13.dp),
+                horizontalArrangement =
+                    Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Scale,
+                    contentDescription = null,
+                    tint = WpBlue,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Record Weight",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = WpBlue
+                )
+            }
         }
+    }
 
-        // Material You 3 "Plan Workouts" Button
-        item {
+    if (showRecordSheet) {
+        RecordWeightSheet(
+            initialWeightKg = effectiveCurrent,
+            onDismiss = { showRecordSheet = false },
+            onSave = { newWeightKg ->
+                // iOS `saveRecordedWeight`: update local + backend weight,
+                // write the health-store weight, sync onboarding, reload.
+                currentWeightKg = newWeightKg
+                backendCurrentWeightKg = newWeightKg
+                onboardingStore.weightKg = newWeightKg
+                scope.launch {
+                    healthConnectManager.insertWeight(newWeightKg)
+                    api.syncOnboarding(
+                        workoutGoal = onboardingStore.selectedGoalRaw,
+                        heightCm = onboardingStore.heightCm,
+                        weightKg = newWeightKg,
+                        targetWeightKg = effectiveTarget,
+                        birthYear = onboardingStore.birthYear,
+                        workoutDaysPerWeek = onboardingStore.daysPerWeek,
+                        targetDate = Date.from(
+                            effectiveTargetDate
+                                .atStartOfDay(ZoneOffset.UTC)
+                                .toInstant()
+                        )
+                    )
+                    loadBackendData()
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Direct port of the iOS projection canvas (`ProjectionGraphView` drawing):
+ * gradient area fill, dashed guidelines, gradient S-curve, start dot + weight
+ * label, glowing target dot + tooltip bubble, and the Today / target-date
+ * axis labels. Text is drawn on the native canvas with the same sizes,
+ * weights and colors as iOS.
+ */
+@Composable
+private fun ProjectionGraph(
+    currentWeightKg: Double,
+    targetWeightKg: Double,
+    isGaining: Boolean,
+    targetDateLabel: String,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(modifier = modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            val widthPx = size.width
+            val heightPx = size.height
+            val startX = 45.dp.toPx()
+            val targetX = widthPx - 65.dp.toPx()
+            val startY = if (isGaining) heightPx - 60.dp.toPx()
+            else 38.dp.toPx()
+            val targetY = if (isGaining) 38.dp.toPx()
+            else heightPx - 60.dp.toPx()
+            val bottomY = heightPx - 26.dp.toPx()
+            val control1X = startX + (targetX - startX) * 0.45f
+            val control1Y = if (isGaining) startY - 6.dp.toPx()
+            else startY + 6.dp.toPx()
+            val control2X = startX + (targetX - startX) * 0.55f
+
+            // Gradient fill under the curve, extended to the card edges.
+            val fillPath = Path().apply {
+                moveTo(0f, if (isGaining) bottomY else startY)
+                lineTo(startX, startY)
+                cubicTo(control1X, control1Y, control2X, targetY,
+                    targetX, targetY)
+                lineTo(widthPx, targetY)
+                lineTo(widthPx, bottomY)
+                lineTo(0f, bottomY)
+                close()
+            }
+            val fillColors = if (isGaining) {
+                listOf(
+                    Color(0xFF93C5FD).copy(alpha = 0.35f),
+                    Color(0xFFC7D2FE).copy(alpha = 0.18f),
+                    WpBackground.copy(alpha = 0f)
+                )
+            } else {
+                listOf(
+                    Color(0xFFFDA4AF).copy(alpha = 0.38f),
+                    Color(0xFFE0E7FF).copy(alpha = 0.20f),
+                    WpBackground.copy(alpha = 0f)
+                )
+            }
+            drawPath(
+                path = fillPath,
+                brush = Brush.linearGradient(
+                    colors = fillColors,
+                    start = Offset(0f, 0f),
+                    end = Offset(widthPx, heightPx)
+                )
+            )
+
+            // Dashed guidelines from both points down to the axis.
+            val dashEffect = PathEffect.dashPathEffect(
+                floatArrayOf(4.dp.toPx(), 4.dp.toPx())
+            )
+            drawLine(
+                color = WpDashedLine,
+                start = Offset(startX, startY),
+                end = Offset(startX, bottomY),
+                strokeWidth = 1.2.dp.toPx(),
+                pathEffect = dashEffect
+            )
+            drawLine(
+                color = WpDashedLine,
+                start = Offset(targetX, targetY),
+                end = Offset(targetX, bottomY),
+                strokeWidth = 1.2.dp.toPx(),
+                pathEffect = dashEffect
+            )
+
+            // The S-curve itself (4pt, gradient stroke, round caps/joins).
+            val curvePath = Path().apply {
+                moveTo(0f, startY)
+                lineTo(startX, startY)
+                cubicTo(control1X, control1Y, control2X, targetY,
+                    targetX, targetY)
+                lineTo(widthPx, targetY)
+            }
+            val strokeColors = if (isGaining) {
+                listOf(
+                    Color(0xFF3B82F6), Color(0xFF6366F1),
+                    WpBlue, Color(0xFF38BDF8)
+                )
+            } else {
+                listOf(
+                    Color(0xFFF43F5E), Color(0xFFA855F7),
+                    WpBlue, Color(0xFF38BDF8)
+                )
+            }
+            drawPath(
+                path = curvePath,
+                brush = Brush.horizontalGradient(colors = strokeColors),
+                style = Stroke(
+                    width = 4.dp.toPx(),
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round
+                )
+            )
+
+            // Start dot.
+            val startDotColor = if (isGaining) Color(0xFF3B82F6)
+            else Color(0xFFF43F5E)
+            drawCircle(
+                color = startDotColor,
+                radius = 5.dp.toPx(),
+                center = Offset(startX, startY)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 5.dp.toPx(),
+                center = Offset(startX, startY),
+                style = Stroke(width = 2.5.dp.toPx())
+            )
+
+            // Target glow + dot.
+            drawCircle(
+                color = WpBlue.copy(alpha = 0.20f),
+                radius = 12.dp.toPx(),
+                center = Offset(targetX, targetY)
+            )
+            drawCircle(
+                color = WpBlue,
+                radius = 6.5.dp.toPx(),
+                center = Offset(targetX, targetY)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 6.5.dp.toPx(),
+                center = Offset(targetX, targetY),
+                style = Stroke(width = 2.5.dp.toPx())
+            )
+
+            // ---- Text + tooltip (native canvas, iOS sizes/weights) ----
+            val canvas = drawContext.canvas.nativeCanvas
+            fun textPaint(sp: Float, weight: Int, color: Int): Paint =
+                Paint().apply {
+                    isAntiAlias = true
+                    textSize = sp.sp.toPx()
+                    this.color = color
+                    typeface = when (weight) {
+                        Typeface.BOLD -> Typeface.create(
+                            Typeface.DEFAULT, Typeface.BOLD
+                        )
+                        600 -> Typeface.create(
+                            "sans-serif-medium", Typeface.BOLD
+                        )
+                        500 -> Typeface.create(
+                            "sans-serif-medium", Typeface.NORMAL
+                        )
+                        else -> Typeface.DEFAULT
+                    }
+                }
+            fun centeredBaseline(paint: Paint, centerY: Float): Float {
+                val metrics = paint.fontMetrics
+                return centerY - (metrics.ascent + metrics.descent) / 2f
+            }
+            val inkArgb = 0xFF0F172A.toInt()
+            val slateArgb = 0xFF64748B.toInt()
+            val blueArgb = 0xFF0062FF.toInt()
+
+            // Start weight label above the start point.
+            val startLabelPaint = textPaint(14f, Typeface.BOLD, inkArgb)
+                .apply { textAlign = Paint.Align.CENTER }
+            canvas.drawText(
+                formatWeightKg(currentWeightKg),
+                startX,
+                centeredBaseline(
+                    startLabelPaint, startY - 18.dp.toPx()
+                ),
+                startLabelPaint
+            )
+
+            // Tooltip bubble above the target point: "%.1f" + " kg".
+            val numberText = String.format(
+                Locale.US, "%.1f", targetWeightKg
+            )
+            val unitText = "kg"
+            val numberPaint = textPaint(18f, Typeface.BOLD, -1)
+            val unitPaint = textPaint(13f, 600, 0xEBFFFFFF.toInt())
+            val gapPx = 3.dp.toPx()
+            val textWidth = numberPaint.measureText(numberText) + gapPx +
+                unitPaint.measureText(unitText)
+            val bubbleWidth = textWidth + 28.dp.toPx()
+            val bubbleHeight = 18.sp.toPx() + 14.dp.toPx()
+            val triangleHeight = 6.dp.toPx()
+            val totalHeight = bubbleHeight + triangleHeight - 1.dp.toPx()
+            val tooltipCenterY = targetY - 40.dp.toPx()
+            val bubbleTop = tooltipCenterY - totalHeight / 2f
+            val bubbleLeft = targetX - bubbleWidth / 2f
+            val bubblePaint = Paint().apply {
+                isAntiAlias = true
+                color = blueArgb
+                style = Paint.Style.FILL
+                setShadowLayer(
+                    6.dp.toPx(), 0f, 3.dp.toPx(),
+                    0x470062FF
+                )
+            }
+            canvas.drawRoundRect(
+                bubbleLeft, bubbleTop,
+                bubbleLeft + bubbleWidth, bubbleTop + bubbleHeight,
+                10.dp.toPx(), 10.dp.toPx(), bubblePaint
+            )
+            // Triangle under the bubble.
+            val trianglePath = android.graphics.Path().apply {
+                moveTo(targetX - 5.dp.toPx(), bubbleTop + bubbleHeight)
+                lineTo(targetX + 5.dp.toPx(), bubbleTop + bubbleHeight)
+                lineTo(targetX, bubbleTop + bubbleHeight + triangleHeight)
+                close()
+            }
+            canvas.drawPath(trianglePath, bubblePaint)
+            val textBaseline = centeredBaseline(
+                numberPaint, bubbleTop + bubbleHeight / 2f
+            )
+            numberPaint.textAlign = Paint.Align.LEFT
+            unitPaint.textAlign = Paint.Align.LEFT
+            val textStartX = targetX - textWidth / 2f
+            canvas.drawText(numberText, textStartX, textBaseline, numberPaint)
+            canvas.drawText(
+                unitText,
+                textStartX + numberPaint.measureText(numberText) + gapPx,
+                textBaseline,
+                unitPaint
+            )
+
+            // Axis labels.
+            val todayPaint = textPaint(14f, 500, slateArgb)
+                .apply { textAlign = Paint.Align.CENTER }
+            canvas.drawText(
+                "Today",
+                startX,
+                centeredBaseline(
+                    todayPaint, heightPx - 8.dp.toPx()
+                ),
+                todayPaint
+            )
+            val datePaint = textPaint(16f, Typeface.BOLD, inkArgb)
+                .apply { textAlign = Paint.Align.CENTER }
+            canvas.drawText(
+                targetDateLabel,
+                targetX,
+                centeredBaseline(
+                    datePaint, heightPx - 8.dp.toPx()
+                ),
+                datePaint
+            )
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Record Weight sheet (iOS RecordWeightSheet)
+// ----------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecordWeightSheet(
+    initialWeightKg: Double,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit
+) {
+    var recordedWeightKg by remember {
+        mutableStateOf(initialWeightKg)
+    }
+    var selectedUnit by remember { mutableStateOf("kg") }
+    var recordDate by remember { mutableStateOf(LocalDate.now()) }
+    var isSaving by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isSaving) {
+        if (isSaving) {
+            delay(300)
+            onDismiss()
+        }
+    }
+
+    fun displayWeight(): Double =
+        if (selectedUnit == "kg") recordedWeightKg
+        else recordedWeightKg * 2.20462
+
+    // iOS `adjustWeight`: steppers move in the selected unit, clamped to
+    // 30–250 kg or 66–550 lbs.
+    fun adjust(delta: Double) {
+        recordedWeightKg = if (selectedUnit == "kg") {
+            (recordedWeightKg + delta).coerceIn(30.0, 250.0)
+        } else {
+            val newLbs = (recordedWeightKg * 2.20462 + delta)
+                .coerceIn(66.0, 550.0)
+            newLbs / 2.20462
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(440.dp)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Title row (iOS navigation bar: Cancel left, title centered).
+            Box(modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Text(text = "Cancel", color = WpBlue, fontSize = 16.sp)
+                }
+                Text(
+                    text = "Record Weight",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WpInk,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+
+            // Unit toggle (iOS segmented control: kg / lbs).
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.width(200.dp)) {
+                listOf("kg", "lbs").forEachIndexed { index, unit ->
+                    SegmentedButton(
+                        selected = selectedUnit == unit,
+                        onClick = { selectedUnit = unit },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index, count = 2
+                        ),
+                        label = {
+                            Text(
+                                text = unit,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+
+            // Date row. Like iOS, the picked date is display-only — saving
+            // writes the weight with today's date.
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showDatePicker = true }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CalendarMonth,
+                    contentDescription = null,
+                    tint = WpBlue,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = recordDate.format(
+                        DateTimeFormatter.ofPattern(
+                            "MMM d, yyyy", Locale.getDefault()
+                        )
+                    ),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = WpInk
+                )
+            }
+            Spacer(Modifier.height(32.dp))
+
+            // Big weight display.
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = String.format(
+                        Locale.US, "%.1f", displayWeight()
+                    ),
+                    fontSize = 54.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WpInk,
+                    modifier = Modifier.alignByBaseline()
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = selectedUnit,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WpSlate,
+                    modifier = Modifier.alignByBaseline()
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Current Recorded Weight",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = WpMuted
+            )
+            Spacer(Modifier.height(28.dp))
+
+            // Steppers.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                listOf("-0.5", "-0.1", "+0.1", "+0.5").forEach { label ->
+                    val delta = label.toDouble()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(WpPaleBlue)
+                            .clickable { adjust(delta) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WpBlue
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(28.dp))
+
             Button(
-                onClick = onPlanWorkoutsClick,
+                onClick = {
+                    if (!isSaving) {
+                        isSaving = true
+                        onSave(recordedWeightKg)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 2.dp,
-                    pressedElevation = 4.dp
+                    containerColor = WpBlue,
+                    contentColor = Color.White
                 )
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.EditCalendar,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
                     )
+                } else {
                     Text(
-                        text = "Plan Workouts",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Save Weight",
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
-
-        // Selected Date Detail Card: this day's planned workouts + completion state
-        item {
-            val plannedForDay = plannedWorkoutsForSelectedDate
-            val isDateCompleted = selectedDate in completedDates
-            ElevatedCard(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = when {
-                                isDateCompleted -> Color(0xFFFDF2F8)
-                                plannedForDay.isNotEmpty() -> MaterialTheme.colorScheme.primaryContainer
-                                else -> Color(0xFFF1F5F9)
-                            },
-                            modifier = Modifier.size(46.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                if (isDateCompleted) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Check,
-                                        contentDescription = "Completed",
-                                        tint = Color(0xFFBE185D),
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Filled.FitnessCenter,
-                                        contentDescription = null,
-                                        tint = if (plannedForDay.isNotEmpty()) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = if (plannedForDay.isNotEmpty()) {
-                                    "${plannedForDay.size} planned workouts"
-                                } else {
-                                    "No workouts planned"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (plannedForDay.isNotEmpty()) MaterialTheme.colorScheme.primary else Color(0xFF64748B)
-                            )
-                            if (isDateCompleted) {
-                                Text(
-                                    text = "Workout session completed",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFFBE185D)
-                                )
-                            }
-                        }
-                    }
-
-                    AnimatedVisibility(
-                        visible = plannedForDay.isNotEmpty(),
-                        enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
-                        exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            plannedForDay.take(3).forEach { item ->
-                                Text(
-                                    text = "•  ${item.name}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF334155)
-                                )
-                            }
-                            if (plannedForDay.size > 3) {
-                                Text(
-                                    text = "and ${plannedForDay.size - 3} more…",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF64748B)
-                                )
-                            }
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = { onEditDayPlan(selectedDate) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (plannedForDay.isNotEmpty()) "Edit workouts" else "Add workouts")
-                    }
-                }
-            }
-        }
     }
-}
 
-// MARK: - Step 4: The Main Planned Workouts Page with Top Bar Sections
-
-@Composable
-fun PlannedWorkoutsMainScreen(
-    plan: WorkoutPlanData,
-    selectedTabIndex: Int,
-    onTabSelect: (Int) -> Unit,
-    onBackToCalendar: () -> Unit,
-    onEditDay: (LocalDate) -> Unit,
-    onStartWorkout: (PlannedDaySection) -> Unit,
-    bodyWeightKg: Double? = null,
-    onEditSetup: () -> Unit = {},
-    allPlannedDates: List<LocalDate> = emptyList(),
-    onCopyDay: (from: LocalDate, to: List<LocalDate>) -> Unit = { _, _ -> }
-) {
-    val activeSection = plan.sections.getOrNull(selectedTabIndex) ?: plan.sections.firstOrNull()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-    ) {
-        // Top App Bar
-        Surface(
-            color = Color.White,
-            shadowElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        IconButton(onClick = onBackToCalendar) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = "Back to Calendar",
-                                tint = Color(0xFF0F172A)
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "Weekly Workout Plan",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = if (bodyWeightKg != null) {
-                                    "Body Weight: ${bodyWeightKg.toInt()} kg • ${plan.sections.size} planned days • ${plan.totalExercises} workouts"
-                                } else {
-                                    "${plan.sections.size} planned days • ${plan.totalExercises} workouts"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
-                            )
-                        }
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onEditSetup) {
-                            Icon(
-                                imageVector = Icons.Outlined.Tune,
-                                contentDescription = "Edit body weight",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        if (activeSection != null) {
-                            IconButton(onClick = { onEditDay(activeSection.scheduledDate) }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.EditCalendar,
-                                    contentDescription = "Edit workouts for this day",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Top Bar Sections (Tabs): Number of sections equals the number of days user works out!
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTabIndex.coerceIn(0, (plan.sections.size - 1).coerceAtLeast(0)),
-                    edgePadding = 16.dp,
-                    containerColor = Color.White,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    divider = {}
-                ) {
-                    plan.sections.forEachIndexed { index, section ->
-                        val isSelected = index == selectedTabIndex
-                        val dayLabel = "Day ${section.dayNumber}"
-                        val dateLabel = section.scheduledDate.format(DateTimeFormatter.ofPattern("EEE d", Locale.getDefault()))
-
-                        Tab(
-                            selected = isSelected,
-                            onClick = { onTabSelect(index) },
-                            text = {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = dayLabel,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 14.sp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF64748B)
-                                    )
-                                    Text(
-                                        text = dateLabel,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color(0xFF94A3B8)
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Section Content
-        if (activeSection == null) {
-            // Empty state: the plan holds only user-selected workouts, and none are saved yet.
-            Column(
-                modifier = Modifier
-                    .fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.FitnessCenter,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(
-                    text = "No workouts planned yet",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Pick a day on the calendar and add the workouts you want to do.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF64748B),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onBackToCalendar,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Back to calendar", fontWeight = FontWeight.Bold)
-                }
-            }
-        } else {
-            AnimatedContent(
-                targetState = activeSection,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(250)) + slideInHorizontally(
-                        animationSpec = tween(250),
-                        initialOffsetX = { it / 10 }
-                    )) togetherWith (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
-                        animationSpec = tween(200),
-                        targetOffsetX = { -it / 10 }
-                    ))
-                },
-                label = "plan-day"
-            ) { section ->
-                val day = section ?: return@AnimatedContent
-                var showCopyDialog by remember(day.scheduledDate) { mutableStateOf(false) }
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Section Overview Card
-                item {
-                    ElevatedCard(
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer
-                                ) {
-                                    Text(
-                                        text = "Section ${day.dayNumber} of ${plan.sections.size}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-
-                                Text(
-                                    text = day.scheduledDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF64748B)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Text(
-                                text = day.title,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-
-                            Text(
-                                text = "${day.exercises.size} Exercises",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF64748B)
-                            )
-                        }
-                    }
-                }
-
-                // Empty day: no workouts selected yet for this date.
-                if (day.exercises.isEmpty()) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "No workouts planned for this day",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = "Add the workouts you want to do on this day.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF64748B),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-
-                // Exercises List Header
-                if (day.exercises.isNotEmpty()) item {
-                    Text(
-                        text = "Scheduled Exercises",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-
-                // Exercise Cards
-                items(day.exercises, key = { it.name }) { exercise ->
-                    PlannedExerciseCard(exercise = exercise, modifier = Modifier.animateItem())
-                }
-
-                // Edit this day's selected workouts
-                item {
-                    OutlinedButton(
-                        onClick = { onEditDay(day.scheduledDate) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.EditCalendar,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = if (day.exercises.isEmpty()) "Add workouts" else "Edit workouts",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Copy this day's workouts onto other planned days
-                if (day.exercises.isNotEmpty()) item {
-                    OutlinedButton(
-                        onClick = { showCopyDialog = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Copy to other days",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Material You 3 "Start Workout" Button
-                if (day.exercises.isNotEmpty()) item {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Button(
-                        onClick = { onStartWorkout(day) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Text(
-                                text = "Start Day ${day.dayNumber} Workout",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                }
-            if (showCopyDialog) {
-                CopyDayDialog(
-                    sourceDate = day.scheduledDate,
-                    targetDates = allPlannedDates.filter { it != day.scheduledDate },
-                    onDismiss = { showCopyDialog = false },
-                    onCopy = { targets ->
-                        onCopyDay(day.scheduledDate, targets)
-                        showCopyDialog = false
-                    }
-                )
-            }
-            }
-        }
-    }
-}
-
-/**
- * Dialog for the weekly planner's "Copy to other days" action. Lists the other
- * planned dates with checkboxes; copying replaces the target days' workouts
- * with a copy of the source day's list.
- */
-@Composable
-private fun CopyDayDialog(
-    sourceDate: LocalDate,
-    targetDates: List<LocalDate>,
-    onDismiss: () -> Unit,
-    onCopy: (List<LocalDate>) -> Unit
-) {
-    var selected by remember { mutableStateOf(setOf<LocalDate>()) }
-    val dateFmt = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())
-    Dialog(onDismissRequest = onDismiss) {
-        ElevatedCard(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Copy workouts",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Text(
-                    text = "Copy ${sourceDate.format(dateFmt)}'s workouts to:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF334155)
-                )
-                Text(
-                    text = "This will replace workouts on the selected days.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B)
-                )
-                if (targetDates.isEmpty()) {
-                    Text(
-                        text = "No other planned days yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF64748B)
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        targetDates.forEach { date ->
-                            val checked = date in selected
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selected = if (checked) selected - date else selected + date
-                                    },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = {
-                                        selected = if (it) selected + date else selected - date
-                                    }
-                                )
-                                Text(
-                                    text = date.format(dateFmt),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF0F172A),
-                                    modifier = Modifier.padding(start = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { onCopy(selected.toList()) },
-                        enabled = selected.isNotEmpty(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Copy")
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Plan editor: search the catalog and multi-select workouts for one day
-
-/** Small − / + stepper for the optional sets/reps editor. */
-@Composable
-private fun SetsRepsStepper(
-    label: String,
-    value: Int,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-    canDecrease: Boolean,
-    canIncrease: Boolean
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF0F172A),
-            modifier = Modifier.padding(end = 6.dp)
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = recordDate
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         )
-        IconButton(onClick = onDecrease, enabled = canDecrease, modifier = Modifier.size(32.dp)) {
-            Text(text = "−", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-        }
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A),
-            modifier = Modifier.padding(horizontal = 2.dp)
-        )
-        IconButton(onClick = onIncrease, enabled = canIncrease, modifier = Modifier.size(32.dp)) {
-            Text(text = "+", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-        }
-    }
-}
-
-/**
- * 64dp GIF thumbnail for a picker row: the exercise GIF (same backend-served
- * GIFs as the detail view) when one exists, else a photo-icon placeholder.
- * The WebView would swallow taps, so when [onClick] is given the thumbnail
- * gets its own clickable that forwards the tap (e.g. row toggle).
- */
-@Composable
-private fun PlanPickerGifThumb(
-    gifUrl: String?,
-    onClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(64.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFFF1F5F9))
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-        contentAlignment = Alignment.Center
-    ) {
-        if (gifUrl != null) {
-            GifWebView(url = gifUrl, modifier = Modifier.fillMaxSize())
-        } else {
-            Icon(
-                imageVector = Icons.Outlined.Image,
-                contentDescription = "No GIF available",
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(26.dp)
-            )
-        }
-    }
-}
-
-/** Backend GIF URL for a planned item (which carries no Exercise), or null. */
-private fun gifUrlForPlannedItem(name: String): String? =
-    ExerciseMedia.localGifAsset(name)?.let { ExerciseMedia.GIF_BASE_URL + it }
-
-@Composable
-fun PlanWorkoutPickerScreen(
-    date: LocalDate,
-    initialSelection: List<PlannedExerciseItem>,
-    workoutStore: WorkoutStore,
-    onBack: () -> Unit,
-    onSave: (List<PlannedExerciseItem>) -> Unit
-) {
-    var query by remember(date) { mutableStateOf("") }
-    var selectedGroup by remember(date) { mutableStateOf<String?>(null) }
-    val draft = remember(date) {
-        mutableStateListOf<PlannedExerciseItem>().apply { addAll(initialSelection) }
-    }
-    // Name of the selected workout whose sets/reps editor is expanded (null = none).
-    var editingSetsRepsFor by remember(date) { mutableStateOf<String?>(null) }
-    // Save is only enabled when the selection actually changed; saving an
-    // untouched (possibly empty) selection would be a silent no-op.
-    val hasChanges = draft.toList() != initialSelection
-    // Same search API the workout log flow uses: name / primary-muscle match + muscle-group filter.
-    val filtered = remember(query, selectedGroup) {
-        workoutStore.filteredExercises(query, selectedGroup)
-    }
-    val muscleGroups = remember { listOf<String?>(null) + ExerciseMuscleGroups.all }
-
-    BackHandler(onBack = onBack)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-    ) {
-        // Top bar
-        Surface(
-            color = Color.White,
-            shadowElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF0F172A)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Plan workouts",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = date.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Text(
-                        text = "${draft.size} selected",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Search field
-            item {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text("Search workouts…") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = null,
-                            tint = Color(0xFF94A3B8)
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color(0xFFE2E8F0)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // Muscle-group filter chips
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(muscleGroups) { group ->
-                        val isSelected = selectedGroup == group
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
-                            shadowElevation = if (isSelected) 0.dp else 1.dp,
-                            modifier = Modifier
-                                .clickable { selectedGroup = group }
-                                .then(
-                                    if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
-                                    else Modifier
-                                )
-                        ) {
-                            Text(
-                                text = group ?: "All",
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A),
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                            )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val picked = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC).toLocalDate()
+                        // iOS caps the picker at today.
+                        recordDate = if (picked.isAfter(LocalDate.now())) {
+                            LocalDate.now()
+                        } else {
+                            picked
                         }
                     }
-                }
-            }
-
-            // Selected workouts (always visible, removable even if the catalog no longer lists them)
-            if (draft.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Selected (${draft.size})",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-                items(draft.toList(), key = { it.name }) { item ->
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                PlanPickerGifThumb(
-                                    gifUrl = gifUrlForPlannedItem(item.name),
-                                    modifier = Modifier.padding(start = 10.dp)
-                                )
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 10.dp)
-                                ) {
-                                    Text(
-                                        text = item.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A)
-                                    )
-                                    Text(
-                                        text = item.targetMuscle,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    )
-                                    Text(
-                                        text = item.setsReps,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                // Optional sets/reps: tapping expands the steppers below.
-                                IconButton(onClick = {
-                                    editingSetsRepsFor =
-                                        if (editingSetsRepsFor == item.name) null else item.name
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Edit,
-                                        contentDescription = "Edit sets and reps for ${item.name}",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    if (editingSetsRepsFor == item.name) editingSetsRepsFor = null
-                                    draft.remove(item)
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Remove ${item.name}",
-                                        tint = Color(0xFF64748B)
-                                    )
-                                }
-                            }
-                            if (editingSetsRepsFor == item.name) {
-                                val (sets, reps) = parseSetsReps(item.setsReps)
-                                fun updateSetsReps(newSets: Int, newReps: Int) {
-                                    val index = draft.indexOfFirst { it.name == item.name }
-                                    if (index >= 0) {
-                                        draft[index] = draft[index].copy(
-                                            setsReps = formatSetsReps(newSets, newReps)
-                                        )
-                                    }
-                                }
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    SetsRepsStepper(
-                                        label = "Sets",
-                                        value = sets,
-                                        onDecrease = { updateSetsReps((sets - 1).coerceAtLeast(1), reps) },
-                                        onIncrease = { updateSetsReps((sets + 1).coerceAtMost(20), reps) },
-                                        canDecrease = sets > 1,
-                                        canIncrease = sets < 20
-                                    )
-                                    SetsRepsStepper(
-                                        label = "Reps",
-                                        value = reps,
-                                        onDecrease = { updateSetsReps(sets, (reps - 1).coerceAtLeast(1)) },
-                                        onIncrease = { updateSetsReps(sets, (reps + 1).coerceAtMost(100)) },
-                                        canDecrease = reps > 1,
-                                        canIncrease = reps < 100
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Searchable catalog
-            item {
-                Text(
-                    text = "Workouts (${filtered.size})",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-            }
-            if (filtered.isEmpty()) {
-                item {
-                    Text(
-                        text = "No workouts match your search.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF64748B),
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-            }
-            items(filtered, key = { it.id + it.name }) { exercise ->
-                val isSelected = draft.any { it.name == exercise.name }
-                val onToggle: () -> Unit = {
-                    if (isSelected) {
-                        draft.removeAll { it.name == exercise.name }
-                    } else {
-                        draft.add(exercise.toPlannedItem())
-                    }
-                }
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
-                    shadowElevation = if (isSelected) 0.dp else 1.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onToggle() }
-                        .then(
-                            if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
-                            else Modifier
-                        )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isSelected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                            contentDescription = null,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFCBD5E1),
-                            modifier = Modifier.size(22.dp)
-                        )
-                        PlanPickerGifThumb(
-                            gifUrl = exercise.gifUrl,
-                            onClick = onToggle,
-                            modifier = Modifier.padding(start = 10.dp)
-                        )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 10.dp)
-                        ) {
-                            Text(
-                                text = exercise.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = "${exercise.primaryMuscleLabel} • ${exercise.equipment}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Save bar (pinned at the bottom). The bottom padding clears the
-        // floating bottom nav bar (same 120.dp convention as the calendar and
-        // plan page) so Save stays visible and tappable.
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(top = 16.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (!hasChanges) {
-                Text(
-                    text = if (draft.isEmpty()) {
-                        "Select at least one workout to save a plan for this day."
-                    } else {
-                        "No changes to save."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Button(
-                onClick = { onSave(draft.toList()) },
-                enabled = hasChanges,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Text(
-                    text = if (draft.isNotEmpty()) "Save plan (${draft.size} workouts)" else "Save plan",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-/**
- * 64dp GIF thumbnail for a planned exercise, or a photo-icon placeholder when
- * the exercise has no GIF yet (only 5 catalog exercises do). Same pattern as
- * the picker rows: the GIF animates via GifWebView, everything else gets the
- * placeholder.
- */
-@Composable
-private fun ExerciseGifThumbnail(exerciseName: String, modifier: Modifier = Modifier) {
-    val gifFile = ExerciseMedia.localGifAsset(exerciseName)
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFFF1F5F9)),
-        contentAlignment = Alignment.Center
-    ) {
-        if (gifFile != null) {
-            GifWebView(
-                url = ExerciseMedia.GIF_BASE_URL + gifFile,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Filled.Photo,
-                contentDescription = null,
-                tint = Color(0xFFCBD5E1),
-                modifier = Modifier.size(28.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun PlannedExerciseCard(exercise: PlannedExerciseItem, modifier: Modifier = Modifier) {
-    ElevatedCard(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ExerciseGifThumbnail(
-                    exerciseName = exercise.name,
-                    modifier = Modifier.size(64.dp)
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = exercise.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = exercise.targetMuscle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF1F5F9)
-                ) {
-                    Text(
-                        text = exercise.setsReps,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF334155),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            if (exercise.suggestedWeightKg != null || exercise.note.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    if (exercise.suggestedWeightKg != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.FitnessCenter,
-                                contentDescription = null,
-                                tint = Color(0xFF64748B),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "Suggested: ${exercise.suggestedWeightKg} kg",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF475569)
-                            )
-                        }
-                    }
-
-                    if (exercise.note.isNotBlank()) {
-                        Text(
-                            text = exercise.note,
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Monthly calendar card rendering weekdays (M, T, W, T, F, S, S),
- * highlighting completed dates with a light-pink circle & checkmark,
- * and marking planned dates with a dot.
- */
-@Composable
-fun MonthlyWorkoutCalendarCard(
-    yearMonth: YearMonth,
-    completedDates: Set<LocalDate>,
-    selectedDate: LocalDate,
-    onSelectDate: (LocalDate) -> Unit,
-    plannedDates: Set<LocalDate> = emptySet(),
-    modifier: Modifier = Modifier
-) {
-    val daysOfWeek = listOf("M", "T", "W", "T", "F", "S", "S")
-    val daysInMonth = yearMonth.lengthOfMonth()
-    // Monday = 1 ... Sunday = 7
-    val firstDayOfWeek = yearMonth.atDay(1).dayOfWeek.value
-    val leadingEmptyDays = firstDayOfWeek - 1
-
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        shadowElevation = 1.dp,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Weekday Headers (M, T, W, T, F, S, S)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                daysOfWeek.forEach { dayLabel ->
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = dayLabel,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF6B7280),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
-            // Calendar Grid of Days
-            val totalCells = leadingEmptyDays + daysInMonth
-            val totalRows = (totalCells + 6) / 7
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                for (row in 0 until totalRows) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        for (col in 0 until 7) {
-                            val cellIndex = row * 7 + col
-                            val dayNumber = cellIndex - leadingEmptyDays + 1
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(38.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (dayNumber in 1..daysInMonth) {
-                                    val date = yearMonth.atDay(dayNumber)
-                                    val isCompleted = date in completedDates
-                                    val isSelected = date == selectedDate
-                                    val isPlanned = date in plannedDates
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(CircleShape)
-                                            .then(
-                                                when {
-                                                    isCompleted -> Modifier.background(Color(0xFFFDF2F8)) // Soft light pink
-                                                    isSelected -> Modifier.background(Color(0xFFF1F5F9))
-                                                    isPlanned -> Modifier.background(MaterialTheme.colorScheme.primaryContainer)
-                                                    else -> Modifier
-                                                }
-                                            )
-                                            .clickable { onSelectDate(date) },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isCompleted) {
-                                            // Magenta/pink checkmark replacing the day number (matching reference)
-                                            Icon(
-                                                imageVector = Icons.Filled.Check,
-                                                contentDescription = "Completed on day $dayNumber",
-                                                tint = Color(0xFFBE185D),
-                                                modifier = Modifier.size(17.dp)
-                                            )
-                                        } else {
-                                            Text(
-                                                text = dayNumber.toString(),
-                                                fontSize = 14.sp,
-                                                fontWeight = if (isPlanned) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isPlanned) MaterialTheme.colorScheme.primary else Color(0xFF0F172A),
-                                                textAlign = TextAlign.Center
-                                            )
-                                        }
-                                        if (isPlanned && !isCompleted) {
-                                            // Planned-day dot under the number
-                                            Box(
-                                                modifier = Modifier
-                                                    .align(Alignment.BottomCenter)
-                                                    .padding(bottom = 4.dp)
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.primary)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun BodyWeightStepScreen(
-    initialWeight: Double,
-    onBack: () -> Unit,
-    onContinue: (Double) -> Unit
-) {
-    var weightText by remember { mutableStateOf(if (initialWeight > 20.0) initialWeight.toInt().toString() else "70") }
-    val isValid = (weightText.toDoubleOrNull() ?: 0.0) in 25.0..300.0
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-            .padding(top = 8.dp, bottom = 100.dp)
-    ) {
-        // Top Back Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color(0xFF0F172A)
-                )
-            }
-            Text(
-                text = "Step 1: Body Weight",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF64748B)
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Graphic / Icon
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                modifier = Modifier.size(52.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Filled.MonitorWeight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = "What is your body weight?",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Your weight is shown on your plan page.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF64748B)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Weight Input Card
-            ElevatedCard(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        OutlinedTextField(
-                            value = weightText,
-                            onValueChange = { input ->
-                                if (input.length <= 5 && input.all { it.isDigit() || it == '.' }) {
-                                    weightText = input
-                                }
-                            },
-                            textStyle = MaterialTheme.typography.displaySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.primary
-                            ),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = Color(0xFFE2E8F0)
-                            ),
-                            modifier = Modifier.width(140.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Text(
-                            text = "kg",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF64748B)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Recommended range: 30 - 250 kg",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF94A3B8)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Continue Button
-        Button(
-            onClick = {
-                val weight = weightText.toDoubleOrNull()
-                if (weight != null && weight in 25.0..300.0) {
-                    onContinue(weight)
+                    showDatePicker = false
+                }) {
+                    Text(text = "OK", color = WpBlue)
                 }
             },
-            enabled = isValid,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            Text(
-                text = "Continue",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-// MARK: - Step 2: Days Selection ("Which days do you want to plan?")
-
-@Composable
-fun WorkoutDaysSelectionStepScreen(
-    initialSelectedDates: List<LocalDate>,
-    onBack: () -> Unit,
-    onConfirmPlan: (List<LocalDate>) -> Unit
-) {
-    val today = remember { LocalDate.now() }
-    val nextSevenDays = remember { (0..6).map { today.plusDays(it.toLong()) } }
-
-    // Pre-fill with the currently planned dates that fall in the next 7 days.
-    var selectedDates by remember {
-        mutableStateOf(initialSelectedDates.filter { it in nextSevenDays }.toSet())
-    }
-
-    BackHandler(onBack = onBack)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-            .padding(top = 8.dp, bottom = 100.dp)
-    ) {
-        // Top Back Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color(0xFF0F172A)
-                )
-            }
-            Text(
-                text = "Step 2: Select Days",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF64748B)
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = "Which days do you want to plan?",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Select the days you want to plan workouts for:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF64748B),
-                    // Weight lets the counter pill keep its natural width instead of
-                    // being squeezed off the right edge.
-                    modifier = Modifier.weight(1f)
-                )
-                Surface(
-                    shape = CircleShape,
-                    color = if (selectedDates.isNotEmpty()) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
-                ) {
-                    Text(
-                        text = "${selectedDates.size} selected",
-                        maxLines = 1,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (selectedDates.isNotEmpty()) Color(0xFF16A34A) else Color(0xFFD97706),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(text = "Cancel", color = WpBlue)
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Next 7 Days Selection List
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                nextSevenDays.forEach { date ->
-                    val isSelected = date in selectedDates
-                    val isToday = date == today
-                    val weekdayFormatted = date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault()))
-                    val dateFormatted = date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
-
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
-                        shadowElevation = if (isSelected) 0.dp else 1.dp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedDates = if (isSelected) {
-                                    selectedDates - date
-                                } else {
-                                    selectedDates + date
-                                }
-                            }
-                            .then(
-                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
-                                else Modifier
-                            )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF1F5F9),
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Check,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Filled.CalendarMonth,
-                                                contentDescription = null,
-                                                tint = Color(0xFF94A3B8),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = weekdayFormatted,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF0F172A)
-                                        )
-                                        if (isToday) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                            ) {
-                                                Text(
-                                                    text = "Today",
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        text = dateFormatted,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else Color(0xFF64748B)
-                                    )
-                                }
-                            }
-
-                            Icon(
-                                imageVector = if (isSelected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                                contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFCBD5E1),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Confirm Button
-        Button(
-            onClick = {
-                val sorted = selectedDates.toList().sorted()
-                onConfirmPlan(sorted)
-            },
-            enabled = selectedDates.isNotEmpty(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
         ) {
-            Text(
-                text = if (selectedDates.isNotEmpty()) "Continue" else "Select at least 1 day",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            DatePicker(state = datePickerState, showModeToggle = false)
         }
     }
 }
