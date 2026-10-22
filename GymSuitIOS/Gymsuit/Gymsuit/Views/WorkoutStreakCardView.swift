@@ -228,9 +228,15 @@ struct WorkoutStreakCardView: View {
                 Task { await loadRealWorkouts() }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .healthKitWorkoutsDidChange)) { _ in
+            Task { await loadRealWorkouts() }
+        }
     }
 
     private func loadRealWorkouts() async {
+        if !HealthKitManager.shared.isAuthorized && HealthKitManager.shared.isAvailable {
+            _ = await HealthKitManager.shared.requestAuthorization()
+        }
         let sessions = await HealthKitManager.shared.readRecentWorkoutSessions(daysBack: 90)
         let days = Set(sessions.map { calendar.startOfDay(for: $0.date) })
         await MainActor.run {

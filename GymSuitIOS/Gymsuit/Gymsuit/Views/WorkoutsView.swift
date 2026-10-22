@@ -198,12 +198,20 @@ struct WorkoutsView: View {
                     .padding(.bottom, 8)
 
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
+                        VStack(spacing: 20) {
                             // First Card: Week Calendar with Checkmark & Day Streak / Personal Best
                             WorkoutStreakCardView(selectedDate: $selectedDate)
 
                             // Second Card: Selected Day's Workout Count, Kcal burned, and Minutes
                             WorkoutDaySummaryCardView(selectedDate: selectedDate)
+
+                            // Third Section: Body Focus Pills and GIF Grid with Shimmer Loading
+                            WorkoutBodyFocusSectionView()
+                                .padding(.top, 4)
+
+                            // Fourth Card: Progress Projection Graph & Record Weight Option
+                            WorkoutProgressProjectionCardView()
+                                .padding(.top, 4)
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
