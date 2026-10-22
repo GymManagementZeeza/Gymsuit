@@ -28,20 +28,31 @@ public struct Exercise: Codable, Identifiable, Hashable {
         case img
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = (try? container.decodeIfPresent(String.self, forKey: .id)) ?? UUID().uuidString
+        self.name = (try? container.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        self.bodyPart = (try? container.decodeIfPresent(String.self, forKey: .bodyPart)) ?? "Other"
+        self.equipment = (try? container.decodeIfPresent(String.self, forKey: .equipment)) ?? "other"
+        self.primaryMuscle = (try? container.decodeIfPresent(String.self, forKey: .primaryMuscle)) ?? ""
+        self.secondaryMuscles = (try? container.decodeIfPresent([String].self, forKey: .secondaryMuscles)) ?? []
+        self.instructions = (try? container.decodeIfPresent([String].self, forKey: .instructions)) ?? []
+        self.gif = (try? container.decodeIfPresent(String.self, forKey: .gif)) ?? ""
+        self.img = (try? container.decodeIfPresent(String.self, forKey: .img)) ?? ""
+    }
+
     public var muscleGroup: String {
         ExerciseMuscleGroups.group(for: bodyPart)
     }
 
     /// Exercise GIF (own dataset), served by the backend on demand.
-    /// Nil when this exercise has no GIF yet — the old Gym Visual remote
-    /// GIFs are no longer used.
     public var gifURL: URL? {
-        if let file = ExerciseMedia.localGIFFile(for: name) {
-            return URL(string: ExerciseMedia.gifBaseURL + file)
-        }
         if !gif.isEmpty {
             let filename = gif.hasSuffix(".gif") ? gif : "\(gif).gif"
             return URL(string: ExerciseMedia.gifBaseURL + filename)
+        }
+        if let file = ExerciseMedia.localGIFFile(for: name) {
+            return URL(string: ExerciseMedia.gifBaseURL + file)
         }
         return nil
     }

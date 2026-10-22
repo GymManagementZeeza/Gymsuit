@@ -163,6 +163,7 @@ public struct ExerciseGifWKWebView: UIViewRepresentable {
 
 public struct WorkoutBodyFocusSectionView: View {
     @ObservedObject private var workoutStore = WorkoutStore.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedFocus: String = "Forearm"
 
     // Focus categories matching reference design ("Abs", "Arm", "Forearm", "Chest", "Leg"...)
@@ -267,6 +268,14 @@ public struct WorkoutBodyFocusSectionView: View {
                 }
             }
             .padding(.top, 4)
+        }
+        .task {
+            await workoutStore.fetchLatestExercisesFromBackend()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await workoutStore.fetchLatestExercisesFromBackend() }
+            }
         }
     }
 
