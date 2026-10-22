@@ -93,6 +93,17 @@ public final class DashboardViewModel: ObservableObject {
             self.sleepSession = sleep
             self.heartRateSummary = heartRate
             self.isLoadingMetrics = false
+
+            // Sync latest metrics to Apple Watch companion app
+            let hrBpm = heartRate?.latestBpm ?? heartRate?.minBpm ?? 0
+            let sleepH = Double(sleep?.durationMinutes ?? 0) / 60.0
+            WatchConnectivityManager.shared.syncMetricsToWatch(
+                steps: steps,
+                calories: totalKcal,
+                heartRate: hrBpm,
+                sleepHours: sleepH,
+                goal: 10_000
+            )
         }
     }
     

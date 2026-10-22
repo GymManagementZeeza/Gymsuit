@@ -17,6 +17,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DA860E2030894D910074CF6F"
                BuildableName = "GymsuitKit Watch App.app"
+               BlueprintName = "GymsuitKit Watch App"
                ReferencedContainer = "container:Gymsuit.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
