@@ -1,7 +1,33 @@
 import SwiftUI
 import Combine
 
+enum WorkoutSetupStep {
+    case goal
+    case height
+    case weight
+    case targetWeight
+    case birthYear
+    case workoutFrequency
+    case projection
+}
+
 struct WorkoutsView: View {
+    var onBackToHome: (() -> Void)? = nil
+
+    // First-time Goal & Body Setup state
+    @AppStorage("workout_goal_setup_completed") private var isGoalSetupCompleted: Bool = false
+    @AppStorage("workout_selected_goal") private var selectedGoalRaw: String = WorkoutGoal.loseWeight.rawValue
+    @AppStorage("workout_user_height_cm") private var userHeightCm: Double = 172.72 // 5 ft 8 in
+    @AppStorage("workout_user_weight_kg") private var userWeightKg: Double = 74.526 // ~164.3 lbs
+    @AppStorage("workout_user_target_weight_kg") private var userTargetWeightKg: Double = 71.0
+    @AppStorage("workout_user_birth_year") private var userBirthYear: Int = 2003
+    @AppStorage("workout_user_days_per_week") private var userWorkoutDaysPerWeek: Int = 2
+    @State private var setupStep: WorkoutSetupStep = .goal
+
+    private var currentGoal: WorkoutGoal {
+        WorkoutGoal(rawValue: selectedGoalRaw) ?? .loseWeight
+    }
+
     // Session state is owned by DashboardView (the tab container) and injected
     // here so an active guided session survives tab switches and locks navigation.
     @EnvironmentObject var session: WorkoutSessionState
@@ -55,7 +81,151 @@ struct WorkoutsView: View {
 
     var body: some View {
         Group {
-            if session.active, let exercise = setLogExercise {
+            if !isGoalSetupCompleted {
+                switch setupStep {
+                case .goal:
+                    WorkoutGoalSelectionView(
+                        selectedGoal: Binding(
+                            get: { currentGoal },
+                            set: { selectedGoalRaw = $0.rawValue }
+                        ),
+                        onBack: {
+                            onBackToHome?()
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .height
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+
+                case .height:
+                    WorkoutBodyHeightView(
+                        heightCm: $userHeightCm,
+                        onBack: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .goal
+                            }
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .weight
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+
+                case .weight:
+                    WorkoutBodyWeightView(
+                        weightKg: $userWeightKg,
+                        heightCm: userHeightCm,
+                        onBack: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .height
+                            }
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .targetWeight
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+
+                case .targetWeight:
+                    WorkoutTargetWeightView(
+                        goal: currentGoal,
+                        targetWeightKg: $userTargetWeightKg,
+                        currentWeightKg: userWeightKg,
+                        onBack: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .weight
+                            }
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .birthYear
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+
+                case .birthYear:
+                    WorkoutBirthYearView(
+                        birthYear: $userBirthYear,
+                        onBack: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .targetWeight
+                            }
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .workoutFrequency
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+
+                case .workoutFrequency:
+                    WorkoutFrequencyView(
+                        workoutDaysPerWeek: $userWorkoutDaysPerWeek,
+                        onBack: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .birthYear
+                            }
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .projection
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+
+                case .projection:
+                    WorkoutProjectionGraphView(
+                        goal: currentGoal,
+                        currentWeightKg: userWeightKg,
+                        targetWeightKg: userTargetWeightKg,
+                        onBack: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                setupStep = .workoutFrequency
+                            }
+                        },
+                        onFinish: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                isGoalSetupCompleted = true
+                            }
+                        },
+                        onFinishWithTargetDate: { calculatedTargetDate in
+                            syncOnboardingToBackend(targetDate: calculatedTargetDate)
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+                }
+            } else if session.active, let exercise = setLogExercise {
                 SetBySetLogPage(
                     exercise: exercise,
                     onBack: { setLogExercise = nil },
@@ -96,6 +266,16 @@ struct WorkoutsView: View {
             }
         }
         .background(AppColors.surface)
+        .onChange(of: isGoalSetupCompleted) { _, completed in
+            if !completed {
+                setupStep = .goal
+            }
+        }
+        .onAppear {
+            if !isGoalSetupCompleted {
+                setupStep = .goal
+            }
+        }
         .onReceive(sessionTimer) { _ in
             if session.active && session.running { session.tick() }
         }
@@ -125,9 +305,42 @@ struct WorkoutsView: View {
 
     private var workoutsHeader: some View {
         HStack(spacing: 12) {
-            Text("Workouts")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(AppColors.textPrimary)
+            if let onBackToHome {
+                Button(action: onBackToHome) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(AppColors.textPrimary)
+                        .frame(width: 38, height: 38)
+                        .background(Color.white)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.06), radius: 4, y: 2)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Workouts")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(AppColors.textPrimary)
+
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        isGoalSetupCompleted = false
+                    }
+                }) {
+                    HStack(spacing: 5) {
+                        Text(currentGoal.emoji)
+                        Text(currentGoal.title)
+                            .font(.system(size: 12, weight: .bold))
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10))
+                    }
+                    .foregroundColor(Color(hex: 0xFF0066FF))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: 0xFF0066FF).opacity(0.1))
+                    .clipShape(Capsule())
+                }
+            }
             Spacer()
             Button(action: { showingHistory = true }) {
                 HStack(spacing: 6) {
@@ -153,6 +366,7 @@ struct WorkoutsView: View {
         ScrollView {
             VStack(spacing: 16) {
                 weeklyCalendarStrip
+                goalBannerCard
                 MusclesTrainedCard()
                 aiRecommendationCard
                 bodyPartsPickerCard
@@ -163,6 +377,47 @@ struct WorkoutsView: View {
             .padding(.top, 12)
             .padding(.bottom, 24)
         }
+    }
+
+    private var goalBannerCard: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(currentGoal.emoji)
+                    Text(currentGoal.bannerTitle)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                Text(currentGoal.bannerDescription)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.88))
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button(action: {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    isGoalSetupCompleted = false
+                }
+            }) {
+                Text("Change")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Color(hex: 0xFF0066FF))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.white)
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0xFF0066FF), Color(hex: 0xFF0044CC)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color(hex: 0xFF0066FF).opacity(0.25), radius: 6, y: 3)
     }
 
     // MARK: Weekly calendar strip
@@ -887,6 +1142,20 @@ struct WorkoutsView: View {
             if ok {
                 await MainActor.run { store.markSynced(id: workout.id) }
             }
+        }
+    }
+
+    private func syncOnboardingToBackend(targetDate: Date) {
+        Task {
+            _ = try? await WorkoutOnboardingApi.shared.syncOnboarding(
+                goal: selectedGoalRaw,
+                heightCm: userHeightCm,
+                weightKg: userWeightKg,
+                targetWeightKg: userTargetWeightKg,
+                birthYear: userBirthYear,
+                workoutDaysPerWeek: userWorkoutDaysPerWeek,
+                targetDate: targetDate
+            )
         }
     }
 }

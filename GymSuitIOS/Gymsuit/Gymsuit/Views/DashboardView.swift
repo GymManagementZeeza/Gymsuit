@@ -35,6 +35,7 @@ struct DashboardView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @ObservedObject private var syncManager = HealthSyncManager.shared
     @State private var selectedTab: DashboardTab = .home
+    @State private var isWorkoutFullscreenPresented: Bool = false
     @State private var days: [DayItemModel] = []
     // Hoisted here so an active guided session survives tab switches and locks navigation.
     @StateObject private var workoutSession = WorkoutSessionState()
@@ -153,14 +154,21 @@ struct DashboardView: View {
                 if selectedTab == .home {
                     homeContent
                 } else if selectedTab == .workouts {
-                    WorkoutsView()
+                    WorkoutsView(onBackToHome: { selectedTab = .home })
                         .environmentObject(workoutSession)
                 } else if selectedTab == .challenges {
                     ChallengesView()
                 } else if selectedTab == .food {
                     FoodLogView()
                 } else if selectedTab == .settings {
-                    SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
+                    SettingsView(
+                        onBack: { selectedTab = .home },
+                        onLogout: onLogout,
+                        onRestartWorkoutOnboarding: {
+                            selectedTab = .home
+                            isWorkoutFullscreenPresented = true
+                        }
+                    )
                 }
             }
             .padding(.bottom, 74) // Space for bottom bar
@@ -170,9 +178,8 @@ struct DashboardView: View {
                 }
             }
             .onChange(of: workoutSession.active) { _, active in
-                // While a guided session runs, lock the user on the Workouts tab.
                 if active {
-                    selectedTab = .workouts
+                    isWorkoutFullscreenPresented = true
                 }
             }
             
@@ -181,6 +188,10 @@ struct DashboardView: View {
             if !workoutSession.active {
                 customTabBar
             }
+        }
+        .fullScreenCover(isPresented: $isWorkoutFullscreenPresented) {
+            WorkoutsView(onBackToHome: { isWorkoutFullscreenPresented = false })
+                .environmentObject(workoutSession)
         }
     }
     
@@ -191,8 +202,8 @@ struct DashboardView: View {
                 // AI Summary Insight Banner Card
                 aiSummaryCard
                 
-                // Workout Card — tap opens the Workouts tab
-                WorkoutCardWidget(onOpenWorkouts: { selectedTab = .workouts })
+                // Workout Card — tap opens the Workouts fullscreen
+                WorkoutCardWidget(onOpenWorkouts: { isWorkoutFullscreenPresented = true })
                 
                 // Key Biometrics Grid Cards
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
@@ -339,8 +350,12 @@ struct DashboardView: View {
                 Button(action: {
                     // Locked while a guided session is active — it must be ended first.
                     guard !workoutSession.active else { return }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedTab = tab
+                    if tab == .workouts {
+                        isWorkoutFullscreenPresented = true
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedTab = tab
+                        }
                     }
                 }) {
                     VStack(spacing: 4) {

@@ -85,6 +85,7 @@ struct ContentView: View {
                 Task {
                     await authManager.refreshSession()
                     _ = await HealthSyncManager.shared.sync()
+                    WorkoutOnboardingApi.shared.syncPendingOnboardingIfNeeded()
                 }
             } else {
                 currentScreen = .onboarding
@@ -95,6 +96,7 @@ struct ContentView: View {
     private func navigateAfterLogin() {
         Task {
             _ = await HealthSyncManager.shared.sync()
+            WorkoutOnboardingApi.shared.syncPendingOnboardingIfNeeded()
         }
         if HealthKitManager.shared.isAuthorized {
             currentScreen = .dashboard
