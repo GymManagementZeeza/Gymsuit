@@ -29,14 +29,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DirectionsRun
 import ca.zeezaglobal.gymsuitapp.R
+import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
+import kotlinx.coroutines.launch
 import ca.zeezaglobal.gymsuitapp.ui.theme.GymSuitAppTheme
 
 @Composable
 fun SettingsPageContent(
     avatarResId: Int = R.drawable.avatar_gaze_1,
     onBackClick: () -> Unit = {},
-    onLogoutClick: () -> Unit = {}
+    onLogoutClick: () -> Unit = {},
+    onRestartWorkoutOnboarding: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val appComponent = remember { ca.zeezaglobal.gymsuitapp.di.AppComponent.from(context) }
@@ -150,6 +155,122 @@ fun SettingsPageContent(
                 text = displayEmail,
                 fontSize = 14.sp,
                 color = Color(0xFF6B7280)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Workout -- mirrors the iOS Settings "Workout" section
+        // ("Delete Workout Data" row + confirmation alert).
+        val onboardingApi = remember { WorkoutOnboardingApi(context) }
+        val settingsScope = rememberCoroutineScope()
+        var showDeleteWorkoutDialog by remember { mutableStateOf(false) }
+        var isDeletingWorkout by remember { mutableStateOf(false) }
+        var deleteWorkoutError by remember { mutableStateOf<String?>(null) }
+
+        Text(
+            text = "Workout",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF6B7280)
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .clickable(enabled = !isDeletingWorkout) { showDeleteWorkoutDialog = true }
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DirectionsRun,
+                    contentDescription = "Delete Workout Data",
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Delete Workout Data",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFEF4444)
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "Clears fitness goals, body metrics & restarts onboarding",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+                if (isDeletingWorkout) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color(0xFFEF4444),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFEF4444),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        if (deleteWorkoutError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = deleteWorkoutError!!,
+                fontSize = 13.sp,
+                color = Color(0xFFEF4444)
+            )
+        }
+
+        if (showDeleteWorkoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteWorkoutDialog = false },
+                title = { Text(text = "Delete Workout Data") },
+                text = {
+                    Text(
+                        text = "This will permanently delete your workout goals, target weight, body metrics, and workout logs from the cloud database. Workout onboarding will restart immediately."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteWorkoutDialog = false
+                            isDeletingWorkout = true
+                            deleteWorkoutError = null
+                            settingsScope.launch {
+                                val result = onboardingApi.deleteOnboardingData()
+                                isDeletingWorkout = false
+                                result
+                                    .onSuccess { onRestartWorkoutOnboarding() }
+                                    .onFailure {
+                                        deleteWorkoutError =
+                                            it.message ?: "Failed to delete workout data."
+                                    }
+                            }
+                        }
+                    ) {
+                        Text(text = "Delete & Restart", color = Color(0xFFDC2626))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteWorkoutDialog = false }) {
+                        Text(text = "Cancel")
+                    }
+                }
             )
         }
 
