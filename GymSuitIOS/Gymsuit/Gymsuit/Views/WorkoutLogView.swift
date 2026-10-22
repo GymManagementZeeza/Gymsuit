@@ -13,13 +13,28 @@ struct WorkoutLogView: View {
     @State private var repsText: [String]
     @State private var weightText: [String]
 
+    // Weight entry unit (lb/kg). Stored values are always kg; entries are
+    // converted on change and stored values are converted for display.
+    @AppStorage(WeightUnits.storageKey) private var weightUnitRaw = WeightUnit.kg.rawValue
+
+    private var weightUnit: WeightUnit { WeightUnitPreference.unit(from: weightUnitRaw) }
+    private var weightUnitBinding: Binding<WeightUnit> {
+        Binding(get: { weightUnit }, set: { weightUnitRaw = $0.rawValue })
+    }
+    private var otherUnit: WeightUnit { WeightUnits.other(weightUnit) }
+
     init(exercise: Exercise, targetReps: Int = 10, targetWeightKg: Double = 0, setCount: Int = 3) {
         self.exercise = exercise
         let count = min(max(setCount, 1), 8)
         let initial = (0..<count).map { _ in WorkoutSet(reps: targetReps, weightKg: targetWeightKg) }
         _sets = State(initialValue: initial)
         _repsText = State(initialValue: initial.map { String($0.reps) })
-        _weightText = State(initialValue: initial.map { String(format: "%g", $0.weightKg) })
+        let savedUnit = WeightUnit(
+            rawValue: UserDefaults.standard.string(forKey: WeightUnits.storageKey) ?? WeightUnit.kg.rawValue
+        ) ?? .kg
+        _weightText = State(initialValue: initial.map {
+            WeightUnits.format(WeightUnits.kgToDisplay($0.weightKg, unit: savedUnit))
+        })
         _durationMinutes = State(initialValue: 30)
     }
 
@@ -76,6 +91,7 @@ struct WorkoutLogView: View {
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Spacer()
+                            WeightUnitToggle(unit: weightUnitBinding)
                             Button(action: addSet) {
                                 Label("Add set", systemImage: "plus.circle.fill")
                                     .font(.system(size: 13, weight: .semibold))
@@ -101,7 +117,7 @@ struct WorkoutLogView: View {
                                         }
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Weight (kg)")
+                                    Text("Weight (\(weightUnit.symbol))")
                                         .font(.system(size: 11))
                                         .foregroundColor(AppColors.textTertiary)
                                     TextField("0", text: $weightText[index])
@@ -109,8 +125,13 @@ struct WorkoutLogView: View {
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: 80)
                                         .onChange(of: weightText[index]) { _, newValue in
-                                            sets[index].weightKg = Double(newValue) ?? 0
+                                            sets[index].weightKg = WeightUnits.displayToKg(Double(newValue) ?? 0, unit: weightUnit)
                                         }
+                                    if let entered = Double(weightText[index]), entered > 0 {
+                                        Text("≈ \(WeightUnits.format(WeightUnits.kgToDisplay(WeightUnits.displayToKg(entered, unit: weightUnit), unit: otherUnit))) \(otherUnit.symbol)")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(AppColors.textTertiary)
+                                    }
                                 }
                                 Spacer()
                                 if sets.count > 1 {
@@ -187,7 +208,7 @@ struct WorkoutLogView: View {
         let last = sets.last
         sets.append(WorkoutSet(reps: last?.reps ?? 10, weightKg: last?.weightKg ?? 0))
         repsText.append(String(last?.reps ?? 10))
-        weightText.append(String(format: "%g", last?.weightKg ?? 0))
+        weightText.append(WeightUnits.format(WeightUnits.kgToDisplay(last?.weightKg ?? 0, unit: weightUnit)))
     }
 
     private func removeSet(at index: Int) {
