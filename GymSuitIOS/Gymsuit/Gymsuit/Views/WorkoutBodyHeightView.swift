@@ -248,11 +248,12 @@ struct WorkoutBodyHeightView: View {
                         let deltaY = value.translation.height - dragOffset
                         dragOffset = value.translation.height
 
-                        // Moving finger down (deltaY > 0) pulls the ruler down -> decreases height
-                        // Moving finger up (deltaY < 0) pushes ruler up -> increases height
+                        // Moving finger down (deltaY > 0) pulls ruler down -> increases height
+                        // Moving finger up (deltaY < 0) pushes ruler up -> decreases height
                         if selectedUnit == .ft {
-                            let deltaInches = -Double(deltaY) / Double(pointsPerUnit)
-                            let newInches = Double(totalInches) + deltaInches
+                            let deltaInches = Double(deltaY) / Double(pointsPerUnit)
+                            let currentInches = heightCm / 2.54
+                            let newInches = currentInches + deltaInches
                             let clampedInches = max(36.0, min(96.0, newInches))
                             heightCm = clampedInches * 2.54
 
@@ -262,7 +263,7 @@ struct WorkoutBodyHeightView: View {
                                 lastHapticInches = currentWholeInches
                             }
                         } else {
-                            let deltaCm = -Double(deltaY) / Double(pointsPerUnit)
+                            let deltaCm = Double(deltaY) / Double(pointsPerUnit)
                             let newCm = heightCm + deltaCm
                             heightCm = max(90.0, min(240.0, newCm))
 

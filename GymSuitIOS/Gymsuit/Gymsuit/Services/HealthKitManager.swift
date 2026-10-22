@@ -17,11 +17,29 @@ public struct HealthWorkoutSignals {
     public var lastSleepMinutes: Int? = nil
 }
 
+extension Notification.Name {
+    public static let healthKitWorkoutsDidChange = Notification.Name("ca.zeezaglobal.Gymsuit.healthKitWorkoutsDidChange")
+}
+
+/// Aggregated daily workout summary from Apple HealthKit.
+public struct WorkoutDaySummary {
+    public let workouts: [HKWorkout]
+    public let caloriesKcal: Double
+    public let durationMinutes: Int
+
+    public init(workouts: [HKWorkout] = [], caloriesKcal: Double = 0, durationMinutes: Int = 0) {
+        self.workouts = workouts
+        self.caloriesKcal = caloriesKcal
+        self.durationMinutes = durationMinutes
+    }
+}
+
 public final class HealthKitManager: ObservableObject {
     public static let shared = HealthKitManager()
     
     public let healthStore = HKHealthStore()
     @Published public var isAuthorized: Bool = false
+    private var workoutObserverQuery: HKObserverQuery?
     
     public var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
@@ -39,6 +57,7 @@ public final class HealthKitManager: ObservableObject {
         if let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass) { types.insert(bodyMass) }
         if let height = HKObjectType.quantityType(forIdentifier: .height) { types.insert(height) }
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { types.insert(sleep) }
+        if let exerciseTime = HKObjectType.quantityType(forIdentifier: .appleExerciseTime) { types.insert(exerciseTime) }
         types.insert(HKObjectType.workoutType())
         return types
     }
@@ -57,6 +76,18 @@ public final class HealthKitManager: ObservableObject {
         return types
     }
 
+    public func startWorkoutObserver() {
+        guard isAvailable, workoutObserverQuery == nil else { return }
+        let query = HKObserverQuery(sampleType: HKObjectType.workoutType(), predicate: nil) { _, completionHandler, error in
+            if error == nil {
+                NotificationCenter.default.post(name: .healthKitWorkoutsDidChange, object: nil)
+            }
+            completionHandler()
+        }
+        workoutObserverQuery = query
+        healthStore.execute(query)
+    }
+
     public func requestAuthorization() async -> Bool {
         guard isAvailable else { return false }
         do {
@@ -64,6 +95,7 @@ public final class HealthKitManager: ObservableObject {
             DispatchQueue.main.async {
                 self.isAuthorized = true
             }
+            startWorkoutObserver()
             return true
         } catch {
             print("HealthKit authorization error: \(error.localizedDescription)")
@@ -148,7 +180,7 @@ public final class HealthKitManager: ObservableObject {
         guard isAvailable else { return [] }
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .day, value: -daysBack, to: Date()) ?? Date()
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: nil, options: [])
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
         return await withCheckedContinuation { continuation in
@@ -299,7 +331,7 @@ public final class HealthKitManager: ObservableObject {
         guard let activeType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
             return 0
         }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
         return await withCheckedContinuation { continuation in
             let query = HKStatisticsQuery(quantityType: activeType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
                 let kcal = stats?.sumQuantity()?.doubleValue(for: HKUnit.kilocalorie()) ?? 0
@@ -309,25 +341,104 @@ public final class HealthKitManager: ObservableObject {
         }
     }
 
+    /// Cumulative active energy (kcal) recorded across the entire day.
+    public func fetchActiveEnergy(for date: Date) async -> Double {
+        guard isAvailable,
+              let activeType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return 0
+        }
+        let (start, end) = dayBounds(for: date)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: activeType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                let kcal = stats?.sumQuantity()?.doubleValue(for: HKUnit.kilocalorie()) ?? 0
+                continuation.resume(returning: kcal)
+            }
+            self.healthStore.execute(query)
+        }
+    }
+
+    /// Apple Exercise Time (minutes) for the day, or 0 when none.
+    public func fetchExerciseMinutes(for date: Date) async -> Int {
+        guard isAvailable,
+              let exerciseType = HKQuantityType.quantityType(forIdentifier: .appleExerciseTime) else {
+            return 0
+        }
+        let (start, end) = dayBounds(for: date)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: exerciseType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                let mins = stats?.sumQuantity()?.doubleValue(for: HKUnit.minute()) ?? 0
+                continuation.resume(returning: Int(round(mins)))
+            }
+            self.healthStore.execute(query)
+        }
+    }
+
+    /// Calculates comprehensive workout details for the given day from HealthKit:
+    /// - All HKWorkout sessions recorded on that date
+    /// - Total active calories burned during those workouts (reading direct totalEnergyBurned, iOS 16 statistics, or active interval queries)
+    /// - Total duration in minutes
+    public func fetchWorkoutSummary(for date: Date) async -> WorkoutDaySummary {
+        guard isAvailable else {
+            return WorkoutDaySummary(workouts: [], caloriesKcal: 0, durationMinutes: 0)
+        }
+
+        let workouts = await fetchWorkouts(for: date)
+        var totalKcal: Double = 0.0
+        var totalDurationSec: TimeInterval = 0.0
+
+        for workout in workouts {
+            totalDurationSec += workout.duration
+
+            // 1. Direct workout totalEnergyBurned (from Apple Watch / Garmin / third-party fitness apps)
+            if let directKcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()), directKcal > 0 {
+                totalKcal += directKcal
+            } else if #available(iOS 16.0, *),
+                      let stats = workout.statistics(for: HKQuantityType(.activeEnergyBurned)),
+                      let statKcal = stats.sumQuantity()?.doubleValue(for: .kilocalorie()), statKcal > 0 {
+                totalKcal += statKcal
+            } else {
+                // 2. Active energy burned recorded during the workout interval
+                let recorded = await activeEnergyKcal(from: workout.startDate, to: workout.endDate)
+                if recorded > 0 {
+                    totalKcal += recorded
+                } else {
+                    // 3. Fallback estimate from duration (~7.5 kcal per min)
+                    totalKcal += Double(Int(workout.duration / 60)) * 7.5
+                }
+            }
+        }
+
+        // Check Apple Watch exercise minutes
+        let exerciseMins = await fetchExerciseMinutes(for: date)
+        let workoutMins = Int(round(totalDurationSec / 60.0))
+        let finalMinutes = max(workoutMins, exerciseMins)
+
+        // If workouts exist or exercise time was logged but workoutKcal was 0, check day active energy
+        if totalKcal == 0 && (!workouts.isEmpty || finalMinutes > 0) {
+            let dayActiveEnergy = await fetchActiveEnergy(for: date)
+            if dayActiveEnergy > 0 {
+                totalKcal = dayActiveEnergy
+            }
+        }
+
+        return WorkoutDaySummary(
+            workouts: workouts,
+            caloriesKcal: totalKcal,
+            durationMinutes: finalMinutes
+        )
+    }
+
     // MARK: - Calories Breakdown
 
     /// Calories for the day from steps (~0.04 kcal/step) and workouts only.
-    /// Workout energy is the active energy actually recorded during each session;
-    /// when nothing was recorded, ~7.5 kcal per session minute is used (estimate).
     public func fetchCaloriesBreakdown(for date: Date) async -> CaloriesBreakdown {
         let steps = await fetchSteps(for: date)
         let stepsKcal = Double(steps) * 0.04
 
-        let workouts = await fetchWorkouts(for: date)
-        var workoutKcal = 0.0
-        for workout in workouts {
-            let recorded = await activeEnergyKcal(from: workout.startDate, to: workout.endDate)
-            if recorded > 0 {
-                workoutKcal += recorded
-            } else {
-                workoutKcal += Double(Int(workout.duration / 60)) * 7.5
-            }
-        }
+        let workoutSummary = await fetchWorkoutSummary(for: date)
+        var workoutKcal = workoutSummary.caloriesKcal
 
         var total = stepsKcal + workoutKcal
         var moveKcal = 0.0
