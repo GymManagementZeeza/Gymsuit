@@ -109,7 +109,11 @@ object MealReminders {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(context).notify(2000 + slot.ordinal, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(2000 + slot.ordinal, notification)
+        } catch (e: SecurityException) {
+            android.util.Log.w("MealReminders", "POST_NOTIFICATIONS permission not granted: ${e.message}")
+        }
     }
 }
 
