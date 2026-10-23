@@ -20,18 +20,18 @@ import java.time.format.DateTimeFormatter;
  *
  * <p>{@code GET /api/admin/backup/export} returns a ZIP containing one CSV
  * per database table (plus a small manifest). It is a manual, on-demand
- * export: call it with an ADMIN login token, save the file, and store it
+ * export: call it with an ADMIN or OWNER login token, save the file, and store it
  * wherever you keep backups (e.g. upload it to Google Drive yourself).
  *
  * <pre>
- * curl -H "Authorization: Bearer &lt;ADMIN_TOKEN&gt;" \
+ * curl -H "Authorization: Bearer &lt;ADMIN_OR_OWNER_TOKEN&gt;" \
  *      https://api.gymsuit.app/api/admin/backup/export \
  *      -o gymsuit-db-export.zip
  * </pre>
  *
  * <p>Security: the path is NOT in SecurityConfig's permitAll list, so a valid
  * JWT is required, and {@code @PreAuthorize} further restricts it to the
- * ADMIN role (authorities are {@code ROLE_<name>} — see UserPrincipal).
+ * ADMIN and OWNER roles (authorities are {@code ROLE_<name>} — see UserPrincipal).
  */
 @RestController
 @RequestMapping("/api/admin/backup")
@@ -44,7 +44,7 @@ public class BackupController {
     private final DatabaseExportService databaseExportService;
 
     @GetMapping("/export")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<byte[]> exportDatabase() {
         byte[] zip = databaseExportService.exportDatabaseZip();
         String filename = "gymsuit-db-export-"
