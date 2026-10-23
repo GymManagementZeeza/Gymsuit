@@ -14,8 +14,10 @@ work = "2.9.1"
 ksp = "2.0.21-1.0.25"
 googleServices = "4.4.2"
 firebaseBom = "33.5.1"
+fragment = "1.8.6"
 
 [libraries]
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }

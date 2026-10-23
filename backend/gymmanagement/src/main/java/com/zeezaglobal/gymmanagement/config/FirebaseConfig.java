@@ -5,12 +5,14 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.lang.Nullable;
 
 import java.io.InputStream;
 
@@ -77,7 +79,7 @@ public class FirebaseConfig {
     }
 
     @Bean
-    public FirebaseMessaging firebaseMessaging(FirebaseApp firebaseApp) {
+    public FirebaseMessaging firebaseMessaging(@Autowired(required = false) @Nullable FirebaseApp firebaseApp) {
         if (firebaseApp == null) {
             log.warn("FirebaseApp is not configured; FirebaseMessaging bean is disabled.");
             return null;
