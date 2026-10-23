@@ -36,6 +36,9 @@ struct FoodLogView: View {
     private var isToday: Bool { calendar.isDate(date, inSameDayAs: today) }
     private var dayEntries: [FoodEntry] { store.entries(onDayOf: date) }
     private var totalKcal: Int { dayEntries.reduce(0) { $0 + $1.calories } }
+    private var totalProtein: Double { dayEntries.reduce(0.0) { $0 + $1.proteinG } }
+    private var totalCarbs: Double { dayEntries.reduce(0.0) { $0 + $1.carbsG } }
+    private var totalFat: Double { dayEntries.reduce(0.0) { $0 + $1.fatG } }
 
     private var dateLabel: String {
         let formatter = DateFormatter()
@@ -74,6 +77,12 @@ struct FoodLogView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    DailyIntakeGraphView(
+                        protein: totalProtein,
+                        carbs: totalCarbs,
+                        fat: totalFat
+                    )
+
                     summaryCard
                     ForEach(MealType.allCases) { meal in
                         mealCard(meal)
@@ -109,9 +118,26 @@ struct FoodLogView: View {
                 ScanResultSheet(
                     image: scanImage,
                     candidates: scanCandidates,
-                    onContinue: { result in
+                    initialMeal: scanMeal,
+                    onLogFood: { name, meal, kcal, protein, carbs, fat in
+                        saveEntry(
+                            name: name,
+                            meal: meal,
+                            calories: kcal,
+                            protein: protein,
+                            carbs: carbs,
+                            fat: fat,
+                            isManual: false
+                        )
+                        activeSheet = nil
+                    },
+                    onEditDetails: { result, meal in
+                        scanMeal = meal
                         prefill = result
-                        activeSheet = .add(scanMeal)
+                        activeSheet = .add(meal)
+                    },
+                    onCancel: {
+                        activeSheet = nil
                     }
                 )
             case .add(let meal):
@@ -556,15 +582,36 @@ private struct AddMethodSheet: View {
     }
 }
 
-/// Recognition result: photo, best matches with confidence, portion picker
-/// and the resolved nutrition estimate (Android's ScanResultSheet).
+/// Recognition result: photo, best matches with confidence, meal selector, portion picker,
+/// resolved nutrition estimate, and direct 1-tap logging.
 private struct ScanResultSheet: View {
     let image: UIImage?
     let candidates: [DishCandidate]
-    var onContinue: (FoodPrefill) -> Void
+    let initialMeal: MealType
+    var onLogFood: (String, MealType, Int, Double, Double, Double) -> Void
+    var onEditDetails: (FoodPrefill, MealType) -> Void
+    var onCancel: () -> Void
 
     @State private var selected = 0
     @State private var portion = 1.0
+    @State private var meal: MealType
+
+    init(
+        image: UIImage?,
+        candidates: [DishCandidate],
+        initialMeal: MealType,
+        onLogFood: @escaping (String, MealType, Int, Double, Double, Double) -> Void,
+        onEditDetails: @escaping (FoodPrefill, MealType) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.image = image
+        self.candidates = candidates
+        self.initialMeal = initialMeal
+        self.onLogFood = onLogFood
+        self.onEditDetails = onEditDetails
+        self.onCancel = onCancel
+        _meal = State(initialValue: initialMeal)
+    }
 
     private var candidate: DishCandidate? {
         candidates.indices.contains(selected) ? candidates[selected] : nil
@@ -572,10 +619,16 @@ private struct ScanResultSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Scan result")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(AppColors.textPrimary)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Scan result")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(AppColors.textPrimary)
+                    Spacer()
+                    Button("Cancel", action: onCancel)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(AppColors.textSecondary)
+                }
 
                 if let image {
                     Image(uiImage: image)
@@ -605,6 +658,20 @@ private struct ScanResultSheet: View {
                         }
                     }
 
+                    Text("Log to meal")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.textPrimary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(MealType.allCases) { m in
+                                FoodChip(label: m.label, selected: meal == m) {
+                                    meal = m
+                                }
+                            }
+                        }
+                    }
+
                     if let nutrition = candidate.nutrition {
                         Text("Portion (\(nutrition.serving) = 1x)")
                             .font(.system(size: 14, weight: .semibold))
@@ -618,15 +685,17 @@ private struct ScanResultSheet: View {
                             }
                         }
 
+                        let totalKcal = Int(Double(nutrition.kcal) * portion)
+                        let totalP = Double(Int(Double(nutrition.proteinG) * portion))
+                        let totalC = Double(Int(Double(nutrition.carbsG) * portion))
+                        let totalF = Double(Int(Double(nutrition.fatG) * portion))
+
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("\(Int(Double(nutrition.kcal) * portion)) kcal")
-                                .font(.system(size: 24, weight: .bold))
+                            Text("\(totalKcal) kcal")
+                                .font(.system(size: 26, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
-                            Text("Protein \(Int(Double(nutrition.proteinG) * portion)) g • Carbs \(Int(Double(nutrition.carbsG) * portion)) g • Fat \(Int(Double(nutrition.fatG) * portion)) g")
+                            Text("Protein \(Int(totalP)) g • Carbs \(Int(totalC)) g • Fat \(Int(totalF)) g")
                                 .font(.system(size: 14))
-                                .foregroundColor(AppColors.textSecondary)
-                            Text("Estimate for a typical serving. You can edit it next.")
-                                .font(.system(size: 12))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         .padding(16)
@@ -634,30 +703,59 @@ private struct ScanResultSheet: View {
                         .background(AppColors.primaryLight)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                        Button {
-                            onContinue(FoodPrefill(
-                                name: nutrition.name,
-                                kcal: Int(Double(nutrition.kcal) * portion),
-                                proteinG: Int(Double(nutrition.proteinG) * portion),
-                                carbsG: Int(Double(nutrition.carbsG) * portion),
-                                fatG: Int(Double(nutrition.fatG) * portion)
-                            ))
-                        } label: {
-                            Text("Continue")
-                                .font(.system(size: 16, weight: .semibold))
+                        VStack(spacing: 10) {
+                            Button {
+                                onLogFood(
+                                    nutrition.name,
+                                    meal,
+                                    totalKcal,
+                                    totalP,
+                                    totalC,
+                                    totalF
+                                )
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 15, weight: .bold))
+                                    Text("Log to \(meal.label)")
+                                        .font(.system(size: 16, weight: .semibold))
+                                }
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
+                                .padding(.vertical, 14)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(AppColors.primary)
+
+                            Button {
+                                onEditDetails(
+                                    FoodPrefill(
+                                        name: nutrition.name,
+                                        kcal: totalKcal,
+                                        proteinG: Int(totalP),
+                                        carbsG: Int(totalC),
+                                        fatG: Int(totalF)
+                                    ),
+                                    meal
+                                )
+                            } label: {
+                                Text("Edit details first")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 4)
+                            }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppColors.primary)
                     } else {
-                        Text("No nutrition data for \(candidate.displayName) yet — enter it next.")
+                        Text("No nutrition data for \(candidate.displayName) yet — enter it to log.")
                             .font(.system(size: 14))
                             .foregroundColor(AppColors.textSecondary)
                         Button {
-                            onContinue(FoodPrefill(name: candidate.displayName, kcal: 0, proteinG: 0, carbsG: 0, fatG: 0))
+                            onEditDetails(
+                                FoodPrefill(name: candidate.displayName, kcal: 0, proteinG: 0, carbsG: 0, fatG: 0),
+                                meal
+                            )
                         } label: {
-                            Text("Continue")
+                            Text("Enter details")
                                 .font(.system(size: 16, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -670,7 +768,7 @@ private struct ScanResultSheet: View {
                         .font(.system(size: 14))
                         .foregroundColor(AppColors.textSecondary)
                     Button {
-                        onContinue(FoodPrefill(name: "", kcal: 0, proteinG: 0, carbsG: 0, fatG: 0))
+                        onEditDetails(FoodPrefill(name: "", kcal: 0, proteinG: 0, carbsG: 0, fatG: 0), meal)
                     } label: {
                         Text("Add manually")
                             .font(.system(size: 16, weight: .semibold))
