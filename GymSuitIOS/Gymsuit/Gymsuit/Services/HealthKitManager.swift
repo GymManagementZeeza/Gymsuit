@@ -513,43 +513,95 @@ public final class HealthKitManager: ObservableObject {
     }
     
     // MARK: - Sleep Session Data
-    public func fetchSleepSession(for date: Date) async -> SleepSessionData? {
+    /// All sleep-analysis samples in the night window for `date`, newest-first
+    /// ordering removed: callers need the whole night, not a capped tail of it.
+    private func fetchSleepSamples(for date: Date) async -> [HKCategorySample] {
+        guard let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return [] }
         let (start, end) = sleepQueryBounds(for: date)
-        var localSession: SleepSessionData? = nil
-
-        if let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) {
-            let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
-            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-
-            localSession = await withCheckedContinuation { continuation in
-                let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: 10, sortDescriptors: [sortDescriptor]) { _, samples, _ in
-                    guard let categorySamples = samples as? [HKCategorySample], !categorySamples.isEmpty else {
-                        continuation.resume(returning: nil)
-                        return
-                    }
-
-                    let minStart = categorySamples.map { $0.startDate }.min() ?? start
-                    let maxEnd = categorySamples.map { $0.endDate }.max() ?? end
-                    let durationMinutes = Int64(maxEnd.timeIntervalSince(minStart) / 60)
-
-                    let timeFormatter = DateFormatter()
-                    timeFormatter.timeStyle = .short
-
-                    let hours = durationMinutes / 60
-                    let mins = durationMinutes % 60
-
-                    let session = SleepSessionData(
-                        startTime: minStart,
-                        endTime: maxEnd,
-                        durationMinutes: durationMinutes,
-                        startTimeFormatted: timeFormatter.string(from: minStart),
-                        endTimeFormatted: timeFormatter.string(from: maxEnd),
-                        durationFormatted: "\(hours)h \(mins)m"
-                    )
-                    continuation.resume(returning: session)
-                }
-                healthStore.execute(query)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKCategorySample]) ?? [])
             }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Merges overlapping (or touching) intervals so duplicate samples from
+    /// multiple sources are never double-counted, and returns total minutes.
+    private func mergedSleepMinutes(for intervals: [(Date, Date)]) -> Int64 {
+        let sorted = intervals.sorted { $0.0 < $1.0 }
+        var total: TimeInterval = 0
+        var current: (Date, Date)? = nil
+        for interval in sorted {
+            if let cur = current, interval.0 <= cur.1 {
+                current = (cur.0, max(cur.1, interval.1))
+            } else {
+                if let cur = current { total += cur.1.timeIntervalSince(cur.0) }
+                current = interval
+            }
+        }
+        if let cur = current { total += cur.1.timeIntervalSince(cur.0) }
+        return Int64(total / 60)
+    }
+
+    public func fetchSleepSession(for date: Date) async -> SleepSessionData? {
+        let samples = await fetchSleepSamples(for: date)
+
+        // Time asleep = merged asleep-stage intervals only (core / deep / REM /
+        // unspecified). In-bed and awake segments are not sleep, and must not
+        // inflate the total the way the old span-of-all-samples did.
+        let asleepValues: Set<Int> = [
+            HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+            HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+            HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue
+        ]
+        let asleepIntervals = samples
+            .filter { asleepValues.contains($0.value) }
+            .map { ($0.startDate, $0.endDate) }
+
+        var localSession: SleepSessionData? = nil
+        if !asleepIntervals.isEmpty {
+            let sorted = asleepIntervals.sorted { $0.0 < $1.0 }
+            let startTime = sorted.first!.0
+            // End of the merged asleep span (overlaps collapsed, same as the
+            // merge used for the total, so start/end bracket the counted time).
+            var endTime = sorted.first!.1
+            for interval in sorted { endTime = max(endTime, interval.1) }
+            let durationMinutes = mergedSleepMinutes(for: asleepIntervals)
+
+            let timeFormatter = DateFormatter()
+            timeFormatter.timeStyle = .short
+            let hours = durationMinutes / 60
+            let mins = durationMinutes % 60
+            localSession = SleepSessionData(
+                startTime: startTime,
+                endTime: endTime,
+                durationMinutes: durationMinutes,
+                startTimeFormatted: timeFormatter.string(from: startTime),
+                endTimeFormatted: timeFormatter.string(from: endTime),
+                durationFormatted: "\(hours)h \(mins)m"
+            )
+        } else if !samples.isEmpty {
+            // No staged asleep data (e.g. bedtime schedule only): fall back to
+            // the span of whatever sleep samples exist, as before.
+            let minStart = samples.map { $0.startDate }.min()!
+            let maxEnd = samples.map { $0.endDate }.max()!
+            let durationMinutes = Int64(maxEnd.timeIntervalSince(minStart) / 60)
+            let timeFormatter = DateFormatter()
+            timeFormatter.timeStyle = .short
+            let hours = durationMinutes / 60
+            let mins = durationMinutes % 60
+            localSession = SleepSessionData(
+                startTime: minStart,
+                endTime: maxEnd,
+                durationMinutes: durationMinutes,
+                startTimeFormatted: timeFormatter.string(from: minStart),
+                endTimeFormatted: timeFormatter.string(from: maxEnd),
+                durationFormatted: "\(hours)h \(mins)m"
+            )
         }
 
         if let session = localSession {
@@ -638,20 +690,67 @@ public final class HealthKitManager: ObservableObject {
         }
         let total = session.durationMinutes
         
-        let awake = Int64(Double(total) * 0.12)
-        let rem = Int64(Double(total) * 0.22)
-        let light = Int64(Double(total) * 0.46)
-        let deep = max(0, total - awake - rem - light)
-        
-        let stages: [SleepStageSegment] = [
-            SleepStageSegment(stage: .awake, startFraction: 0.0, endFraction: 0.08, durationMinutes: awake / 2),
-            SleepStageSegment(stage: .light, startFraction: 0.08, endFraction: 0.35, durationMinutes: light / 2),
-            SleepStageSegment(stage: .deep, startFraction: 0.35, endFraction: 0.60, durationMinutes: deep),
-            SleepStageSegment(stage: .rem, startFraction: 0.60, endFraction: 0.85, durationMinutes: rem),
-            SleepStageSegment(stage: .light, startFraction: 0.85, endFraction: 0.95, durationMinutes: light / 2),
-            SleepStageSegment(stage: .awake, startFraction: 0.95, endFraction: 1.0, durationMinutes: awake / 2)
-        ]
-        
+        let samples = await fetchSleepSamples(for: date)
+        let awake: Int64
+        let rem: Int64
+        let light: Int64
+        let deep: Int64
+        let stages: [SleepStageSegment]
+        let interruptionsCount: Int
+        if samples.isEmpty {
+            // No on-device samples (session came from the cached backend
+            // record): keep the previous rough split so the view still renders.
+            awake = Int64(Double(total) * 0.12)
+            rem = Int64(Double(total) * 0.22)
+            light = Int64(Double(total) * 0.46)
+            deep = max(0, total - awake - rem - light)
+            stages = [
+                SleepStageSegment(stage: .awake, startFraction: 0.0, endFraction: 0.08, durationMinutes: awake / 2),
+                SleepStageSegment(stage: .light, startFraction: 0.08, endFraction: 0.35, durationMinutes: light / 2),
+                SleepStageSegment(stage: .deep, startFraction: 0.35, endFraction: 0.60, durationMinutes: deep),
+                SleepStageSegment(stage: .rem, startFraction: 0.60, endFraction: 0.85, durationMinutes: rem),
+                SleepStageSegment(stage: .light, startFraction: 0.85, endFraction: 0.95, durationMinutes: light / 2),
+                SleepStageSegment(stage: .awake, startFraction: 0.95, endFraction: 1.0, durationMinutes: awake / 2)
+            ]
+            interruptionsCount = 3
+        } else {
+            // Real stage minutes from HealthKit samples. Core + unspecified
+            // count as light; in-bed segments are neither sleep nor awake.
+            func minutes(for values: Set<Int>) -> Int64 {
+                mergedSleepMinutes(for: samples.filter { values.contains($0.value) }.map { ($0.startDate, $0.endDate) })
+            }
+            awake = minutes(for: [HKCategoryValueSleepAnalysis.awake.rawValue])
+            rem = minutes(for: [HKCategoryValueSleepAnalysis.asleepREM.rawValue])
+            deep = minutes(for: [HKCategoryValueSleepAnalysis.asleepDeep.rawValue])
+            light = minutes(for: [
+                HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue
+            ])
+            interruptionsCount = samples.filter { $0.value == HKCategoryValueSleepAnalysis.awake.rawValue }.count
+
+            let span = session.endTime.timeIntervalSince(session.startTime)
+            stages = samples
+                .filter { $0.value != HKCategoryValueSleepAnalysis.inBed.rawValue }
+                .sorted { $0.startDate < $1.startDate }
+                .map { sample in
+                    let stage: SleepStageType
+                    switch sample.value {
+                    case HKCategoryValueSleepAnalysis.asleepDeep.rawValue: stage = .deep
+                    case HKCategoryValueSleepAnalysis.asleepREM.rawValue: stage = .rem
+                    case HKCategoryValueSleepAnalysis.awake.rawValue: stage = .awake
+                    default: stage = .light
+                    }
+                    let startFraction = span > 0 ? sample.startDate.timeIntervalSince(session.startTime) / span : 0
+                    let endFraction = span > 0 ? sample.endDate.timeIntervalSince(session.startTime) / span : 0
+                    return SleepStageSegment(
+                        stage: stage,
+                        startFraction: startFraction,
+                        endFraction: endFraction,
+                        durationMinutes: Int64(sample.endDate.timeIntervalSince(sample.startDate) / 60)
+                    )
+                }
+        }
+
         let midDate = session.startTime.addingTimeInterval(session.endTime.timeIntervalSince(session.startTime) / 2)
         let formatter = DateFormatter()
         formatter.timeStyle = .short
@@ -669,7 +768,7 @@ public final class HealthKitManager: ObservableObject {
             lightMinutes: light,
             deepMinutes: deep,
             stages: stages,
-            interruptionsCount: 3,
+            interruptionsCount: interruptionsCount,
             hasData: true
         )
     }
