@@ -818,7 +818,7 @@ public final class HealthKitManager: ObservableObject {
         let unit = HKUnit.count().unitDivided(by: HKUnit.minute())
         
         let localSamples: [HKQuantitySample] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: hrType, predicate: predicate, limit: 100, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: hrType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, _ in
                 continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
             }
             healthStore.execute(query)
@@ -1163,6 +1163,27 @@ public final class HealthKitManager: ObservableObject {
         } catch {
             print("Failed to write weight to HealthKit: \(error)")
             return false
+        }
+    }
+
+    public func fetchWeightSamples(days: Int = 30) async -> [(date: Date, kg: Double)] {
+        guard isAvailable, let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else { return [] }
+        let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date(), options: .strictEndDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: weightType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, error in
+                guard let quantitySamples = samples as? [HKQuantitySample], error == nil else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let results = quantitySamples.map {
+                    (date: $0.startDate, kg: $0.quantity.doubleValue(for: .gramUnit(with: .kilo)))
+                }
+                continuation.resume(returning: results)
+            }
+            healthStore.execute(query)
         }
     }
 
