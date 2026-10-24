@@ -373,7 +373,7 @@ struct RecordWeightSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var recordedWeightKg: Double = 70.0
-    @State private var selectedUnit: String = "kg"
+    @AppStorage("weight_unit") private var selectedUnit: String = "kg"
     @State private var recordDate: Date = Date()
     @State private var isSaving: Bool = false
 

@@ -10,6 +10,7 @@ enum AppScreen {
     case heartRateDetail(Date)
     case caloriesDetail(Date)
     case stepsDetail(Date)
+    case weightDetail(Date)
 }
 
 struct ContentView: View {
@@ -62,6 +63,9 @@ struct ContentView: View {
                         },
                         onNavigateToStepsDetail: { date in
                             currentScreen = .stepsDetail(date)
+                        },
+                        onNavigateToWeightDetail: { date in
+                            currentScreen = .weightDetail(date)
                         }
                     )
                     
@@ -76,6 +80,9 @@ struct ContentView: View {
 
                 case .stepsDetail(let date):
                     StepsDetailView(date: date, onBack: { currentScreen = .dashboard })
+
+                case .weightDetail(let date):
+                    WeightDetailView(date: date, onBack: { currentScreen = .dashboard })
                 }
             }
             

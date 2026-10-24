@@ -31,12 +31,20 @@ struct DashboardView: View {
     var onNavigateToHeartRateDetail: (Date) -> Void
     var onNavigateToCaloriesDetail: (Date) -> Void
     var onNavigateToStepsDetail: (Date) -> Void = { _ in }
+    var onNavigateToWeightDetail: (Date) -> Void = { _ in }
     
     @StateObject private var viewModel = DashboardViewModel()
     @ObservedObject private var authManager = AuthManager.shared
     @ObservedObject private var syncManager = HealthSyncManager.shared
     @State private var selectedTab: DashboardTab = .home
     @State private var isWorkoutFullscreenPresented: Bool = false
+    @State private var isShowingRecordWeightSheet: Bool = false
+    @AppStorage("workout_user_weight_kg") private var currentWeightKg: Double = 74.5
+    @AppStorage("workout_user_target_weight_kg") private var targetWeightKg: Double = 70.0
+    @AppStorage("workout_user_height_cm") private var userHeightCm: Double = 172.72
+    @AppStorage("workout_selected_goal") private var selectedGoalRaw: String = "lose_weight"
+    @AppStorage("workout_user_birth_year") private var userBirthYear: Int = 2003
+    @AppStorage("workout_user_days_per_week") private var userWorkoutDaysPerWeek: Int = 2
     @State private var days: [DayItemModel] = []
     // Hoisted here so an active guided session survives tab switches and locks navigation.
     @StateObject private var workoutSession = WorkoutSessionState()
@@ -142,6 +150,7 @@ struct DashboardView: View {
                         .onAppear {
                             generateDays()
                             viewModel.onDateSelected(viewModel.selectedDate)
+                            refreshWeightFromBackend()
                             if let lastDay = days.last {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                     proxy.scrollTo(lastDay.id, anchor: .trailing)
@@ -194,6 +203,14 @@ struct DashboardView: View {
             WorkoutsView(onBackToHome: { isWorkoutFullscreenPresented = false })
                 .environmentObject(workoutSession)
         }
+        .sheet(isPresented: $isShowingRecordWeightSheet) {
+            RecordWeightSheet(
+                currentWeightKg: $currentWeightKg,
+                onWeightSaved: { newWeight in
+                    syncWeight(newWeight: newWeight)
+                }
+            )
+        }
     }
     
     // MARK: - Home Tab Content
@@ -206,6 +223,14 @@ struct DashboardView: View {
                 // Workout Card — tap opens the Workouts fullscreen
                 WorkoutCardWidget(onOpenWorkouts: { isWorkoutFullscreenPresented = true })
                 
+                // Weight Card — tap card opens WeightDetailView with graph, tap "+ Log Weight" opens Record Weight sheet
+                HomeWeightCard(
+                    currentWeightKg: currentWeightKg,
+                    targetWeightKg: targetWeightKg,
+                    onCardTapped: { onNavigateToWeightDetail(viewModel.selectedDate) },
+                    onLogWeight: { isShowingRecordWeightSheet = true }
+                )
+
                 // Key Biometrics Grid Cards
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
                     // Calories Card
@@ -413,6 +438,178 @@ struct DashboardView: View {
             }
         }
         self.days = list
+    }
+
+    private func syncWeight(newWeight: Double) {
+        currentWeightKg = newWeight
+        Task {
+            // 1. Sync to HealthKit
+            _ = await HealthKitManager.shared.writeWeight(kg: newWeight, date: Date())
+
+            // 2. Sync to Backend
+            _ = try? await WorkoutOnboardingApi.shared.syncOnboarding(
+                goal: selectedGoalRaw,
+                heightCm: userHeightCm,
+                weightKg: newWeight,
+                targetWeightKg: targetWeightKg > 0 ? targetWeightKg : newWeight,
+                birthYear: userBirthYear > 1900 ? userBirthYear : 2003,
+                workoutDaysPerWeek: userWorkoutDaysPerWeek > 0 ? userWorkoutDaysPerWeek : 2,
+                targetDate: Calendar.current.date(byAdding: .day, value: 30, to: Date()) ?? Date()
+            )
+        }
+    }
+
+    private func refreshWeightFromBackend() {
+        Task {
+            if let data = try? await WorkoutOnboardingApi.shared.fetchOnboarding() {
+                await MainActor.run {
+                    if let w = data.weightKg, w > 0 {
+                        self.currentWeightKg = w
+                    }
+                    if let tw = data.targetWeightKg, tw > 0 {
+                        self.targetWeightKg = tw
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Home Weight Card Widget
+
+private struct HomeWeightCard: View {
+    let currentWeightKg: Double
+    let targetWeightKg: Double
+    let onCardTapped: () -> Void
+    let onLogWeight: () -> Void
+
+    @AppStorage("weight_unit") private var selectedUnit: String = "kg"
+
+    private var isLbs: Bool {
+        selectedUnit.lowercased() == "lbs"
+    }
+
+    private var unitLabel: String {
+        isLbs ? "lbs" : "kg"
+    }
+
+    private var displayCurrentWeight: Double {
+        isLbs ? (currentWeightKg * 2.20462) : currentWeightKg
+    }
+
+    private var displayTargetWeight: Double {
+        isLbs ? (targetWeightKg * 2.20462) : targetWeightKg
+    }
+
+    private var diffKg: Double {
+        currentWeightKg - targetWeightKg
+    }
+
+    private var diffDisplay: Double {
+        isLbs ? (abs(diffKg) * 2.20462) : abs(diffKg)
+    }
+
+    var body: some View {
+        Button(action: onCardTapped) {
+            VStack(alignment: .leading, spacing: 14) {
+                // Header row
+                HStack(alignment: .center) {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(hex: 0xFF2563EB).opacity(0.12))
+                                .frame(width: 38, height: 38)
+                            Image(systemName: "scalemass.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Color(hex: 0xFF2563EB))
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 5) {
+                                Text("Body Weight")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(AppColors.textPrimary)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(AppColors.textTertiary)
+                            }
+                            Text("Tap to view statistics & graph")
+                                .font(.system(size: 11))
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Quick Log Button Pill
+                    Button(action: onLogWeight) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Log Weight")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .foregroundColor(Color(hex: 0xFF2563EB))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color(hex: 0xFFEFF6FF))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color(hex: 0xFF2563EB).opacity(0.22), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                // Values display
+                HStack(alignment: .lastTextBaseline) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(format: "%.1f", displayCurrentWeight))
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundColor(AppColors.textPrimary)
+                        Text(unitLabel)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    if targetWeightKg > 0 {
+                        VStack(alignment: .trailing, spacing: 3) {
+                            HStack(spacing: 4) {
+                                Text("Target:")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(AppColors.textSecondary)
+                                Text(String(format: "%.1f %@", displayTargetWeight, unitLabel))
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(AppColors.textPrimary)
+                            }
+
+                            if abs(diffKg) < 0.1 {
+                                Text("Goal reached! 🎉")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0xFF10B981))
+                            } else if diffKg > 0 {
+                                Text(String(format: "-%.1f %@ to goal", diffDisplay, unitLabel))
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0xFF2563EB))
+                            } else {
+                                Text(String(format: "+%.1f %@ to goal", diffDisplay, unitLabel))
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0xFF10B981))
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .shadow(color: Color.black.opacity(0.03), radius: 6, y: 3)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
