@@ -87,14 +87,17 @@ public final class WorkoutStore: ObservableObject {
     private func loadLog() {
         guard let data = try? Data(contentsOf: logFileURL),
               let decoded = try? JSONDecoder().decode([LoggedWorkout].self, from: data) else {
+            WidgetDataWriter.writeWorkoutsSnapshot(workouts: [])
             return
         }
         loggedWorkouts = decoded.sorted { $0.date > $1.date }
+        WidgetDataWriter.writeWorkoutsSnapshot(workouts: loggedWorkouts)
     }
 
     private func persistLog() {
         let data = try? JSONEncoder().encode(loggedWorkouts)
         try? data?.write(to: logFileURL, options: .atomic)
+        WidgetDataWriter.writeWorkoutsSnapshot(workouts: loggedWorkouts)
     }
 
     public func logWorkout(_ workout: LoggedWorkout) {
