@@ -31,6 +31,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsRun
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubblePrefs
+import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubbleService
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
 import kotlinx.coroutines.launch
@@ -271,6 +278,97 @@ fun SettingsPageContent(
                         Text(text = "Cancel")
                     }
                 }
+            )
+        }
+
+        // Steps — floating bubble toggle (Android only; iOS has no system overlay).
+        Text(
+            text = "Steps",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF6B7280)
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        var bubbleEnabled by remember { mutableStateOf(StepsBubblePrefs.isEnabled(context)) }
+        var bubblePermissionDenied by remember { mutableStateOf(false) }
+        val overlayLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) {
+            if (Settings.canDrawOverlays(context)) {
+                StepsBubbleService.start(context)
+            } else {
+                StepsBubblePrefs.setEnabled(context, false)
+                bubbleEnabled = false
+                bubblePermissionDenied = true
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.DirectionsWalk,
+                    contentDescription = "Floating steps bubble",
+                    tint = Color(0xFF0062FF),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Floating steps bubble",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF111827)
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "Shows today's steps in a movable bubble over other apps, with a ring toward the 10,000-step target",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+                Switch(
+                    checked = bubbleEnabled,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            StepsBubblePrefs.setEnabled(context, true)
+                            bubbleEnabled = true
+                            bubblePermissionDenied = false
+                            if (Settings.canDrawOverlays(context)) {
+                                StepsBubbleService.start(context)
+                            } else {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:" + context.packageName)
+                                )
+                                overlayLauncher.launch(intent)
+                            }
+                        } else {
+                            StepsBubblePrefs.setEnabled(context, false)
+                            bubbleEnabled = false
+                            StepsBubbleService.stop(context)
+                        }
+                    }
+                )
+            }
+        }
+
+        if (bubblePermissionDenied) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Overlay permission is needed for the bubble — allow \"Display over other apps\" for GymSuit.",
+                fontSize = 13.sp,
+                color = Color(0xFFDC2626)
             )
         }
 
