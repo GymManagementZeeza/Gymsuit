@@ -33,6 +33,11 @@ class HealthSyncWorker(
         return try {
             val ok = HealthSyncManager(applicationContext).sync()
             Log.i(TAG, "Background health sync finished (ok=$ok)")
+            if (ok) {
+                // Evening daily summary ("You walked X steps today...").
+                // Never fails the sync: the notifier swallows its own errors.
+                DailyMetricNotifier.maybeNotify(applicationContext)
+            }
             // Success even when nothing synced (logged out / no permissions):
             // retrying would just burn battery for the same outcome.
             Result.success()
