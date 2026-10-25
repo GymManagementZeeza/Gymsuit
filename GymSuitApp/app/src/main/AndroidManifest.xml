@@ -106,6 +106,54 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".ui.widgets.StepsAppWidget"
+            android:exported="false"
+            android:label="@string/widget_steps_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_steps_info" />
+        </receiver>
+
+        <receiver
+            android:name=".ui.widgets.HeartRateAppWidget"
+            android:exported="false"
+            android:label="@string/widget_heart_rate_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_heart_rate_info" />
+        </receiver>
+
+        <receiver
+            android:name=".ui.widgets.WorkoutsAppWidget"
+            android:exported="false"
+            android:label="@string/widget_workouts_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_workouts_info" />
+        </receiver>
+
+        <receiver
+            android:name=".ui.widgets.ChallengesAppWidget"
+            android:exported="false"
+            android:label="@string/widget_challenges_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_challenges_info" />
+        </receiver>
     </application>
 
 </manifest>

@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import ca.zeezaglobal.gymsuitapp.data.BackgroundHealthSync
 import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubbleService
+import ca.zeezaglobal.gymsuitapp.ui.widgets.WidgetUpdateWorker
 import ca.zeezaglobal.gymsuitapp.data.local.AuthManager
 import ca.zeezaglobal.gymsuitapp.data.remote.HealthSyncApi
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
@@ -27,6 +28,8 @@ class GymSuitApplication : Application() {
         GymSuitFirebaseMessagingService.createNotificationChannels(this)
         // Periodic background health sync (WorkManager; no-op when logged out).
         BackgroundHealthSync.schedule(this)
+        // Refresh the home-screen widgets every 30 minutes.
+        WidgetUpdateWorker.schedule(this)
         // Restart the floating steps bubble if the user left it enabled.
         StepsBubbleService.startIfEnabled(this)
 
