@@ -28,8 +28,14 @@ public class PushNotificationService {
 
     /**
      * Send push notification to all active devices of a given user.
+     * Uses the challenges channel by default; callers with their own
+     * channel (e.g. trainer workouts) use the overload below.
      */
     public void sendToUser(Long userId, String title, String body, Map<String, String> data) {
+        sendToUser(userId, title, body, data, "gymsuit_challenges");
+    }
+
+    public void sendToUser(Long userId, String title, String body, Map<String, String> data, String channelId) {
         if (userId == null) return;
 
         List<HealthDevice> devices = deviceRepository.findByUserIdAndActiveTrueAndFcmTokenIsNotNull(userId);
@@ -57,7 +63,7 @@ public class PushNotificationService {
                         .setAndroidConfig(AndroidConfig.builder()
                                 .setPriority(AndroidConfig.Priority.HIGH)
                                 .setNotification(AndroidNotification.builder()
-                                        .setChannelId("gymsuit_challenges")
+                                        .setChannelId(channelId)
                                         .setSound("default")
                                         .build())
                                 .build())
