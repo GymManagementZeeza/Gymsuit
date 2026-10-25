@@ -7,6 +7,7 @@ import { useSession } from "@/hooks/useSession";
 import { listMembers, assignMemberTrainer, type Member } from "@/lib/members";
 import { listSessions, type TrainingSession } from "@/lib/sessions";
 import { listSessionRequests, type SessionRequest } from "@/lib/sessionRequests";
+import { sendTodayWorkout, type SuggestedExerciseInput } from "@/lib/trainerWorkouts";
 import { ArrowUpRight, Plus, Search, X } from "lucide-react";
 
 const AVATAR_TONES = ["peach", "sky", "mint", "lavender"] as const;
@@ -38,6 +39,55 @@ export default function ClientsPage() {
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [addingId, setAddingId] = useState<number | null>(null);
+
+  // Send today's workout modal
+  const [workoutMember, setWorkoutMember] = useState<Member | null>(null);
+  const [workoutRows, setWorkoutRows] = useState([{ exerciseName: "", sets: "3", reps: "10", weightKg: "0" }]);
+  const [workoutMessage, setWorkoutMessage] = useState("");
+  const [workoutSending, setWorkoutSending] = useState(false);
+  const [workoutSent, setWorkoutSent] = useState(false);
+  const [workoutError, setWorkoutError] = useState<string | null>(null);
+
+  const openWorkoutModal = (member: Member) => {
+    setWorkoutMember(member);
+    setWorkoutRows([{ exerciseName: "", sets: "3", reps: "10", weightKg: "0" }]);
+    setWorkoutMessage("");
+    setWorkoutSent(false);
+    setWorkoutError(null);
+  };
+
+  const handleSendWorkout = async () => {
+    if (!gymId || !trainerId || !workoutMember) return;
+    const exercises: SuggestedExerciseInput[] = [];
+    for (const row of workoutRows) {
+      const name = row.exerciseName.trim();
+      const sets = Number(row.sets);
+      const reps = Number(row.reps);
+      const weightKg = Number(row.weightKg);
+      if (!name || !Number.isFinite(sets) || sets < 1 || !Number.isFinite(reps) || reps < 1 || !Number.isFinite(weightKg) || weightKg < 0) {
+        setWorkoutError("Each exercise needs a name, sets and reps of at least 1, and a weight of 0 or more.");
+        return;
+      }
+      exercises.push({ exerciseName: name, sets, reps, weightKg });
+    }
+    if (exercises.length === 0) {
+      setWorkoutError("Add at least one exercise.");
+      return;
+    }
+    setWorkoutSending(true);
+    setWorkoutError(null);
+    try {
+      await sendTodayWorkout(gymId, trainerId, workoutMember.id, {
+        message: workoutMessage.trim() || undefined,
+        exercises,
+      });
+      setWorkoutSent(true);
+    } catch (err) {
+      setWorkoutError(err instanceof Error ? err.message : "Could not send the workout.");
+    } finally {
+      setWorkoutSending(false);
+    }
+  };
 
   const load = () => {
     if (!gymId) return;
@@ -181,6 +231,13 @@ export default function ClientsPage() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a8a82]">Next</p>
                     <p className="mt-1 text-sm font-bold">{next ? formatWhen(next.startTime) : "Not scheduled"}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => openWorkoutModal(client)}
+                    className="flex items-center gap-1 bg-[#c7f36a] px-3 py-1.5 text-xs font-bold transition hover:bg-[#d8ff8a]"
+                  >
+                    Send workout
+                  </button>
                 </div>
               );
             })}
@@ -244,6 +301,142 @@ export default function ClientsPage() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {workoutMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141410]/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto border border-[#d8d8d1] bg-white">
+            <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
+              <div>
+                <p className="ledger-label">Today&apos;s workout</p>
+                <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">
+                  Send workout to {workoutMember.firstName} {workoutMember.lastName}
+                </h2>
+                <p className="mt-1 text-xs text-[#76766f]">
+                  They get a push notification in the GymSuit app and an email with this workout.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWorkoutMember(null)}
+                className="grid size-8 shrink-0 place-items-center transition hover:bg-[#efefe9]"
+                aria-label="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {workoutSent ? (
+              <div className="p-8 text-center">
+                <p className="text-sm font-bold">Sent!</p>
+                <p className="mt-2 text-sm text-[#76766f]">
+                  {workoutMember.firstName} will see today&apos;s workout in the app and got an email too.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setWorkoutMember(null)}
+                  className="mt-6 bg-[#c7f36a] px-4 py-2 text-sm font-bold transition hover:bg-[#d8ff8a]"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4 p-5">
+                <div className="grid grid-cols-[1fr_64px_64px_80px_32px] items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a8a82]">
+                  <span>Exercise</span>
+                  <span>Sets</span>
+                  <span>Reps</span>
+                  <span>Weight (kg)</span>
+                  <span />
+                </div>
+                {workoutRows.map((row, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_64px_64px_80px_32px] items-center gap-2">
+                    <input
+                      value={row.exerciseName}
+                      onChange={(e) =>
+                        setWorkoutRows((prev) => prev.map((r, j) => (j === i ? { ...r, exerciseName: e.target.value } : r)))
+                      }
+                      placeholder="e.g. Barbell bench press"
+                      className="h-10 border border-[#d8d8d1] px-3 text-sm outline-none"
+                    />
+                    <input
+                      value={row.sets}
+                      onChange={(e) =>
+                        setWorkoutRows((prev) => prev.map((r, j) => (j === i ? { ...r, sets: e.target.value } : r)))
+                      }
+                      inputMode="numeric"
+                      className="h-10 border border-[#d8d8d1] px-2 text-sm outline-none"
+                    />
+                    <input
+                      value={row.reps}
+                      onChange={(e) =>
+                        setWorkoutRows((prev) => prev.map((r, j) => (j === i ? { ...r, reps: e.target.value } : r)))
+                      }
+                      inputMode="numeric"
+                      className="h-10 border border-[#d8d8d1] px-2 text-sm outline-none"
+                    />
+                    <input
+                      value={row.weightKg}
+                      onChange={(e) =>
+                        setWorkoutRows((prev) => prev.map((r, j) => (j === i ? { ...r, weightKg: e.target.value } : r)))
+                      }
+                      inputMode="decimal"
+                      placeholder="0 = bodyweight"
+                      className="h-10 border border-[#d8d8d1] px-2 text-sm outline-none"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove exercise"
+                      disabled={workoutRows.length === 1}
+                      onClick={() => setWorkoutRows((prev) => prev.filter((_, j) => j !== i))}
+                      className="grid size-8 place-items-center transition hover:bg-[#efefe9] disabled:opacity-30"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setWorkoutRows((prev) => [...prev, { exerciseName: "", sets: "3", reps: "10", weightKg: "0" }])}
+                  className="flex items-center gap-1 text-xs font-bold text-[#395cbd]"
+                >
+                  <Plus className="size-3.5" /> Add exercise
+                </button>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a8a82]">
+                    Note for the client (optional)
+                  </label>
+                  <textarea
+                    value={workoutMessage}
+                    onChange={(e) => setWorkoutMessage(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Focus on slow, controlled reps today."
+                    className="mt-1 w-full border border-[#d8d8d1] px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+                {workoutError && (
+                  <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{workoutError}</div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWorkoutMember(null)}
+                    className="h-10 border border-[#d8d8d1] px-4 text-sm font-bold transition hover:bg-[#efefe9]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendWorkout}
+                    disabled={workoutSending}
+                    className="h-10 bg-[#c7f36a] px-4 text-sm font-bold transition hover:bg-[#d8ff8a] disabled:opacity-50"
+                  >
+                    {workoutSending ? "Sending…" : "Send workout"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

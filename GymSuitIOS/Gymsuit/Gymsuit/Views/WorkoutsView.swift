@@ -199,6 +199,9 @@ struct WorkoutsView: View {
 
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 20) {
+                            // Trainer's workout for today, when one was sent
+                            TrainerWorkoutCardView()
+
                             // First Card: Week Calendar with Checkmark & Day Streak / Personal Best
                             WorkoutStreakCardView(selectedDate: $selectedDate)
 

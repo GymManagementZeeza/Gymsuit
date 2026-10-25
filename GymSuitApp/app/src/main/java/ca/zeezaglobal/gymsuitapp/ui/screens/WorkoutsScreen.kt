@@ -95,6 +95,7 @@ import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import ca.zeezaglobal.gymsuitapp.data.model.Exercise
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
+import ca.zeezaglobal.gymsuitapp.data.remote.TrainerWorkoutApi
 import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -218,6 +219,16 @@ fun WorkoutsScreen(
     }
     var selectedFocus by remember { mutableStateOf("Forearm") }
 
+    // Workout the member's trainer sent for today (if any) — shown as the
+    // top card on this page. A 404 just means nothing was sent today.
+    var trainerSuggestion by remember {
+        mutableStateOf<TrainerWorkoutApi.TrainerWorkoutSuggestion?>(null)
+    }
+    LaunchedEffect(Unit) {
+        TrainerWorkoutApi(context).getTodaySuggestion()
+            .onSuccess { trainerSuggestion = it }
+    }
+
     // iOS: `loadRealWorkouts` on appear (WorkoutStreakCardView) plus
     // `.task(id: selectedDate)` in the day summary — one reload covers both.
     LaunchedEffect(selectedDate) {
@@ -259,6 +270,12 @@ fun WorkoutsScreen(
             start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp
         )
     ) {
+        if (trainerSuggestion != null) {
+            item {
+                TrainerWorkoutCard(suggestion = trainerSuggestion!!)
+            }
+            item { Spacer(Modifier.height(20.dp)) }
+        }
         item {
             WorkoutStreakCard(
                 selectedDate = selectedDate,

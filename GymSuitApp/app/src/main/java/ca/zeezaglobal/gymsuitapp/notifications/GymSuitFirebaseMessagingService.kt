@@ -25,6 +25,8 @@ class GymSuitFirebaseMessagingService : FirebaseMessagingService() {
         private const val TAG = "GymSuitFCM"
         const val CHANNEL_ID_CHALLENGES = "gymsuit_challenges"
         private const val CHANNEL_NAME_CHALLENGES = "Challenge & Leaderboard Updates"
+        const val CHANNEL_ID_TRAINER = "gymsuit_trainer"
+        private const val CHANNEL_NAME_TRAINER = "Trainer Workouts"
 
         fun createNotificationChannels(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -38,6 +40,15 @@ class GymSuitFirebaseMessagingService : FirebaseMessagingService() {
                     enableVibration(true)
                 }
                 notificationManager.createNotificationChannel(channel)
+                val trainerChannel = NotificationChannel(
+                    CHANNEL_ID_TRAINER,
+                    CHANNEL_NAME_TRAINER,
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Workouts your trainer sends you for the day."
+                    enableVibration(true)
+                }
+                notificationManager.createNotificationChannel(trainerChannel)
             }
         }
     }
@@ -87,7 +98,10 @@ class GymSuitFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID_CHALLENGES)
+        val notification = NotificationCompat.Builder(
+            applicationContext,
+            if (type == "TRAINER_WORKOUT") CHANNEL_ID_TRAINER else CHANNEL_ID_CHALLENGES
+        )
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
