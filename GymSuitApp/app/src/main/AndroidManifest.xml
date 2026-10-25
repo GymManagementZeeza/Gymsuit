@@ -60,6 +60,10 @@
         </provider>
 
         <activity
+            android:name=".ui.widgets.ChallengeWidgetConfigActivity"
+            android:exported="true" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode|density|fontScale|layoutDirection|locale"

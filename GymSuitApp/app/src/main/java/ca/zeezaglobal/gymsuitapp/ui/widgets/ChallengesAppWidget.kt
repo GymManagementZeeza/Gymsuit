@@ -9,4 +9,10 @@ class ChallengesAppWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         WidgetUpdateWorker.enqueueOneShot(context)
     }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        for (id in appWidgetIds) {
+            clearChallengeSelection(context, id)
+        }
+    }
 }

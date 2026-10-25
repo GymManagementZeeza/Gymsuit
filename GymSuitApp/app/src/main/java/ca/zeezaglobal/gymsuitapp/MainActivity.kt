@@ -23,6 +23,7 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.OnboardingScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.RegisterScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.SleepDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.StepsDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.widgets.WidgetUpdateWorker
 import ca.zeezaglobal.gymsuitapp.ui.screens.HeartRateDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.CaloriesDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.WeightDetailScreen
@@ -57,6 +58,15 @@ enum class AppScreen {
 }
 
 class MainActivity : ComponentActivity() {
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh the home-screen widgets whenever the app comes to the
+        // foreground: Health Connect reads succeed here even when background
+        // reads are restricted, so widgets pick up fresh data right after
+        // the user opens the app.
+        WidgetUpdateWorker.enqueueOneShot(this)
+    }
 
     private val notificationPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()

@@ -5,4 +5,5 @@
     android:minHeight="110dp"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen"
+    android:configure="ca.zeezaglobal.gymsuitapp.ui.widgets.ChallengeWidgetConfigActivity" />
