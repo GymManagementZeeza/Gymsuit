@@ -61,6 +61,11 @@ enum BackgroundHealthSync {
         let state = TaskState()
         let work = Task {
             let ok = await HealthSyncManager.shared.sync()
+            if ok {
+                // Evening daily summary ("You walked X steps today...").
+                // Never fails the sync: the notifier guards its own errors.
+                await MetricNotifications.maybeNotify()
+            }
             state.complete(task: task, success: ok)
         }
         task.expirationHandler = {
