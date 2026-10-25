@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		DA707DEA308AC0BF00C51367 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = DA707DE9308AC0BF00C51367 /* FirebaseMessaging */; };
 		DA860E2B30894D930074CF6F /* GymsuitKit Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = DA860E2130894D910074CF6F /* GymsuitKit Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		6230C9EB83B2E347583A0AC5 /* GymsuitWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 45148D15FF9D1F7EC903EE79 /* GymsuitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3026CE8D1BE8EB790B823AEC /* WidgetSharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2015DC8668B28FE86A96B5C /* WidgetSharedData.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,6 +20,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = DA860E2030894D910074CF6F;
 			remoteInfo = "GymsuitKit Watch App";
+		};
+		269E79365F358F630723B0F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA8E07B7306B7C910056A8B8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E2ADACD3512C74F5C4029945;
+			remoteInfo = GymsuitWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -31,10 +40,22 @@
 			);
 			name = "Embed Watch Content";
 		};
+		5E74024F339E1871D44BB351 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = 13;
+			files = (
+				6230C9EB83B2E347583A0AC5 /* GymsuitWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		DA860E2130894D910074CF6F /* GymsuitKit Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GymsuitKit Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		45148D15FF9D1F7EC903EE79 /* GymsuitWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GymsuitWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2015DC8668B28FE86A96B5C /* WidgetSharedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Gymsuit/Services/WidgetSharedData.swift"; sourceTree = "<group>"; };
 		DA8E07BF306B7C910056A8B8 /* Gymsuit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gymsuit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -42,6 +63,11 @@
 		DA860E2230894D910074CF6F /* GymsuitKit Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "GymsuitKit Watch App";
+			sourceTree = "<group>";
+		};
+		BC092D05AB45130897656A1B /* GymsuitWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = GymsuitWidgets;
 			sourceTree = "<group>";
 		};
 		DA8E07C1306B7C910056A8B8 /* Gymsuit */ = {
@@ -53,6 +79,11 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		DA860E1E30894D910074CF6F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		EEE8CB5B4D0338E902F5B91D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -71,6 +102,7 @@
 			children = (
 				DA8E07C1306B7C910056A8B8 /* Gymsuit */,
 				DA860E2230894D910074CF6F /* GymsuitKit Watch App */,
+				BC092D05AB45130897656A1B /* GymsuitWidgets */,
 				DA8E07C0306B7C910056A8B8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -80,6 +112,7 @@
 			children = (
 				DA8E07BF306B7C910056A8B8 /* Gymsuit.app */,
 				DA860E2130894D910074CF6F /* GymsuitKit Watch App.app */,
+				45148D15FF9D1F7EC903EE79 /* GymsuitWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -105,6 +138,26 @@
 			productReference = DA860E2130894D910074CF6F /* GymsuitKit Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E2ADACD3512C74F5C4029945 /* GymsuitWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 82E18A013036161A6E01A722 /* Build configuration list for PBXNativeTarget "GymsuitWidgets" */;
+			buildPhases = (
+				B7B479A68AD6CEDB7338187C /* Sources */,
+				EEE8CB5B4D0338E902F5B91D /* Frameworks */,
+				94059762B5ED644818D2660C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BC092D05AB45130897656A1B /* GymsuitWidgets */,
+			);
+			name = GymsuitWidgets;
+			productName = GymsuitWidgets;
+			productReference = 45148D15FF9D1F7EC903EE79 /* GymsuitWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		DA8E07BE306B7C910056A8B8 /* Gymsuit */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = DA8E07CA306B7C920056A8B8 /* Build configuration list for PBXNativeTarget "Gymsuit" */;
@@ -113,11 +166,13 @@
 				DA8E07BC306B7C910056A8B8 /* Frameworks */,
 				DA8E07BD306B7C910056A8B8 /* Resources */,
 				DA860E2F30894D930074CF6F /* Embed Watch Content */,
+				5E74024F339E1871D44BB351 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				DA860E2A30894D930074CF6F /* PBXTargetDependency */,
+				8CE7AAE578CFC06AB8CCA5A8 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				DA8E07C1306B7C910056A8B8 /* Gymsuit */,
@@ -146,6 +201,20 @@
 					DA8E07BE306B7C910056A8B8 = {
 						CreatedOnToolsVersion = 27.0;
 						SystemCapabilities = {
+							com.apple.ApplicationGroups = {
+								enabled = 1;
+							};
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
+						};
+					};
+					E2ADACD3512C74F5C4029945 = {
+						CreatedOnToolsVersion = 27.0;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups = {
+								enabled = 1;
+							};
 							com.apple.HealthKit = {
 								enabled = 1;
 							};
@@ -172,12 +241,18 @@
 			targets = (
 				DA8E07BE306B7C910056A8B8 /* Gymsuit */,
 				DA860E2030894D910074CF6F /* GymsuitKit Watch App */,
+				E2ADACD3512C74F5C4029945 /* GymsuitWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		DA860E1F30894D910074CF6F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		94059762B5ED644818D2660C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -195,6 +270,12 @@
 			files = (
 			);
 		};
+		B7B479A68AD6CEDB7338187C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				3026CE8D1BE8EB790B823AEC /* WidgetSharedData.swift in Sources */,
+			);
+		};
 		DA8E07BB306B7C910056A8B8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -207,6 +288,11 @@
 			isa = PBXTargetDependency;
 			target = DA860E2030894D910074CF6F /* GymsuitKit Watch App */;
 			targetProxy = DA860E2930894D930074CF6F /* PBXContainerItemProxy */;
+		};
+		8CE7AAE578CFC06AB8CCA5A8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E2ADACD3512C74F5C4029945 /* GymsuitWidgets */;
+			targetProxy = 269E79365F358F630723B0F1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -480,6 +566,63 @@
 			};
 			name = Release;
 		};
+		72ABAA93831AC42C10266B44 /* Debug configuration for PBXNativeTarget "GymsuitWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = GymsuitWidgets/GymsuitWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2G2B87NX43;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GymsuitWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = GymSuit;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.zeezaglobal.Gymsuit.GymsuitWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		5F1D686772E59E2F24C6E26F /* Release configuration for PBXNativeTarget "GymsuitWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = GymsuitWidgets/GymsuitWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2G2B87NX43;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GymsuitWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = GymSuit;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.zeezaglobal.Gymsuit.GymsuitWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -496,6 +639,14 @@
 			buildConfigurations = (
 				DA8E07C8306B7C920056A8B8 /* Debug configuration for PBXProject "Gymsuit" */,
 				DA8E07C9306B7C920056A8B8 /* Release configuration for PBXProject "Gymsuit" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		82E18A013036161A6E01A722 /* Build configuration list for PBXNativeTarget "GymsuitWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72ABAA93831AC42C10266B44 /* Debug configuration for PBXNativeTarget "GymsuitWidgets" */,
+				5F1D686772E59E2F24C6E26F /* Release configuration for PBXNativeTarget "GymsuitWidgets" */,
 			);
 			defaultConfigurationName = Release;
 		};

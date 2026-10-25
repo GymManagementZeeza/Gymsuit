@@ -111,6 +111,7 @@ final class ChallengesViewModel: ObservableObject {
         errorMessage = nil
         do {
             challenges = try await ChallengeApi.shared.fetchChallenges()
+            await WidgetDataWriter.refreshChallengeSnapshots(summaries: challenges)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -531,6 +532,7 @@ final class ChallengeDetailViewModel: ObservableObject {
         errorMessage = nil
         do {
             detail = try await ChallengeApi.shared.fetchDetail(id: challengeId)
+            if let loaded = detail { WidgetDataWriter.writeChallengeDetail(loaded) }
             await loadDailyProgress()
         } catch {
             errorMessage = error.localizedDescription
