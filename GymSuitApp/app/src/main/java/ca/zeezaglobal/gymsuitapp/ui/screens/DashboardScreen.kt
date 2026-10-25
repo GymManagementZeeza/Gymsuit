@@ -111,6 +111,7 @@ fun DashboardScreen(
     onNavigateToSleepDetail: (LocalDate) -> Unit = {},
     onNavigateToHeartRateDetail: (LocalDate) -> Unit = {},
     onNavigateToCaloriesDetail: (LocalDate) -> Unit = {},
+    onNavigateToStepsDetail: (LocalDate) -> Unit = {},
     onNavigateToWeightDetail: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {}
 ) {
@@ -549,6 +550,13 @@ fun DashboardScreen(
                                         syncTrigger = syncKey,
                                         onClick = {
                                             onNavigateToCaloriesDetail(days[selectedDayIndex].localDate)
+                                        }
+                                    )
+                                    StepsWidget(
+                                        selectedDate = days[selectedDayIndex].localDate,
+                                        syncTrigger = syncKey,
+                                        onClick = {
+                                            onNavigateToStepsDetail(days[selectedDayIndex].localDate)
                                         }
                                     )
                                 }

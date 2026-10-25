@@ -22,6 +22,7 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.LoginScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.OnboardingScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.RegisterScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.SleepDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.StepsDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.HeartRateDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.CaloriesDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.WeightDetailScreen
@@ -50,6 +51,7 @@ enum class AppScreen {
     SLEEP_DETAIL,
     HEART_RATE_DETAIL,
     CALORIES_DETAIL,
+    STEPS_DETAIL,
     WEIGHT_DETAIL,
     NOTIFICATIONS
 }
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
                 var selectedSleepDate by remember { mutableStateOf(LocalDate.now()) }
                 var selectedHeartRateDate by remember { mutableStateOf(LocalDate.now()) }
                 var selectedCaloriesDate by remember { mutableStateOf(LocalDate.now()) }
+                var selectedStepsDate by remember { mutableStateOf(LocalDate.now()) }
 
                 // Check if user is already logged in
                 val initialScreen = remember {
@@ -136,7 +139,7 @@ class MainActivity : ComponentActivity() {
                 // Back goes up one level instead of closing the app
                 BackHandler(
                     enabled = currentScreen in setOf(
-                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.CALORIES_DETAIL, AppScreen.WEIGHT_DETAIL, AppScreen.NOTIFICATIONS,
+                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.CALORIES_DETAIL, AppScreen.STEPS_DETAIL, AppScreen.WEIGHT_DETAIL, AppScreen.NOTIFICATIONS,
                         AppScreen.REGISTER, AppScreen.LOGIN
                     )
                 ) {
@@ -229,6 +232,10 @@ class MainActivity : ComponentActivity() {
                                         selectedCaloriesDate = date
                                         currentScreen = AppScreen.CALORIES_DETAIL
                                     },
+                                    onNavigateToStepsDetail = { date ->
+                                        selectedStepsDate = date
+                                        currentScreen = AppScreen.STEPS_DETAIL
+                                    },
                                     onNavigateToWeightDetail = {
                                         currentScreen = AppScreen.WEIGHT_DETAIL
                                     },
@@ -270,6 +277,14 @@ class MainActivity : ComponentActivity() {
                             AppScreen.CALORIES_DETAIL -> {
                                 CaloriesDetailScreen(
                                     date = selectedCaloriesDate,
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    }
+                                )
+                            }
+                            AppScreen.STEPS_DETAIL -> {
+                                StepsDetailScreen(
+                                    date = selectedStepsDate,
                                     onBackClick = {
                                         currentScreen = AppScreen.DASHBOARD
                                     }
