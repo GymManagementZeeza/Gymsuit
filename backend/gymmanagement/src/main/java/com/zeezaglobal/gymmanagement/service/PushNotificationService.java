@@ -35,6 +35,17 @@ public class PushNotificationService {
         sendToUser(userId, title, body, data, "gymsuit_challenges");
     }
 
+    /** True when Firebase Admin credentials are configured on this server. */
+    public boolean isFirebaseConfigured() {
+        return firebaseMessaging != null;
+    }
+
+    /** Devices of this user that could receive a push (active + token stored). */
+    public int countDevicesWithTokens(Long userId) {
+        if (userId == null) return 0;
+        return deviceRepository.findByUserIdAndActiveTrueAndFcmTokenIsNotNull(userId).size();
+    }
+
     public void sendToUser(Long userId, String title, String body, Map<String, String> data, String channelId) {
         if (userId == null) return;
 
