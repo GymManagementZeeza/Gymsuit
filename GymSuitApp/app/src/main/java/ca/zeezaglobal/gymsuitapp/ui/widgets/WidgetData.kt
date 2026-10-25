@@ -5,15 +5,18 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import ca.zeezaglobal.gymsuitapp.MainActivity
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import ca.zeezaglobal.gymsuitapp.data.local.AuthManager
+import ca.zeezaglobal.gymsuitapp.data.model.ChallengeMetric
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeStatus
 import ca.zeezaglobal.gymsuitapp.data.remote.ChallengeApi
 import ca.zeezaglobal.gymsuitapp.ui.screens.DAILY_STEPS_GOAL
+import kotlinx.coroutines.delay
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.ZoneId
@@ -34,7 +37,33 @@ data class WidgetContent(
     val progressPercent: Int? = null
 )
 
+data class MemberProgress(val name: String, val progress: String)
+
+data class ChallengeWidgetContent(
+    val value: String,
+    val subtitle: String,
+    val members: List<MemberProgress> = emptyList()
+)
+
 private val numberFormat = NumberFormat.getNumberInstance(Locale.US)
+
+/** Per-widget challenge choice, stored by appWidgetId. Null = automatic. */
+private const val CHALLENGE_WIDGET_PREFS = "gymsuit_challenge_widgets"
+private fun prefs(context: Context) =
+    context.getSharedPreferences(CHALLENGE_WIDGET_PREFS, Context.MODE_PRIVATE)
+
+fun getChallengeSelection(context: Context, appWidgetId: Int): String? =
+    prefs(context).getString("widget_$appWidgetId", null)
+
+fun saveChallengeSelection(context: Context, appWidgetId: Int, challengeId: String?) {
+    prefs(context).edit().apply {
+        if (challengeId == null) remove("widget_$appWidgetId") else putString("widget_$appWidgetId", challengeId)
+    }.apply()
+}
+
+fun clearChallengeSelection(context: Context, appWidgetId: Int) {
+    prefs(context).edit().remove("widget_$appWidgetId").apply()
+}
 
 suspend fun loadStepsContent(context: Context): WidgetContent {
     return try {
@@ -55,17 +84,53 @@ suspend fun loadStepsContent(context: Context): WidgetContent {
 }
 
 suspend fun loadHeartRateContent(context: Context): WidgetContent {
+    val manager = HealthConnectManager(context)
     return try {
-        val summary = HealthConnectManager(context).readHeartRateDataForDate(LocalDate.now())
-        if (summary.hasData) {
-            WidgetContent(
-                title = "Heart rate",
-                value = "${summary.latestBpm} bpm",
-                subtitle = "Min ${summary.minBpm} · Max ${summary.maxBpm} bpm"
-            )
-        } else {
-            WidgetContent("Heart rate", "—", "No data yet")
+        // Same retry loop as the in-app heart rate card: Health Connect
+        // reads fail transiently (rate limiting), and a single attempt
+        // used to leave the widget stuck on "No data yet".
+        var summary: ca.zeezaglobal.gymsuitapp.data.HeartRateSummaryData? = null
+        for (attempt in 0 until 3) {
+            val fresh = manager.tryReadHeartRateDataForDate(LocalDate.now())
+            if (fresh != null && fresh.hasData) {
+                summary = fresh
+                break
+            }
+            if (attempt < 2) delay(800)
         }
+        val today = summary
+        if (today != null) {
+            return WidgetContent(
+                title = "Heart rate",
+                value = "${today.latestBpm} bpm",
+                subtitle = "Min ${today.minBpm} · Max ${today.maxBpm} bpm"
+            )
+        }
+        // No samples today yet (e.g. the watch hasn't synced): fall back to
+        // the most recent day with data in the last week, labeled as such,
+        // instead of showing an empty widget all day.
+        for (daysAgo in 1..6) {
+            val day = LocalDate.now().minusDays(daysAgo.toLong())
+            val past = manager.tryReadHeartRateDataForDate(day)
+            if (past != null && past.hasData) {
+                val label = if (daysAgo == 1) {
+                    "Yesterday"
+                } else {
+                    day.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault()))
+                }
+                return WidgetContent(
+                    title = "Heart rate",
+                    value = "${past.latestBpm} bpm",
+                    subtitle = "$label · Min ${past.minBpm} · Max ${past.maxBpm} bpm"
+                )
+            }
+        }
+        val hint = if (!manager.hasHeartRatePermission()) {
+            "Heart rate access not granted"
+        } else {
+            "No data yet"
+        }
+        WidgetContent("Heart rate", "—", hint)
     } catch (e: Exception) {
         WidgetContent("Heart rate", "—", "No data yet")
     }
@@ -94,33 +159,62 @@ suspend fun loadWorkoutsContent(context: Context): WidgetContent {
     }
 }
 
-suspend fun loadChallengesContent(context: Context): WidgetContent {
-    if (!AuthManager(context.applicationContext).isLoggedIn()) {
-        return WidgetContent("Challenges", "Log in", "Open GymSuit to see challenges")
+private fun formatMetricValue(metric: ChallengeMetric, value: Double): String =
+    when (metric) {
+        ChallengeMetric.STEPS -> numberFormat.format(value.toLong())
+        ChallengeMetric.WORKOUTS -> value.toInt().toString()
+        ChallengeMetric.CALORIES -> "${numberFormat.format(value.toLong())} kcal"
+        ChallengeMetric.DISTANCE_KM -> String.format(Locale.US, "%.1f km", value)
     }
+
+/**
+ * Challenge widget content for one widget instance. [challengeId] is the
+ * user's picker choice for that widget, or null for automatic (first active
+ * challenge). Shows the leaderboard's top 3 members with their progress.
+ */
+suspend fun loadChallengesContent(context: Context, challengeId: String?): ChallengeWidgetContent {
+    if (!AuthManager(context.applicationContext).isLoggedIn()) {
+        return ChallengeWidgetContent("Log in", "Open GymSuit to see challenges")
+    }
+    val api = ChallengeApi(context)
     return try {
-        val result = ChallengeApi(context).listChallenges()
-        result.fold(
-            onSuccess = { challenges ->
-                val active = challenges.filter { it.status == ChallengeStatus.ACTIVE }
-                if (active.isEmpty()) {
-                    WidgetContent("Challenges", "No active", "Join one from the Challenges tab")
-                } else {
-                    val first = active.first()
-                    val rank = first.myRank?.let { " · #$it" } ?: ""
-                    WidgetContent(
-                        title = "Challenges",
-                        value = "${active.size} active",
-                        subtitle = "${first.name}$rank"
-                    )
+        if (challengeId == null) {
+            val result = api.listChallenges()
+            result.fold(
+                onSuccess = { challenges ->
+                    val active = challenges.filter { it.status == ChallengeStatus.ACTIVE }
+                    if (active.isEmpty()) {
+                        ChallengeWidgetContent("No active", "Tap Challenges to choose one")
+                    } else {
+                        loadChallengesContent(context, active.first().id)
+                    }
+                },
+                onFailure = {
+                    ChallengeWidgetContent("—", "Couldn't load challenges")
                 }
-            },
-            onFailure = {
-                WidgetContent("Challenges", "—", "Couldn't load challenges")
-            }
-        )
+            )
+        } else {
+            val result = api.getDetail(challengeId)
+            result.fold(
+                onSuccess = { detail ->
+                    val members = detail.leaderboard
+                        .sortedBy { it.rank }
+                        .take(3)
+                        .map { MemberProgress(it.displayName, formatMetricValue(detail.metric, it.value)) }
+                    val rankText = detail.myRank?.let { " · You're #$it" } ?: ""
+                    ChallengeWidgetContent(
+                        value = detail.name,
+                        subtitle = "${detail.participantCount} members · ${detail.metric.label}$rankText",
+                        members = members
+                    )
+                },
+                onFailure = {
+                    ChallengeWidgetContent("—", "Couldn't load challenges")
+                }
+            )
+        }
     } catch (e: Exception) {
-        WidgetContent("Challenges", "—", "Couldn't load challenges")
+        ChallengeWidgetContent("—", "Couldn't load challenges")
     }
 }
 
@@ -128,6 +222,16 @@ private fun openAppIntent(context: Context): PendingIntent {
     val intent = Intent(context, MainActivity::class.java)
     return PendingIntent.getActivity(
         context, 0, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+}
+
+private fun pickChallengeIntent(context: Context, appWidgetId: Int): PendingIntent {
+    val intent = Intent(context, ChallengeWidgetConfigActivity::class.java).apply {
+        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+    }
+    return PendingIntent.getActivity(
+        context, appWidgetId, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 }
@@ -144,23 +248,60 @@ private fun buildViews(context: Context, layoutRes: Int, content: WidgetContent)
     return views
 }
 
+private fun buildChallengeViews(
+    context: Context,
+    appWidgetId: Int,
+    content: ChallengeWidgetContent
+): RemoteViews {
+    val views = RemoteViews(context.packageName, R.layout.widget_challenges)
+    views.setTextViewText(R.id.widget_title, "Challenges")
+    views.setTextViewText(R.id.widget_value, content.value)
+    views.setTextViewText(R.id.widget_subtitle, content.subtitle)
+    // Tapping the title opens the challenge picker for this widget; tapping
+    // anywhere else opens the app.
+    views.setOnClickPendingIntent(R.id.widget_title, pickChallengeIntent(context, appWidgetId))
+    views.setOnClickPendingIntent(R.id.widget_root, openAppIntent(context))
+    val nameIds = listOf(R.id.member_name_1, R.id.member_name_2, R.id.member_name_3)
+    val progressIds = listOf(R.id.member_progress_1, R.id.member_progress_2, R.id.member_progress_3)
+    val rowIds = listOf(R.id.member_row_1, R.id.member_row_2, R.id.member_row_3)
+    for (i in 0 until 3) {
+        if (i < content.members.size) {
+            views.setTextViewText(nameIds[i], "#${i + 1} ${content.members[i].name}")
+            views.setTextViewText(progressIds[i], content.members[i].progress)
+            views.setViewVisibility(rowIds[i], View.VISIBLE)
+        } else {
+            views.setViewVisibility(rowIds[i], View.GONE)
+        }
+    }
+    return views
+}
+
 /**
  * Refreshes every placed instance of all four widgets. Called by the
- * periodic worker and immediately whenever a widget is added.
+ * periodic worker, immediately whenever a widget is added, and whenever the
+ * app comes to the foreground (foreground Health Connect reads succeed even
+ * when background reads are restricted). Challenge widgets are refreshed
+ * per instance so each can show its own picked challenge.
  */
 suspend fun refreshAllWidgets(context: Context) {
     val appWidgetManager = AppWidgetManager.getInstance(context)
-    val jobs = listOf(
+    val shared = listOf(
         Triple(StepsAppWidget::class.java, R.layout.widget_steps, loadStepsContent(context)),
         Triple(HeartRateAppWidget::class.java, R.layout.widget_heart_rate, loadHeartRateContent(context)),
-        Triple(WorkoutsAppWidget::class.java, R.layout.widget_workouts, loadWorkoutsContent(context)),
-        Triple(ChallengesAppWidget::class.java, R.layout.widget_challenges, loadChallengesContent(context))
+        Triple(WorkoutsAppWidget::class.java, R.layout.widget_workouts, loadWorkoutsContent(context))
     )
-    for ((provider, layoutRes, content) in jobs) {
+    for ((provider, layoutRes, content) in shared) {
         val views = buildViews(context, layoutRes, content)
         val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, provider))
         for (id in ids) {
             appWidgetManager.updateAppWidget(id, views)
         }
+    }
+    val challengeIds = appWidgetManager.getAppWidgetIds(ComponentName(context, ChallengesAppWidget::class.java))
+    val detailCache = mutableMapOf<String?, ChallengeWidgetContent>()
+    for (id in challengeIds) {
+        val selection = getChallengeSelection(context, id)
+        val content = detailCache.getOrPut(selection) { loadChallengesContent(context, selection) }
+        appWidgetManager.updateAppWidget(id, buildChallengeViews(context, id, content))
     }
 }
