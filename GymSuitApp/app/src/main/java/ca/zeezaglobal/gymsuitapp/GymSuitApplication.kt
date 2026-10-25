@@ -3,6 +3,7 @@ package ca.zeezaglobal.gymsuitapp
 import android.app.Application
 import android.util.Log
 import ca.zeezaglobal.gymsuitapp.data.BackgroundHealthSync
+import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubbleService
 import ca.zeezaglobal.gymsuitapp.data.local.AuthManager
 import ca.zeezaglobal.gymsuitapp.data.remote.HealthSyncApi
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
@@ -26,6 +27,8 @@ class GymSuitApplication : Application() {
         GymSuitFirebaseMessagingService.createNotificationChannels(this)
         // Periodic background health sync (WorkManager; no-op when logged out).
         BackgroundHealthSync.schedule(this)
+        // Restart the floating steps bubble if the user left it enabled.
+        StepsBubbleService.startIfEnabled(this)
 
         // Retrieve FCM token and sync to backend if logged in
         try {
