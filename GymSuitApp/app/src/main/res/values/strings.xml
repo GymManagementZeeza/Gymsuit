@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">GymSuit</string>
+    <string name="widget_steps_label">GymSuit Steps</string>
+    <string name="widget_heart_rate_label">GymSuit Heart Rate</string>
+    <string name="widget_workouts_label">GymSuit Workouts</string>
+    <string name="widget_challenges_label">GymSuit Challenges</string>
 </resources>
