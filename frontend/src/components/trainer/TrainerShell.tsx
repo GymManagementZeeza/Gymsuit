@@ -8,6 +8,7 @@ import { logout } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
 import { getCurrentUser } from "@/lib/users";
 import { getTrainer } from "@/lib/trainers";
+import { listSessionRequests } from "@/lib/sessionRequests";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
 import {
   Bell,
@@ -18,26 +19,29 @@ import {
   LogOut,
   Menu,
   UsersRound,
-  WalletCards,
   X,
 } from "lucide-react";
 
 const navItems = [
   { label: "Overview", href: "/trainerdashboard", icon: Gauge },
   { label: "Clients", href: "/trainerdashboard/clients", icon: UsersRound },
-  { label: "Bookings", href: "/trainerdashboard/bookings", icon: BookOpenCheck, badge: "3" },
+  { label: "Bookings", href: "/trainerdashboard/bookings", icon: BookOpenCheck },
   { label: "Calendar", href: "/trainerdashboard/calendar", icon: CalendarDays },
-  { label: "Earnings", href: "/trainerdashboard/earnings", icon: WalletCards },
 ];
 
 const sectionLabels: Record<string, [string, string]> = {
-  "/trainerdashboard": ["Tuesday, 11 March", "Your day has a good rhythm."],
   "/trainerdashboard/clients": ["Client desk", "Care for the details."],
   "/trainerdashboard/bookings": ["Booking desk", "Every hour has a purpose."],
-  "/trainerdashboard/calendar": ["Week 11 · March", "A well-paced week."],
-  "/trainerdashboard/earnings": ["March 2025", "Your work is adding up."],
   "/trainerdashboard/profile": ["Coach profile", "This is how clients find you."],
 };
+
+function startOfWeek(date: Date) {
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7; // Monday = 0
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 function NavContent({
   pathname,
@@ -45,12 +49,14 @@ function NavContent({
   displayName,
   initials,
   specialization,
+  pendingRequests,
 }: {
   pathname: string;
   onNavigate: () => void;
   displayName: string;
   initials: string;
   specialization: string;
+  pendingRequests: number;
 }) {
   return (
     <>
@@ -98,8 +104,8 @@ function NavContent({
               >
                 <Icon className="size-4" />
                 <span>{item.label}</span>
-                {"badge" in item && item.badge && (
-                  <span className="ml-auto bg-[#c7f36a] px-1.5 py-0.5 text-[9px] font-bold text-[#24241f]">{item.badge}</span>
+                {item.href === "/trainerdashboard/bookings" && pendingRequests > 0 && (
+                  <span className="ml-auto bg-[#c7f36a] px-1.5 py-0.5 text-[9px] font-bold text-[#24241f]">{pendingRequests}</span>
                 )}
               </Link>
             );
@@ -128,9 +134,17 @@ export function TrainerShell({ children }: { children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [specialization, setSpecialization] = useState<string | null>(null);
   const closeNav = () => setNavOpen(false);
-  const [eyebrow, title] = sectionLabels[pathname] ?? ["Studio Compass", "Trainer workspace"];
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  const weekLabel = `Week of ${startOfWeek(new Date()).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  const [eyebrow, title] =
+    pathname === "/trainerdashboard"
+      ? [todayLabel, "Your day has a good rhythm."]
+      : pathname === "/trainerdashboard/calendar"
+        ? [weekLabel, "A well-paced week."]
+        : (sectionLabels[pathname] ?? ["Studio Compass", "Trainer workspace"]);
 
   useEffect(() => {
     if (!session) return;
@@ -138,6 +152,15 @@ export function TrainerShell({ children }: { children: ReactNode }) {
       .then((user) => setDisplayName(user.displayName))
       .catch(() => {});
   }, [session]);
+
+  useEffect(() => {
+    if (!session?.gymId || !session.trainerId) return;
+    listSessionRequests(session.gymId)
+      .then((all) =>
+        setPendingRequests(all.filter((r) => r.trainerId === session.trainerId && r.status === "PENDING").length)
+      )
+      .catch(() => {});
+  }, [session?.gymId, session?.trainerId]);
 
   useEffect(() => {
     if (!session?.gymId || !session.trainerId) return;
@@ -172,6 +195,7 @@ export function TrainerShell({ children }: { children: ReactNode }) {
           displayName={resolvedName}
           initials={initials}
           specialization={specialization || "Personal trainer"}
+          pendingRequests={pendingRequests}
         />
       </aside>
 
@@ -194,7 +218,6 @@ export function TrainerShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <button className="relative grid size-9 place-items-center border border-[#dddDd6] bg-white transition hover:border-[#24241f]" aria-label="Open notifications">
               <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#ff825d]" />
             </button>
             <button
               type="button"
