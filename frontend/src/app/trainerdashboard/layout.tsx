@@ -16,7 +16,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: "Trainer workspace — GymFlow",
-  description: "Progress is personal — your clients, sessions and earnings in one place.",
+  description: "Progress is personal — your clients and sessions in one place.",
 };
 
 export default function TrainerDashboardLayout({ children }: { children: React.ReactNode }) {
