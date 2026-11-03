@@ -263,7 +263,7 @@ export default function ClientsPage() {
                         {client.firstName} {client.lastName}
                       </p>
                       <p className="mt-0.5 truncate text-[11px] text-[#74746d]">
-                        {sessionCount} session{sessionCount === 1 ? "" : "s"} · {client.phone}
+                        {sessionCount} session{sessionCount === 1 ? "" : "s"} · {client.email ?? client.phone}
                       </p>
                     </div>
                   </div>
