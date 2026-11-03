@@ -21,3 +21,6 @@ DerivedData/
 *.p8
 *firebase-adminsdk*.json
 firebase-service-account.json
+# Build artifacts — never commit
+*.aab
+FoodImageTraining/
