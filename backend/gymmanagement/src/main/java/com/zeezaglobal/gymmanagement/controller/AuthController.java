@@ -6,8 +6,10 @@ import com.zeezaglobal.gymmanagement.dto.LoginRequest;
 import com.zeezaglobal.gymmanagement.dto.LoginResponse;
 import com.zeezaglobal.gymmanagement.dto.OtpVerifyRequest;
 import com.zeezaglobal.gymmanagement.dto.RefreshRequest;
+import com.zeezaglobal.gymmanagement.security.AuthRateLimiter;
 import com.zeezaglobal.gymmanagement.security.RefreshCookieFactory;
 import com.zeezaglobal.gymmanagement.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -26,9 +28,11 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshCookieFactory refreshCookieFactory;
+    private final AuthRateLimiter rateLimiter;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        rateLimiter.check(AuthRateLimiter.Action.LOGIN, request.email(), httpRequest);
         return withRefreshCookie(authService.login(request));
     }
 
@@ -38,13 +42,15 @@ public class AuthController {
     }
 
     @PostMapping("/otp/request")
-    public ResponseEntity<Void> requestOtp(@Valid @RequestBody EmailRequest request) {
+    public ResponseEntity<Void> requestOtp(@Valid @RequestBody EmailRequest request, HttpServletRequest httpRequest) {
+        rateLimiter.check(AuthRateLimiter.Action.OTP_SEND, request.email(), httpRequest);
         authService.requestOtp(request.email());
         return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/otp/verify")
-    public ResponseEntity<LoginResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
+    public ResponseEntity<LoginResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request, HttpServletRequest httpRequest) {
+        rateLimiter.check(AuthRateLimiter.Action.OTP_VERIFY, request.email(), httpRequest);
         return withRefreshCookie(authService.verifyOtp(request.email(), request.otp()));
     }
 
