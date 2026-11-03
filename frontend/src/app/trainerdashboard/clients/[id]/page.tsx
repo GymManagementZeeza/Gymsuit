@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
 import {
   getClientProgress,
+  getClientIntakePhotoUrl,
   type ClientProgress,
   type ProgressDay,
 } from "@/lib/trainerProgress";
@@ -76,6 +77,30 @@ export default function ClientProgressPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openMetric, setOpenMetric] = useState<Metric | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  // Load meal photos only while the intake popup is open; revoke blob URLs on close.
+  useEffect(() => {
+    if (openMetric !== "intake" || !gymId || !Number.isFinite(memberId) || !data) return;
+    let cancelled = false;
+    const urls: Record<string, string> = {};
+    const load = async () => {
+      for (const day of data.days) {
+        for (const entry of day.intakeEntries ?? []) {
+          if (!entry.hasPhoto) continue;
+          const url = await getClientIntakePhotoUrl(gymId, memberId, entry.externalId).catch(() => null);
+          if (url) urls[entry.externalId] = url;
+        }
+      }
+      if (!cancelled) setPhotoUrls(urls);
+    };
+    load();
+    return () => {
+      cancelled = true;
+      Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
+      setPhotoUrls({});
+    };
+  }, [openMetric, data, gymId, memberId]);
 
   const rangeDays = RANGES.find((r) => r.key === range)?.days ?? 1;
   const from = useMemo(() => addDays(anchor, -(rangeDays - 1)), [anchor, rangeDays]);
@@ -223,18 +248,44 @@ export default function ClientProgressPage() {
       case "intake":
         return hasIntake ? (
           <div>
-            {days.map((d) =>
-              dayRow(
-                d,
-                `${num(d.intakeCalories)} kcal${d.intakeProteinG != null ? ` · P ${Math.round(d.intakeProteinG)}g · C ${Math.round(d.intakeCarbsG ?? 0)}g · F ${Math.round(d.intakeFatG ?? 0)}g` : ""}`,
-              ),
-            )}
+            <p className="mb-3 text-sm text-[#6b6b64]">
+              Total {num(intake)} kcal in this period.
+            </p>
+            {days.filter((d) => (d.intakeEntries ?? []).length > 0).map((d) => (
+              <div key={d.date} className="mb-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#6b6b64]">{fmtDay(d.date)}</p>
+                {(d.intakeEntries ?? []).map((entry) => (
+                  <div key={entry.externalId} className="flex items-center gap-3 border-b border-[#f0f0ec] py-2 last:border-0">
+                    {entry.hasPhoto && photoUrls[entry.externalId] ? (
+                      <img
+                        src={photoUrls[entry.externalId]}
+                        alt={entry.dishName ?? "Meal photo"}
+                        className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-[#f1f1f1] text-xs text-[#9a9a93]">
+                        No photo
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[#1a1a17]">{entry.dishName ?? "Meal"}</p>
+                      <p className="text-xs text-[#6b6b64]">
+                        {entry.meal ?? ""} · {num(entry.calories)} kcal
+                        {entry.proteinG != null
+                          ? ` · P ${Math.round(entry.proteinG)}g · C ${Math.round(entry.carbsG ?? 0)}g · F ${Math.round(entry.fatG ?? 0)}g`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         ) : (
           <p className="text-sm text-[#6b6b64]">
-            Calorie intake appears here once the client&apos;s app uploads their food log. The food
-            log currently lives on their phone only — no intake has synced yet, so nothing is shown
-            rather than a guessed number.
+            No intake has synced for this period yet. The client logs food in the app&apos;s Food tab —
+            by photo or manually — and logged meals (with their photos, when taken) appear here once
+            the app syncs.
           </p>
         );
       case "heart":

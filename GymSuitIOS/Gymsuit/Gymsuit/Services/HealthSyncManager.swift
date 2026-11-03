@@ -31,12 +31,20 @@ public final class HealthSyncManager: ObservableObject {
     @discardableResult
     public func syncFoodIntake() async -> Bool {
         guard AuthManager.shared.isLoggedIn else { return false }
-        return await foodApi.sync(entries: FoodStore.shared.entries)
+        // Only not-yet-uploaded meal photos ride along; the rest of the
+        // log syncs as before and already-stored photos are untouched.
+        let pendingPhotos = FoodPhotoStore.shared.pendingPhotos()
+        let ok = await foodApi.sync(entries: FoodStore.shared.entries, photos: pendingPhotos)
+        if ok {
+            FoodPhotoStore.shared.markUploaded(ids: Array(pendingPhotos.keys))
+        }
+        return ok
     }
 
     /// Removes one backend intake row after the matching local entry is deleted. Best-effort.
     @discardableResult
     public func deleteFoodEntry(id: String) async -> Bool {
+        FoodPhotoStore.shared.delete(id: id)
         guard AuthManager.shared.isLoggedIn else { return false }
         return await foodApi.delete(externalId: id)
     }

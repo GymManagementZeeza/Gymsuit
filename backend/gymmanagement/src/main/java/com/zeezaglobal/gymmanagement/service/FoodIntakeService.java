@@ -58,6 +58,19 @@ public class FoodIntakeService {
             record.setProteinG(entry.proteinG());
             record.setCarbsG(entry.carbsG());
             record.setFatG(entry.fatG());
+            if (entry.photoBase64() != null && !entry.photoBase64().isBlank()) {
+                try {
+                    byte[] photo = java.util.Base64.getDecoder().decode(entry.photoBase64());
+                    // Guard against abuse/bloated uploads: oversized photos
+                    // are dropped, the entry itself still syncs.
+                    if (photo.length <= 1_048_576) {
+                        record.setPhotoData(photo);
+                        record.setPhotoContentType("image/jpeg");
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Malformed base64: keep any photo already stored.
+                }
+            }
             record.setUpdatedAt(LocalDateTime.now());
             foodIntakeRepository.save(record);
             count++;

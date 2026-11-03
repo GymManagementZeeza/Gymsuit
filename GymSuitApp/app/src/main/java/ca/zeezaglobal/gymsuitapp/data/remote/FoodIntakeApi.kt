@@ -35,7 +35,12 @@ class FoodIntakeApi(private val context: Context) {
         private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
 
-    suspend fun sync(entries: List<FoodEntry>): Result<Int> = withContext(Dispatchers.IO) {
+    /**
+     * @param photos compressed JPEG bytes keyed by entry id. Only photos in
+     * this map are sent; entries without a photo entry keep whatever photo
+     * the backend already has, so periodic syncs do not re-send photos.
+     */
+    suspend fun sync(entries: List<FoodEntry>, photos: Map<String, ByteArray> = emptyMap()): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val entriesJson = JSONArray()
             for (entry in entries) {
@@ -52,6 +57,9 @@ class FoodIntakeApi(private val context: Context) {
                     put("proteinG", entry.proteinG)
                     put("carbsG", entry.carbsG)
                     put("fatG", entry.fatG)
+                    photos[entry.id]?.let { bytes ->
+                        put("photoBase64", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+                    }
                 })
             }
             val payload = JSONObject().apply { put("entries", entriesJson) }

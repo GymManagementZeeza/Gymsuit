@@ -4,6 +4,8 @@ import com.zeezaglobal.gymmanagement.dto.ClientProgressResponse;
 import com.zeezaglobal.gymmanagement.service.ClientProgressService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,5 +35,19 @@ public class ClientProgressController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return clientProgressService.getProgress(gymId, memberId, from, to);
+    }
+
+    /** Serves one meal photo a client uploaded. Same trainer-scoped guard as the progress view. */
+    @GetMapping("/photo/{externalId}")
+    @PreAuthorize("@security.canViewMember(#gymId, #memberId)")
+    public ResponseEntity<byte[]> getIntakePhoto(
+            @PathVariable Long gymId,
+            @PathVariable Long memberId,
+            @PathVariable String externalId) {
+        return clientProgressService.getIntakePhoto(gymId, memberId, externalId)
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .body(bytes))
+                .orElse(ResponseEntity.notFound().build());
     }
 }

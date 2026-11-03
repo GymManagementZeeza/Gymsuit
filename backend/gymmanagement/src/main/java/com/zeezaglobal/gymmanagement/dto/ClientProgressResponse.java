@@ -37,8 +37,21 @@ public record ClientProgressResponse(
             Double intakeProteinG,
             Double intakeCarbsG,
             Double intakeFatG,
+            List<IntakeEntry> intakeEntries,
             Integer workoutCount,
             Double workoutCalories
+    ) {
+    }
+
+    public record IntakeEntry(
+            String externalId,
+            String meal,
+            String dishName,
+            Integer calories,
+            Double proteinG,
+            Double carbsG,
+            Double fatG,
+            boolean hasPhoto
     ) {
     }
 

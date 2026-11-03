@@ -460,7 +460,8 @@ struct FoodLogView: View {
             let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
             timestampMillis = Int64(noon.timeIntervalSince1970 * 1000)
         }
-        store.add(FoodEntry(
+        let entry = FoodEntry(
+            id: UUID().uuidString,
             name: name,
             meal: meal,
             calories: calories,
@@ -468,7 +469,16 @@ struct FoodLogView: View {
             carbsG: carbs,
             fatG: fat,
             timestampMillis: timestampMillis
-        ))
+        )
+        store.add(entry)
+        // Scanned entries keep their photo: save it compressed on device
+        // so the next upload sends it to the database, where the trainer
+        // can see it on the client progress page. Manually typed entries
+        // have no photo to attach.
+        if !isManual, let photo = scanImage {
+            FoodPhotoStore.shared.save(id: entry.id, image: photo)
+            scanImage = nil
+        }
         // Push the updated log to the backend right away so the trainer
         // progress page sees the new intake without waiting for the next
         // periodic health sync.

@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.dp
 import ca.zeezaglobal.gymsuitapp.data.FoodEntry
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionApi
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionUnavailableException
+import ca.zeezaglobal.gymsuitapp.data.FoodPhotoStore
 import ca.zeezaglobal.gymsuitapp.data.FoodStore
 import ca.zeezaglobal.gymsuitapp.data.HealthSyncManager
 import ca.zeezaglobal.gymsuitapp.data.MealType
@@ -405,7 +406,16 @@ fun FoodLogScreen() {
             onSave = { name, meal, kcal, p, c, f, isManual ->
                 val time = if (date == today) Instant.now().toEpochMilli()
                 else date.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
-                entries = store.add(FoodEntry(name = name, meal = meal, calories = kcal, proteinG = p, carbsG = c, fatG = f, timestampMillis = time))
+                val newEntry = FoodEntry(id = java.util.UUID.randomUUID().toString(), name = name, meal = meal, calories = kcal, proteinG = p, carbsG = c, fatG = f, timestampMillis = time)
+                entries = store.add(newEntry)
+                // Scanned entries keep their photo: save it compressed on
+                // device so the next upload sends it to the database, where
+                // the trainer can see it on the client progress page.
+                // Manually typed entries have no photo to attach.
+                if (!isManual) {
+                    scanImage?.let { bitmap -> FoodPhotoStore.save(context, newEntry.id, bitmap) }
+                    scanImage = null
+                }
                 // Push the updated log to the backend right away so the
                 // trainer progress page sees the new intake without waiting
                 // for the next periodic health sync.

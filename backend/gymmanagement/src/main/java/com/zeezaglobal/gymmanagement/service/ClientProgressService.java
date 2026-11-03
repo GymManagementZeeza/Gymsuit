@@ -78,12 +78,17 @@ public class ClientProgressService {
         }
         Map<LocalDate, int[]> intakeSums = new HashMap<>();
         Map<LocalDate, double[]> intakeMacros = new HashMap<>();
+        Map<LocalDate, List<ClientProgressResponse.IntakeEntry>> intakeByDay = new HashMap<>();
         for (FoodIntakeRecord f : intakes) {
             intakeSums.computeIfAbsent(f.getRecordDate(), k -> new int[1])[0] += f.getCalories() != null ? f.getCalories() : 0;
             double[] macros = intakeMacros.computeIfAbsent(f.getRecordDate(), k -> new double[3]);
             macros[0] += f.getProteinG() != null ? f.getProteinG() : 0;
             macros[1] += f.getCarbsG() != null ? f.getCarbsG() : 0;
             macros[2] += f.getFatG() != null ? f.getFatG() : 0;
+            intakeByDay.computeIfAbsent(f.getRecordDate(), k -> new ArrayList<>())
+                    .add(new ClientProgressResponse.IntakeEntry(f.getExternalId(), f.getMeal(), f.getDishName(),
+                            f.getCalories(), f.getProteinG(), f.getCarbsG(), f.getFatG(),
+                            f.getPhotoData() != null && f.getPhotoData().length > 0));
         }
         Map<LocalDate, int[]> workoutCounts = new HashMap<>();
         Map<LocalDate, Double> workoutCalories = new HashMap<>();
@@ -122,6 +127,7 @@ public class ClientProgressService {
                     macros != null ? macros[0] : null,
                     macros != null ? macros[1] : null,
                     macros != null ? macros[2] : null,
+                    intakeByDay.getOrDefault(d, List.of()),
                     wc != null ? wc[0] : null,
                     workoutCalories.get(d)));
         }
@@ -136,6 +142,22 @@ public class ClientProgressService {
                 member.getEmail(), true, hasAny, start, end, days, workoutDtos);
     }
 
+    /** Raw photo bytes for one intake entry, or empty when the entry has no photo. */
+    @Transactional(readOnly = true)
+    public Optional<byte[]> getIntakePhoto(Long gymId, Long memberId, String externalId) {
+        gymService.getGymOrThrow(gymId);
+        if (!memberRepository.findByIdAndGymId(memberId, gymId).isPresent()) {
+            throw new ResourceNotFoundException("Member not found");
+        }
+        Optional<User> appUser = userRepository.findByMemberId(memberId);
+        if (appUser.isEmpty()) {
+            return Optional.empty();
+        }
+        return foodIntakeRepository.findByUserIdAndExternalId(appUser.get().getId(), externalId)
+                .map(FoodIntakeRecord::getPhotoData)
+                .filter(bytes -> bytes != null && bytes.length > 0);
+    }
+
     private ClientProgressResponse.Day dayFor(LocalDate date, DailyHealthRecord r,
                                               Integer intake, double[] macros, Integer workoutCount) {
         return new ClientProgressResponse.Day(date, r.getSteps(), r.getActiveCalories(), r.getTotalCalories(),
@@ -143,6 +165,6 @@ public class ClientProgressService {
                 r.getMinHeartRateBpm(), r.getMaxHeartRateBpm(), r.getSleepDurationMinutes(),
                 r.getSleepStartTime(), r.getSleepEndTime(), r.getWeightKg(), r.getSourceDevice(),
                 intake, macros != null ? macros[0] : null, macros != null ? macros[1] : null,
-                macros != null ? macros[2] : null, workoutCount, null);
+                macros != null ? macros[2] : null, List.of(), workoutCount, null);
     }
 }

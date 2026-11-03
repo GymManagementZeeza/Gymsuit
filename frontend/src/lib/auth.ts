@@ -170,6 +170,18 @@ export async function authFetch<T>(path: string, options: RequestInit = {}): Pro
   return (await res.json()) as T;
 }
 
+/** Like authFetch, but returns the raw bytes — for authenticated images such as meal photos. */
+export async function authFetchBlob(path: string): Promise<Blob | null> {
+  const res = await fetchWithAuth(path);
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    return throwApiError(res);
+  }
+  return await res.blob();
+}
+
 // Like authFetch, but a 404 resolves to null instead of throwing — for "does this exist" lookups.
 export async function authFetchOptional<T>(path: string): Promise<T | null> {
   const res = await fetchWithAuth(path);

@@ -18,7 +18,9 @@ public record FoodIntakeSyncRequest(
             Integer calories,
             Double proteinG,
             Double carbsG,
-            Double fatG
+            Double fatG,
+            /** Optional compressed JPEG, base64-encoded. Absent = keep any photo already stored. */
+            String photoBase64
     ) {
     }
 }

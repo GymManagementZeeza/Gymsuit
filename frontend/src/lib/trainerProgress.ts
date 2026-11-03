@@ -1,4 +1,15 @@
-import { authFetch } from "@/lib/auth";
+import { authFetch, authFetchBlob } from "@/lib/auth";
+
+export type IntakeEntry = {
+  externalId: string;
+  meal: string | null;
+  dishName: string | null;
+  calories: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  hasPhoto: boolean;
+};
 
 export type ProgressDay = {
   date: string;
@@ -19,6 +30,7 @@ export type ProgressDay = {
   intakeProteinG: number | null;
   intakeCarbsG: number | null;
   intakeFatG: number | null;
+  intakeEntries: IntakeEntry[];
   workoutCount: number | null;
   workoutCalories: number | null;
 };
@@ -51,4 +63,12 @@ export function getClientProgress(gymId: number, memberId: number, from: string,
   return authFetch<ClientProgress>(
     `/api/gyms/${gymId}/members/${memberId}/progress?from=${from}&to=${to}`,
   );
+}
+
+/** Fetches one meal photo as a blob URL for an <img> tag (the endpoint needs auth, so a plain <img src> cannot be used). */
+export async function getClientIntakePhotoUrl(gymId: number, memberId: number, externalId: string) {
+  const blob = await authFetchBlob(
+    `/api/gyms/${gymId}/members/${memberId}/progress/photo/${externalId}`,
+  );
+  return blob ? URL.createObjectURL(blob) : null;
 }

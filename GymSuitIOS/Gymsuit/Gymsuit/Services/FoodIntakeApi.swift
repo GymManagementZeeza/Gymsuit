@@ -20,13 +20,17 @@ public final class FoodIntakeApi {
 
     public init() {}
 
+    /// - Parameter photos: compressed JPEG data keyed by entry id. Only
+    ///   photos in this map are sent; entries without one keep whatever
+    ///   photo the backend already has, so periodic syncs do not re-send
+    ///   photos.
     @discardableResult
-    public func sync(entries: [FoodEntry]) async -> Bool {
+    public func sync(entries: [FoodEntry], photos: [String: Data] = [:]) async -> Bool {
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return false }
         guard let url = URL(string: "\(baseURL)/sync") else { return false }
         let body: [String: Any] = [
-            "entries": entries.map { entry in
-                [
+            "entries": entries.map { entry -> [String: Any] in
+                var dict: [String: Any] = [
                     "externalId": entry.id,
                     "recordDate": dateFormatter.string(from: entry.date),
                     "meal": entry.meal.rawValue,
@@ -35,7 +39,11 @@ public final class FoodIntakeApi {
                     "proteinG": entry.proteinG,
                     "carbsG": entry.carbsG,
                     "fatG": entry.fatG,
-                ] as [String: Any]
+                ]
+                if let photo = photos[entry.id] {
+                    dict["photoBase64"] = photo.base64EncodedString()
+                }
+                return dict
             }
         ]
         var request = URLRequest(url: url)

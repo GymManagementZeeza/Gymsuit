@@ -52,8 +52,14 @@ class HealthSyncManager(private val context: Context) {
             return@withContext false
         }
         try {
-            val result = foodApi.sync(foodStore.getAll())
-            result.onSuccess { count -> Log.i(TAG, "Food intake synced: $count entries") }
+            // Only not-yet-uploaded meal photos ride along; the rest of the
+            // log syncs as before and already-stored photos are untouched.
+            val pendingPhotos = FoodPhotoStore.pendingPhotos(context.applicationContext)
+            val result = foodApi.sync(foodStore.getAll(), pendingPhotos)
+            result.onSuccess { count ->
+                Log.i(TAG, "Food intake synced: $count entries, ${pendingPhotos.size} photos")
+                FoodPhotoStore.markUploaded(context.applicationContext, pendingPhotos.keys)
+            }
             result.isSuccess
         } catch (e: Exception) {
             Log.w(TAG, "Food intake sync caught: ${e.message}")
@@ -63,6 +69,7 @@ class HealthSyncManager(private val context: Context) {
 
     /** Removes one backend intake row after the matching local entry is deleted. Best-effort. */
     suspend fun deleteFoodEntry(entryId: String): Boolean = withContext(Dispatchers.IO) {
+        FoodPhotoStore.delete(context.applicationContext, entryId)
         if (!authManager.isLoggedIn()) {
             return@withContext false
         }

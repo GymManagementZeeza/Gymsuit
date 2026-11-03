@@ -60,6 +60,18 @@ public class FoodIntakeRecord {
 
     private Double fatG;
 
+    /**
+     * The meal photo the client took when logging this entry, compressed
+     * (client-side JPEG, longest side 1024px) before upload. Stored as
+     * bytes so the trainer progress page can serve it without a separate
+     * object store; null for manually typed entries with no photo.
+     */
+    @jakarta.persistence.Lob
+    @Column(name = "photo_data")
+    private byte[] photoData;
+
+    private String photoContentType;
+
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 }
