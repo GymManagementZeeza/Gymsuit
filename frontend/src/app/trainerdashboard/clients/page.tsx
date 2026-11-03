@@ -4,11 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/dashboard/ui";
 import { useSession } from "@/hooks/useSession";
-import { listMembers, assignMemberTrainer, type Member } from "@/lib/members";
+import { listMembers, type Member } from "@/lib/members";
 import { listSessions, type TrainingSession } from "@/lib/sessions";
 import { listSessionRequests, type SessionRequest } from "@/lib/sessionRequests";
 import { sendTodayWorkout, type SuggestedExerciseInput } from "@/lib/trainerWorkouts";
-import { ArrowUpRight, Plus, Search, X } from "lucide-react";
+import { inviteClient, listTrainerInvites, revokeTrainerInvite, type TrainerInvite } from "@/lib/trainerInvites";
+import { Plus, Search, X } from "lucide-react";
 
 const AVATAR_TONES = ["peach", "sky", "mint", "lavender"] as const;
 
@@ -37,8 +38,15 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
-  const [addingId, setAddingId] = useState<number | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [invites, setInvites] = useState<TrainerInvite[]>([]);
+  const [revokingId, setRevokingId] = useState<number | null>(null);
 
   // Send today's workout modal
   const [workoutMember, setWorkoutMember] = useState<Member | null>(null);
@@ -91,20 +99,24 @@ export default function ClientsPage() {
 
   const load = () => {
     if (!gymId) return;
-    Promise.all([listMembers(gymId), listSessions(gymId), listSessionRequests(gymId)])
-      .then(([memberData, sessionData, requestData]) => {
+    // The member directory endpoint only returns this trainer's own clients
+    // for a trainer login, so `members` here is already just "my clients" —
+    // no other trainer's clients and no unassigned pool ever reach the page.
+    const invitesPromise = trainerId ? listTrainerInvites(gymId, trainerId).catch(() => []) : Promise.resolve([]);
+    Promise.all([listMembers(gymId), listSessions(gymId), listSessionRequests(gymId), invitesPromise])
+      .then(([memberData, sessionData, requestData, inviteData]) => {
         setMembers(memberData);
         setSessions(sessionData);
         setRequests(requestData);
+        setInvites(inviteData);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load your clients."))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [gymId]);
+  useEffect(load, [gymId, trainerId]);
 
   const myClients = useMemo(() => members.filter((m) => m.trainerId === trainerId), [members, trainerId]);
-  const unassignedMembers = useMemo(() => members.filter((m) => m.trainerId === null), [members]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -156,19 +168,48 @@ export default function ClientsPage() {
     }).length;
   }, [myClients, upcomingSessionsByMember]);
 
-  const handleAddClient = async (memberId: number) => {
-    if (!gymId || !trainerId) return;
-    setAddingId(memberId);
-    setError(null);
+  const openInviteModal = () => {
+    setInviteEmail("");
+    setInviteFirstName("");
+    setInviteLastName("");
+    setInviteSent(false);
+    setInviteError(null);
+    setInviteOpen(true);
+  };
+
+  const handleInviteClient = async () => {
+    if (!gymId || !trainerId || !inviteEmail.trim()) return;
+    setInviteSending(true);
+    setInviteError(null);
     try {
-      const updated = await assignMemberTrainer(gymId, memberId, trainerId);
-      setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
+      const invite = await inviteClient(gymId, trainerId, {
+        email: inviteEmail.trim(),
+        firstName: inviteFirstName.trim() || undefined,
+        lastName: inviteLastName.trim() || undefined,
+      });
+      setInvites((prev) => [invite, ...prev.filter((i) => i.id !== invite.id)]);
+      setInviteSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add this client.");
+      setInviteError(err instanceof Error ? err.message : "Could not send the invitation.");
     } finally {
-      setAddingId(null);
+      setInviteSending(false);
     }
   };
+
+  const handleRevokeInvite = async (inviteId: number) => {
+    if (!gymId || !trainerId) return;
+    setRevokingId(inviteId);
+    try {
+      await revokeTrainerInvite(gymId, trainerId, inviteId);
+      setInvites((prev) => prev.map((i) => (i.id === inviteId ? { ...i, status: "REVOKED" } : i)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not revoke the invitation.");
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const pendingInvites = useMemo(() => invites.filter((i) => i.status === "PENDING"), [invites]);
 
   return (
     <div className="page-enter space-y-7">
@@ -183,10 +224,10 @@ export default function ClientsPage() {
           />
         </label>
         <button
-          onClick={() => setAddOpen(true)}
+          onClick={openInviteModal}
           className="flex h-10 items-center gap-2 bg-[#c7f36a] px-3.5 text-sm font-bold text-[#25251f] transition hover:bg-[#d8ff8a]"
         >
-          <Plus className="size-4" /> Add client
+          <Plus className="size-4" /> Invite client
         </button>
       </div>
 
@@ -205,7 +246,7 @@ export default function ClientsPage() {
 
           {!loading && filtered.length === 0 && (
             <p className="p-8 text-center text-sm text-[#76766f]">
-              {myClients.length === 0 ? "No clients yet — add one to get started." : "No clients match your search."}
+              {myClients.length === 0 ? "No clients yet — invite one by email to get started." : "No clients match your search."}
             </p>
           )}
 
@@ -259,48 +300,128 @@ export default function ClientsPage() {
         </aside>
       </section>
 
-      {addOpen && (
+      {pendingInvites.length > 0 && (
+        <section className="border border-[#d8d8d1] bg-white">
+          <div className="border-b border-[#e5e5de] p-5">
+            <p className="ledger-label">Pending invitations</p>
+            <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">
+              {pendingInvites.length} {pendingInvites.length === 1 ? "invitation" : "invitations"} waiting for an answer
+            </h2>
+          </div>
+          <div className="divide-y divide-[#ebebe5]">
+            {pendingInvites.map((invite) => (
+              <div className="flex items-center gap-3 p-4" key={invite.id}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">
+                    {[invite.firstName, invite.lastName].filter(Boolean).join(" ") || invite.email}
+                  </p>
+                  <p className="truncate text-xs text-[#74746d]">
+                    {invite.email} · expires {new Date(invite.expiresAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleRevokeInvite(invite.id)}
+                  disabled={revokingId === invite.id}
+                  className="border border-[#d8d8d1] px-3 py-1.5 text-xs font-bold transition hover:bg-[#efefe9] disabled:opacity-50"
+                >
+                  {revokingId === invite.id ? "Revoking…" : "Revoke"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141410]/50 p-4">
           <div className="max-h-[80vh] w-full max-w-md overflow-y-auto border border-[#d8d8d1] bg-white">
             <div className="flex items-center justify-between border-b border-[#e5e5de] p-5">
               <div>
-                <p className="ledger-label">Unassigned members</p>
-                <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">Add a client</h2>
+                <p className="ledger-label">Invite a client</p>
+                <h2 className="mt-2 text-lg font-bold tracking-[-0.02em]">Invite by email</h2>
               </div>
               <button
                 type="button"
-                onClick={() => setAddOpen(false)}
+                onClick={() => setInviteOpen(false)}
                 className="grid size-8 place-items-center transition hover:bg-[#efefe9]"
                 aria-label="Close"
               >
                 <X className="size-4" />
               </button>
             </div>
-            {unassignedMembers.length === 0 ? (
-              <p className="p-8 text-center text-sm text-[#76766f]">
-                Every member already has a trainer. Members can also pick you as their trainer themselves.
-              </p>
+            {inviteSent ? (
+              <div className="p-8 text-center">
+                <p className="text-sm font-bold">Invitation sent!</p>
+                <p className="mt-2 text-sm text-[#76766f]">
+                  {inviteEmail} will get an email with a link to accept. Once they accept, they appear in your
+                  client list — nothing else of the gym&apos;s membership is visible to either of you.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(false)}
+                  className="mt-6 bg-[#c7f36a] px-4 py-2 text-sm font-bold transition hover:bg-[#d8ff8a]"
+                >
+                  Done
+                </button>
+              </div>
             ) : (
-              <div className="divide-y divide-[#ebebe5]">
-                {unassignedMembers.map((m) => (
-                  <div className="flex items-center gap-3 p-4" key={m.id}>
-                    <Avatar initials={initialsOf(m)} tone="peach" size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold">
-                        {m.firstName} {m.lastName}
-                      </p>
-                      <p className="text-xs text-[#74746d]">{m.phone}</p>
-                    </div>
-                    <button
-                      onClick={() => handleAddClient(m.id)}
-                      disabled={addingId === m.id}
-                      className="flex items-center gap-1 bg-[#c7f36a] px-3 py-1.5 text-xs font-bold transition hover:bg-[#d8ff8a] disabled:opacity-50"
-                    >
-                      {addingId === m.id ? "Adding…" : "Add"}
-                      <ArrowUpRight className="size-3.5" />
-                    </button>
+              <div className="space-y-4 p-5">
+                <p className="text-sm text-[#76766f]">
+                  They get an email invitation link. Accepting it makes them your client — whether they are
+                  already a member of this gym or joining for the first time.
+                </p>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a8a82]">Email</label>
+                  <input
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    type="email"
+                    placeholder="client@example.com"
+                    className="mt-1 h-10 w-full border border-[#d8d8d1] px-3 text-sm outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a8a82]">
+                      First name (optional)
+                    </label>
+                    <input
+                      value={inviteFirstName}
+                      onChange={(e) => setInviteFirstName(e.target.value)}
+                      className="mt-1 h-10 w-full border border-[#d8d8d1] px-3 text-sm outline-none"
+                    />
                   </div>
-                ))}
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a8a82]">
+                      Last name (optional)
+                    </label>
+                    <input
+                      value={inviteLastName}
+                      onChange={(e) => setInviteLastName(e.target.value)}
+                      className="mt-1 h-10 w-full border border-[#d8d8d1] px-3 text-sm outline-none"
+                    />
+                  </div>
+                </div>
+                {inviteError && (
+                  <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{inviteError}</div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInviteOpen(false)}
+                    className="h-10 border border-[#d8d8d1] px-4 text-sm font-bold transition hover:bg-[#efefe9]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleInviteClient}
+                    disabled={inviteSending || !inviteEmail.trim()}
+                    className="h-10 bg-[#c7f36a] px-4 text-sm font-bold transition hover:bg-[#d8ff8a] disabled:opacity-50"
+                  >
+                    {inviteSending ? "Sending…" : "Send invitation"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

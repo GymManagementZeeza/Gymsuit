@@ -30,6 +30,7 @@ import com.zeezaglobal.gymmanagement.repository.SessionRequestRepository;
 import com.zeezaglobal.gymmanagement.repository.TrainerRepository;
 import com.zeezaglobal.gymmanagement.repository.UserRepository;
 import com.zeezaglobal.gymmanagement.repository.WeightLogRepository;
+import com.zeezaglobal.gymmanagement.security.SecurityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -57,12 +58,31 @@ public class MemberService {
     private final GymService gymService;
     private final EventPublisher eventPublisher;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityService securityService;
 
     public List<MemberResponse> findAllByGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
         return memberRepository.findAllByGymId(gymId).stream()
                 .map(MemberResponse::fromEntity)
                 .toList();
+    }
+
+    /**
+     * What the caller may see in the member directory. A trainer sees only
+     * their own assigned clients — never the full directory, and never the
+     * unassigned pool they used to pick from. Owners, managers and admins
+     * still see the whole gym.
+     */
+    public List<MemberResponse> findAllVisibleByGym(Long gymId) {
+        gymService.getGymOrThrow(gymId);
+        com.zeezaglobal.gymmanagement.security.UserPrincipal principal = securityService.currentUser();
+        if (principal != null && principal.getRole() == Role.TRAINER && principal.getTrainerId() != null) {
+            return memberRepository.findAllByTrainerId(principal.getTrainerId()).stream()
+                    .filter(m -> m.getGym() != null && gymId.equals(m.getGym().getId()))
+                    .map(MemberResponse::fromEntity)
+                    .toList();
+        }
+        return findAllByGym(gymId);
     }
 
     public MemberResponse findById(Long gymId, Long id) {

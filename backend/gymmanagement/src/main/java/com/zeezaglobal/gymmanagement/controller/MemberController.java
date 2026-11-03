@@ -34,7 +34,9 @@ public class MemberController {
     @GetMapping
     @PreAuthorize("@security.canViewMemberDirectory(#gymId)")
     public List<MemberResponse> getAll(@PathVariable Long gymId) {
-        return memberService.findAllByGym(gymId);
+        // A trainer calling this only gets their own assigned clients back —
+        // the directory endpoint no longer leaks the full member list to them.
+        return memberService.findAllVisibleByGym(gymId);
     }
 
     @GetMapping("/{id}")

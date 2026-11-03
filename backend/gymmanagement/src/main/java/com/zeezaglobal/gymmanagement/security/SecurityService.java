@@ -4,6 +4,7 @@ import com.zeezaglobal.gymmanagement.entity.ManagerAccessScope;
 import com.zeezaglobal.gymmanagement.entity.Role;
 import com.zeezaglobal.gymmanagement.repository.GymManagerAccessRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberPaymentRepository;
+import com.zeezaglobal.gymmanagement.repository.MemberRepository;
 import com.zeezaglobal.gymmanagement.repository.PaymentRepository;
 import com.zeezaglobal.gymmanagement.repository.SessionRequestRepository;
 import com.zeezaglobal.gymmanagement.repository.TrainingSessionRepository;
@@ -21,6 +22,7 @@ public class SecurityService {
     private final PaymentRepository paymentRepository;
     private final MemberPaymentRepository memberPaymentRepository;
     private final GymManagerAccessRepository gymManagerAccessRepository;
+    private final MemberRepository memberRepository;
 
     public UserPrincipal currentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -222,7 +224,12 @@ public class SecurityService {
                         && gymId.equals(user.getGymId()));
     }
 
-    /** Staff may view any member's record; a member may only view their own. */
+    /**
+     * Owners/managers may view any member's record; a trainer only their own
+     * assigned clients; a member only their own record. This keeps a trainer
+     * from opening another trainer's client record by id, matching the
+     * directory scoping in MemberService.
+     */
     public boolean canViewMember(Long gymId, Long memberId) {
         UserPrincipal user = currentUser();
         if (user == null) {
@@ -234,8 +241,13 @@ public class SecurityService {
         if (!gymId.equals(user.getGymId())) {
             return false;
         }
-        if (user.getRole() == Role.OWNER || user.getRole() == Role.MANAGER || user.getRole() == Role.TRAINER) {
+        if (user.getRole() == Role.OWNER || user.getRole() == Role.MANAGER) {
             return true;
+        }
+        if (user.getRole() == Role.TRAINER) {
+            return memberRepository.findByIdAndGymId(memberId, gymId)
+                    .map(m -> m.getTrainer() != null && m.getTrainer().getId().equals(user.getTrainerId()))
+                    .orElse(false);
         }
         return user.getRole() == Role.MEMBER && memberId.equals(user.getMemberId());
     }
