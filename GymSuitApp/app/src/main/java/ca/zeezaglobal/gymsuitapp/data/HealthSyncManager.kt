@@ -8,6 +8,7 @@ import ca.zeezaglobal.gymsuitapp.data.model.HealthSyncRequest
 import ca.zeezaglobal.gymsuitapp.data.model.LoggedWorkout
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSet
 import ca.zeezaglobal.gymsuitapp.data.model.WorkoutSyncDto
+import ca.zeezaglobal.gymsuitapp.data.remote.FoodIntakeApi
 import ca.zeezaglobal.gymsuitapp.data.remote.HealthSyncApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,41 @@ class HealthSyncManager(private val context: Context) {
     private val healthConnectManager = HealthConnectManager(context.applicationContext)
     private val workoutStore = WorkoutStore(context.applicationContext)
     private val api = HealthSyncApi(context.applicationContext)
+    private val foodStore = FoodStore(context.applicationContext)
+    private val foodApi = FoodIntakeApi(context.applicationContext)
+
+    /**
+     * Uploads the whole on-device food log to the backend (idempotent by
+     * entry id). Best-effort: a failure is logged only and never fails
+     * health sync or the food UI. Runs automatically at the end of
+     * [sync] and can also be called right after a food entry is added.
+     */
+    suspend fun syncFoodIntake(): Boolean = withContext(Dispatchers.IO) {
+        if (!authManager.isLoggedIn()) {
+            return@withContext false
+        }
+        try {
+            val result = foodApi.sync(foodStore.getAll())
+            result.onSuccess { count -> Log.i(TAG, "Food intake synced: $count entries") }
+            result.isSuccess
+        } catch (e: Exception) {
+            Log.w(TAG, "Food intake sync caught: ${e.message}")
+            false
+        }
+    }
+
+    /** Removes one backend intake row after the matching local entry is deleted. Best-effort. */
+    suspend fun deleteFoodEntry(entryId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!authManager.isLoggedIn()) {
+            return@withContext false
+        }
+        try {
+            foodApi.delete(entryId)
+        } catch (e: Exception) {
+            Log.w(TAG, "Food intake delete caught: ${e.message}")
+            false
+        }
+    }
     private val prefs = context.getSharedPreferences("health_sync_prefs", Context.MODE_PRIVATE)
 
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
@@ -295,6 +331,7 @@ class HealthSyncManager(private val context: Context) {
                 prefs.edit().putString(KEY_LAST_SYNC_ISO, ISO_FORMATTER.format(Instant.now())).apply()
                 Log.i(TAG, "Sync complete: uploaded ${response.uploadedDailyCount} daily, ${response.uploadedWorkoutCount} workouts")
 
+
                 _syncStatus.value = SyncStatus.Success("All data synced")
                 autoResetJob = CoroutineScope(Dispatchers.Default).launch {
                     delay(3500)
@@ -312,6 +349,14 @@ class HealthSyncManager(private val context: Context) {
                     }
                 }
                 return@withContext false
+            }
+
+            // 7. Upload the food log too, so trainers can see calorie
+            // intake. Best-effort: never fails the health sync above.
+            // (Placed here, not inside onSuccess, because that lambda is
+            // not a suspend scope.)
+            if (result.isSuccess) {
+                syncFoodIntake()
             }
 
             true

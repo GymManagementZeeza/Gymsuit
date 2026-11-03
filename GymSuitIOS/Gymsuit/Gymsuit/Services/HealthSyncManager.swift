@@ -22,6 +22,24 @@ public final class HealthSyncManager: ObservableObject {
 
     private let healthKitManager = HealthKitManager.shared
     private let api = HealthSyncApi.shared
+    private let foodApi = FoodIntakeApi.shared
+
+    /// Uploads the whole on-device food log to the backend (idempotent by
+    /// entry id). Best-effort: a failure never fails health sync or the
+    /// food UI. Runs automatically at the end of [sync] and can also be
+    /// called right after a food entry is added.
+    @discardableResult
+    public func syncFoodIntake() async -> Bool {
+        guard AuthManager.shared.isLoggedIn else { return false }
+        return await foodApi.sync(entries: FoodStore.shared.entries)
+    }
+
+    /// Removes one backend intake row after the matching local entry is deleted. Best-effort.
+    @discardableResult
+    public func deleteFoodEntry(id: String) async -> Bool {
+        guard AuthManager.shared.isLoggedIn else { return false }
+        return await foodApi.delete(externalId: id)
+    }
     private let defaults = UserDefaults.standard
     private let keyLastSync = "health_last_sync_iso"
     private let keyCachedDailyRecords = "health_cached_daily_records"
@@ -332,6 +350,10 @@ public final class HealthSyncManager: ObservableObject {
 
             // 6. Ingest remote points balance & transactions
             PointsStore.shared.mergeRemote(remoteBalance: response.pointsBalance, remoteTransactions: response.pointsTransactions)
+
+            // 7. Upload the food log too, so trainers can see calorie
+            // intake. Best-effort: never fails the health sync above.
+            await syncFoodIntake()
 
             // Save new sync checkpoint
             let nowIso = isoFormatter.string(from: today)

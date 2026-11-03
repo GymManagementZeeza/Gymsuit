@@ -27,6 +27,13 @@ public class FoodIntakeService {
     private final FoodIntakeRepository foodIntakeRepository;
     private final UserRepository userRepository;
 
+    /** Removes one entry the app deleted locally; a no-op when it was never synced. */
+    @Transactional
+    public void deleteByExternalId(String externalId, UserPrincipal principal) {
+        foodIntakeRepository.findByUserIdAndExternalId(principal.getUserId(), externalId)
+                .ifPresent(foodIntakeRepository::delete);
+    }
+
     @Transactional
     public int sync(FoodIntakeSyncRequest request, UserPrincipal principal) {
         User user = userRepository.findById(principal.getUserId())

@@ -94,6 +94,7 @@ import ca.zeezaglobal.gymsuitapp.data.FoodEntry
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionApi
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionUnavailableException
 import ca.zeezaglobal.gymsuitapp.data.FoodStore
+import ca.zeezaglobal.gymsuitapp.data.HealthSyncManager
 import ca.zeezaglobal.gymsuitapp.data.MealType
 import java.time.Instant
 import java.time.LocalDate
@@ -330,7 +331,11 @@ fun FoodLogScreen() {
                                         trailingContent = {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text("${entry.calories} kcal", style = MaterialTheme.typography.labelLarge)
-                                                IconButton(onClick = { entries = store.delete(entry.id) }) {
+                                                IconButton(onClick = {
+                                                    entries = store.delete(entry.id)
+                                                    // Also remove the backend row so the trainer view stops showing it.
+                                                    scope.launch { HealthSyncManager(context).deleteFoodEntry(entry.id) }
+                                                }) {
                                                     Icon(Icons.Outlined.Delete, contentDescription = "Delete ${entry.name}")
                                                 }
                                             }
@@ -401,6 +406,10 @@ fun FoodLogScreen() {
                 val time = if (date == today) Instant.now().toEpochMilli()
                 else date.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
                 entries = store.add(FoodEntry(name = name, meal = meal, calories = kcal, proteinG = p, carbsG = c, fatG = f, timestampMillis = time))
+                // Push the updated log to the backend right away so the
+                // trainer progress page sees the new intake without waiting
+                // for the next periodic health sync.
+                scope.launch { HealthSyncManager(context).syncFoodIntake() }
                 if (isManual) {
                     // Remember it so it shows up in search next time (Room DB + custom_foods.json)
                     scope.launch {

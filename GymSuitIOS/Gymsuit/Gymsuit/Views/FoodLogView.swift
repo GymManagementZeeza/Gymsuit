@@ -344,6 +344,8 @@ struct FoodLogView: View {
                             .foregroundColor(AppColors.textPrimary)
                         Button {
                             store.delete(id: entry.id)
+                            // Also remove the backend row so the trainer view stops showing it.
+                            Task { await HealthSyncManager.shared.deleteFoodEntry(id: entry.id) }
                         } label: {
                             Image(systemName: "trash")
                                 .font(.system(size: 14))
@@ -467,6 +469,10 @@ struct FoodLogView: View {
             fatG: fat,
             timestampMillis: timestampMillis
         ))
+        // Push the updated log to the backend right away so the trainer
+        // progress page sees the new intake without waiting for the next
+        // periodic health sync.
+        Task { await HealthSyncManager.shared.syncFoodIntake() }
         if isManual {
             // Remember it so it shows up in search next time.
             RegionalFoodStore.addCustom(FoodItem(
