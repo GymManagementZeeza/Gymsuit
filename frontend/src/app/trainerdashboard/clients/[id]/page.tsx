@@ -1,7 +1,7 @@
 "use client";
 
 /* Trainer client progress — one client's synced health data from their mobile app. */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
@@ -10,7 +10,21 @@ import {
   type ClientProgress,
   type ProgressDay,
 } from "@/lib/trainerProgress";
-import { ArrowLeft, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Dumbbell,
+  Flame,
+  Footprints,
+  HeartPulse,
+  Moon,
+  RotateCcw,
+  Route,
+  Scale,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
 
 type Range = "D" | "W" | "M" | "3M" | "Y";
 const RANGES: { key: Range; label: string; days: number }[] = [
@@ -110,6 +124,20 @@ export default function ClientProgressPage() {
     return range === "D" ? fmt(anchor) : `${fmt(from)} – ${fmt(anchor)}`;
   })();
 
+  const metricMeta: Record<
+    Metric,
+    { icon: ReactNode; chip: string; bar: string }
+  > = {
+    steps: { icon: <Footprints size={20} />, chip: "bg-sky-100 text-sky-700", bar: "#0284c7" },
+    burned: { icon: <Flame size={20} />, chip: "bg-orange-100 text-orange-700", bar: "#ea580c" },
+    intake: { icon: <UtensilsCrossed size={20} />, chip: "bg-emerald-100 text-emerald-700", bar: "#059669" },
+    heart: { icon: <HeartPulse size={20} />, chip: "bg-rose-100 text-rose-700", bar: "#e11d48" },
+    distance: { icon: <Route size={20} />, chip: "bg-teal-100 text-teal-700", bar: "#0d9488" },
+    sleep: { icon: <Moon size={20} />, chip: "bg-indigo-100 text-indigo-700", bar: "#6366f1" },
+    weight: { icon: <Scale size={20} />, chip: "bg-violet-100 text-violet-700", bar: "#7c3aed" },
+    workouts: { icon: <Dumbbell size={20} />, chip: "bg-amber-100 text-amber-700", bar: "#d97706" },
+  };
+
   const card = (
     metric: Metric,
     title: string,
@@ -122,11 +150,52 @@ export default function ClientProgressPage() {
       onClick={() => setOpenMetric(metric)}
       className="rounded-2xl border border-[#e8e8e2] bg-white p-4 text-left shadow-sm transition hover:border-[#0b5a8a] hover:shadow"
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6b64]">{title}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6b64]">{title}</p>
+        <span className={`rounded-full p-2 ${metricMeta[metric].chip}`}>{metricMeta[metric].icon}</span>
+      </div>
       <p className="mt-2 text-2xl font-bold text-[#1a1a17]">{value}</p>
       <p className="mt-1 text-xs text-[#6b6b64]">{sub} · tap for details</p>
     </button>
   );
+
+  /* Trend graph: bars per day (weekly buckets for long ranges), no chart
+     library — plain SVG so the frontend gains no new dependency. */
+  const [chartMetric, setChartMetric] = useState<"steps" | "burned" | "intake" | "heart">("steps");
+  const chartValue = (d: ProgressDay) =>
+    chartMetric === "steps"
+      ? d.steps
+      : chartMetric === "burned"
+        ? d.activeCalories
+        : chartMetric === "intake"
+          ? d.intakeCalories
+          : d.restingHeartRateBpm;
+  const chartBuckets = useMemo(() => {
+    if (days.length <= 31) {
+      return days.map((d) => ({ label: fmtDay(d.date), value: chartValue(d) }));
+    }
+    const buckets: { label: string; value: number | null; count: number }[] = [];
+    days.forEach((d, i) => {
+      const v = chartValue(d);
+      if (i % 7 === 0) {
+        buckets.push({ label: fmtDay(d.date), value: v, count: v != null ? 1 : 0 });
+      } else {
+        const b = buckets[buckets.length - 1];
+        if (v != null) {
+          b.value = chartMetric === "heart" ? (b.value ?? 0) + v : (b.value ?? 0) + v;
+          b.count += 1;
+        }
+      }
+    });
+    return buckets.map((b) => ({
+      label: b.label,
+      value: b.value != null && chartMetric === "heart" && b.count > 0 ? b.value / b.count : b.value,
+    }));
+  }, [days, chartMetric]);
+  const chartMax = Math.max(1, ...chartBuckets.map((b) => b.value ?? 0));
+  const chartAvg =
+    chartBuckets.filter((b) => b.value != null).reduce((a, b) => a + (b.value ?? 0), 0) /
+    Math.max(1, chartBuckets.filter((b) => b.value != null).length);
 
   const dayRow = (d: ProgressDay, text: string) => (
     <div key={d.date} className="flex items-center justify-between border-b border-[#f0f0ec] py-2 text-sm last:border-0">
@@ -313,6 +382,68 @@ export default function ClientProgressPage() {
         </p>
       )}
 
+      {!loading && data && !notUsingApp && chartBuckets.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-[#e8e8e2] bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-[#1a1a17]">Trend · {rangeLabel}</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {(["steps", "burned", "intake", "heart"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setChartMetric(m)}
+                  className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    chartMetric === m ? "bg-[#0b5a8a] text-white" : "bg-[#f1f1f1] text-[#1a1a17] hover:bg-[#e6e6e6]"
+                  }`}
+                >
+                  <span className="[&>svg]:size-3.5">{metricMeta[m].icon}</span>
+                  {m === "steps" ? "Steps" : m === "burned" ? "Burned" : m === "intake" ? "Intake" : "Heart rate"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {days.length <= 1 ? (
+            <p className="mt-4 text-sm text-[#6b6b64]">
+              One day only — switch to W, M or 3M above to see a trend over time.
+            </p>
+          ) : (
+            <svg viewBox="0 0 600 190" className="mt-3 w-full" role="img" aria-label="Daily trend chart">
+              {chartBuckets.map((b, i) => {
+                const w = 600 / chartBuckets.length;
+                const h = b.value != null ? (b.value / chartMax) * 150 : 0;
+                const avgY = 170 - (chartAvg / chartMax) * 150;
+                return (
+                  <g key={i}>
+                    <rect
+                      x={i * w + Math.max(1, w * 0.15)}
+                      y={170 - h}
+                      width={Math.max(2, w * 0.7)}
+                      height={h}
+                      rx={3}
+                      fill={metricMeta[chartMetric].bar}
+                      opacity={b.value == null ? 0.25 : 1}
+                    >
+                      <title>
+                        {b.label}: {b.value != null ? num(b.value) : "no data"}
+                        {chartMetric === "heart" ? " bpm" : chartMetric === "steps" ? " steps" : " kcal"}
+                      </title>
+                    </rect>
+                    {i === 0 && (
+                      <line x1={0} y1={avgY} x2={600} y2={avgY} stroke="#9ca3af" strokeDasharray="4 4" strokeWidth={1} />
+                    )}
+                  </g>
+                );
+              })}
+              <line x1={0} y1={170} x2={600} y2={170} stroke="#e5e5e0" strokeWidth={1} />
+            </svg>
+          )}
+          <p className="mt-1 text-xs text-[#6b6b64]">
+            {days.length > 31 ? "Weekly totals (weekly average for heart rate)" : "Daily values"} · dashed line is the
+            average · hover a bar for its exact value.
+          </p>
+        </div>
+      )}
+
       {!loading && data && (
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {card("steps", "Steps", num(steps), range === "D" ? "Today" : `${num(steps / Math.max(days.length, 1))} / day avg`)}
@@ -348,7 +479,10 @@ export default function ClientProgressPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[#1a1a17]">{popupTitles[openMetric]}</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[#1a1a17]">
+                <span className={`rounded-full p-2 ${metricMeta[openMetric].chip}`}>{metricMeta[openMetric].icon}</span>
+                {popupTitles[openMetric]}
+              </h2>
               <button
                 type="button"
                 onClick={() => setOpenMetric(null)}
