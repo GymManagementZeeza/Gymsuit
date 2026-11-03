@@ -233,6 +233,7 @@ struct LoginView: View {
                 let session = try await authApi.verifyLoginOtp(email: email, otp: otp)
                 await MainActor.run {
                     self.isLoading = false
+                    FoodStore.shared.claim(forEmail: session.email)
                     self.authManager.saveSession(session)
                     self.onLoginSuccess()
                 }

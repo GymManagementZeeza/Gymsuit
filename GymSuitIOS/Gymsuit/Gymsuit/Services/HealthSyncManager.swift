@@ -24,30 +24,70 @@ public final class HealthSyncManager: ObservableObject {
     private let api = HealthSyncApi.shared
     private let foodApi = FoodIntakeApi.shared
 
-    /// Uploads the whole on-device food log to the backend (idempotent by
-    /// entry id). Best-effort: a failure never fails health sync or the
-    /// food UI. Runs automatically at the end of [sync] and can also be
-    /// called right after a food entry is added.
+    // The food work currently running. New work waits for it: two overlapping
+    // uploads would otherwise insert the same entry twice.
+    private var foodSyncTask: Task<Bool, Never>?
+
+    /// Sends queued deletes, then uploads the food entries and meal photos
+    /// the backend hasn't confirmed yet (idempotent by entry id). Best-effort:
+    /// a failure never fails health sync or the food UI, and whatever didn't
+    /// go through is retried by the next call. Runs automatically at the end
+    /// of [sync] and right after a food entry is added.
     @discardableResult
     public func syncFoodIntake() async -> Bool {
         guard AuthManager.shared.isLoggedIn else { return false }
-        // Only not-yet-uploaded meal photos ride along; the rest of the
-        // log syncs as before and already-stored photos are untouched.
-        let pendingPhotos = FoodPhotoStore.shared.pendingPhotos()
-        let ok = await foodApi.sync(entries: FoodStore.shared.entries, photos: pendingPhotos)
-        if ok {
-            FoodPhotoStore.shared.markUploaded(ids: Array(pendingPhotos.keys))
+        return await runFoodWorkInOrder { [self] in
+            let deletesSent = await sendFoodDeletes()
+            let uploaded = await uploadPendingFood()
+            return deletesSent && uploaded
         }
-        return ok
     }
 
-    /// Removes one backend intake row after the matching local entry is deleted. Best-effort.
+    /// Queues the backend delete for a local entry, so it's retried if this attempt fails.
     @discardableResult
     public func deleteFoodEntry(id: String) async -> Bool {
         FoodPhotoStore.shared.delete(id: id)
+        FoodStore.shared.queueRemoteDelete(id: id)
         guard AuthManager.shared.isLoggedIn else { return false }
-        return await foodApi.delete(externalId: id)
+        return await runFoodWorkInOrder { [self] in await sendFoodDeletes() }
     }
+
+    private func runFoodWorkInOrder(_ work: @escaping @MainActor () async -> Bool) async -> Bool {
+        let previous = foodSyncTask
+        let task = Task { @MainActor in
+            _ = await previous?.value
+            return await work()
+        }
+        foodSyncTask = task
+        return await task.value
+    }
+
+    private func sendFoodDeletes() async -> Bool {
+        for id in FoodStore.shared.pendingRemoteDeletes() {
+            guard await foodApi.delete(externalId: id) else { return false }
+            FoodStore.shared.clearRemoteDelete(id: id)
+        }
+        return true
+    }
+
+    /// Uploads in small batches, recording each one as it succeeds so a backlog makes progress.
+    private func uploadPendingFood() async -> Bool {
+        let uploaded = FoodStore.shared.uploadedIds()
+        let photoSizes = FoodPhotoStore.shared.pendingPhotoSizes()
+        let pending = FoodStore.shared.entries.filter { !uploaded.contains($0.id) || photoSizes[$0.id] != nil }
+        for batch in batchFoodUploads(pending, photoSizes: photoSizes) {
+            var photos: [String: Data] = [:]
+            for entry in batch where photoSizes[entry.id] != nil {
+                photos[entry.id] = FoodPhotoStore.shared.read(id: entry.id)
+            }
+            guard await foodApi.sync(entries: batch, photos: photos) else { return false }
+            FoodStore.shared.markUploaded(ids: batch.map(\.id))
+            // Only photos this batch actually sent, so none is marked done without being uploaded.
+            FoodPhotoStore.shared.markUploaded(ids: Array(photos.keys))
+        }
+        return true
+    }
+
     private let defaults = UserDefaults.standard
     private let keyLastSync = "health_last_sync_iso"
     private let keyCachedDailyRecords = "health_cached_daily_records"

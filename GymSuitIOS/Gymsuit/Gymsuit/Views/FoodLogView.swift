@@ -111,6 +111,8 @@ struct FoodLogView: View {
                     },
                     onManual: {
                         prefill = nil
+                        // A cancelled scan must not attach its photo to this entry.
+                        scanImage = nil
                         activeSheet = .add(meal)
                     }
                 )

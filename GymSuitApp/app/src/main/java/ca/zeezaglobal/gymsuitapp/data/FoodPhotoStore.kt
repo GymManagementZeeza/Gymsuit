@@ -33,13 +33,19 @@ object FoodPhotoStore {
     fun save(context: Context, entryId: String, bitmap: Bitmap): Boolean {
         return try {
             val scaled = scaleDown(bitmap)
-            FileOutputStream(fileFor(context, entryId)).use { out ->
+            // Written to a temp file first: a sync must never pick up a half-written photo.
+            val temp = File(dir(context), "$entryId.tmp")
+            val written = FileOutputStream(temp).use { out ->
                 scaled.compress(Bitmap.CompressFormat.JPEG, 75, out)
             }
             if (scaled !== bitmap) {
                 scaled.recycle()
             }
-            true
+            val saved = written && temp.renameTo(fileFor(context, entryId))
+            if (!saved) {
+                temp.delete()
+            }
+            saved
         } catch (e: Exception) {
             Log.w(TAG, "Failed to save food photo: ${e.message}")
             false
@@ -69,22 +75,23 @@ object FoodPhotoStore {
         }
     }
 
-    /** Photos that exist locally but have not been confirmed uploaded yet. */
-    fun pendingPhotos(context: Context): Map<String, ByteArray> {
+    /**
+     * Sizes in bytes of the photos that exist locally but have not been
+     * confirmed uploaded yet, keyed by entry id. Sizes rather than bytes, so a
+     * backlog is only read into memory one upload batch at a time.
+     */
+    fun pendingPhotoSizes(context: Context): Map<String, Long> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val uploaded = prefs.getStringSet(KEY_UPLOADED, emptySet()) ?: emptySet()
-        val pending = mutableMapOf<String, ByteArray>()
-        dir(context).listFiles()?.forEach { file ->
-            val entryId = file.nameWithoutExtension
-            if (entryId !in uploaded) {
-                try {
-                    pending[entryId] = file.readBytes()
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to read pending food photo: ${e.message}")
-                }
-            }
-        }
-        return pending
+        return dir(context).listFiles().orEmpty()
+            .filter { it.extension == "jpg" && it.nameWithoutExtension !in uploaded }
+            .associate { it.nameWithoutExtension to it.length() }
+    }
+
+    /** Removes every cached photo and its upload tracking, when the log changes owner. */
+    fun clearAll(context: Context) {
+        dir(context).deleteRecursively()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
     }
 
     fun markUploaded(context: Context, entryIds: Collection<String>) {

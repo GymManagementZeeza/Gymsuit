@@ -1,10 +1,10 @@
 import Foundation
 
-/// Uploads the on-device food log (food_log.json) to the backend so the
-/// trainer progress page can read calorie intake from the database.
-/// Uploads are idempotent: the backend upserts by the entry id, so
-/// re-uploading the same log never double-counts. Failures are swallowed —
-/// a food upload must never break health sync or the food UI.
+/// Uploads food log entries (food_log.json) to the backend so the trainer
+/// progress page can read calorie intake from the database. Uploads are
+/// idempotent: the backend upserts by the entry id, so re-sending an entry
+/// never double-counts. Failures are swallowed — a food upload must never
+/// break health sync or the food UI.
 public final class FoodIntakeApi {
     public static let shared = FoodIntakeApi()
 
@@ -22,8 +22,7 @@ public final class FoodIntakeApi {
 
     /// - Parameter photos: compressed JPEG data keyed by entry id. Only
     ///   photos in this map are sent; entries without one keep whatever
-    ///   photo the backend already has, so periodic syncs do not re-send
-    ///   photos.
+    ///   photo the backend already has.
     @discardableResult
     public func sync(entries: [FoodEntry], photos: [String: Data] = [:]) async -> Bool {
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return false }

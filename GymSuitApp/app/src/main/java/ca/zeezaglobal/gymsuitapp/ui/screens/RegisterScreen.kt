@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.R
+import ca.zeezaglobal.gymsuitapp.data.FoodStore
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import kotlinx.coroutines.launch
 
@@ -425,6 +426,7 @@ fun RegisterScreen(
                                 isLoading = false
                                 result.fold(
                                     onSuccess = { session ->
+                                        FoodStore(context).claimFor(session.email)
                                         appComponent.authManager.saveSession(session)
                                         onRegisterSuccess()
                                     },
