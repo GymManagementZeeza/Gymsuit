@@ -29,6 +29,7 @@ import com.zeezaglobal.gymmanagement.repository.SessionEnrollmentRepository;
 import com.zeezaglobal.gymmanagement.repository.SessionRequestRepository;
 import com.zeezaglobal.gymmanagement.repository.TrainerRepository;
 import com.zeezaglobal.gymmanagement.repository.UserRepository;
+import com.zeezaglobal.gymmanagement.repository.FoodIntakeRepository;
 import com.zeezaglobal.gymmanagement.repository.WeightLogRepository;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,7 @@ public class MemberService {
     private final EventPublisher eventPublisher;
     private final PasswordEncoder passwordEncoder;
     private final SecurityService securityService;
+    private final FoodIntakeRepository foodIntakeRepository;
 
     public List<MemberResponse> findAllByGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
@@ -203,7 +205,10 @@ public class MemberService {
         Gym gym = member.getGym();
         String name = member.getFirstName() + " " + member.getLastName();
 
-        userRepository.findByMemberId(member.getId()).ifPresent(userRepository::delete);
+        userRepository.findByMemberId(member.getId()).ifPresent(user -> {
+            foodIntakeRepository.deleteAllByUserId(user.getId());
+            userRepository.delete(user);
+        });
         memberPaymentRepository.deleteAllByMemberId(member.getId());
         memberSubscriptionRepository.deleteAllByMemberId(member.getId());
         checkInRepository.deleteAllByMemberId(member.getId());

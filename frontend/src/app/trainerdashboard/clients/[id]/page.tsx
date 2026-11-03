@@ -1,0 +1,368 @@
+"use client";
+
+/* Trainer client progress — one client's synced health data from their mobile app. */
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useSession } from "@/hooks/useSession";
+import {
+  getClientProgress,
+  type ClientProgress,
+  type ProgressDay,
+} from "@/lib/trainerProgress";
+import { ArrowLeft, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
+
+type Range = "D" | "W" | "M" | "3M" | "Y";
+const RANGES: { key: Range; label: string; days: number }[] = [
+  { key: "D", label: "D", days: 1 },
+  { key: "W", label: "W", days: 7 },
+  { key: "M", label: "M", days: 30 },
+  { key: "3M", label: "3M", days: 90 },
+  { key: "Y", label: "Y", days: 365 },
+];
+
+function stripTime(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function iso(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function addDays(d: Date, n: number) {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+}
+function fmt(d: Date) {
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+function fmtDay(isoDate: string) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+const num = (v: number | null | undefined) => (v == null ? "—" : Math.round(v).toLocaleString());
+
+type Metric = "steps" | "burned" | "intake" | "heart" | "distance" | "sleep" | "weight" | "workouts";
+
+export default function ClientProgressPage() {
+  const params = useParams();
+  const memberId = Number(params.id);
+  const session = useSession();
+  const gymId = session?.gymId ?? null;
+
+  const [range, setRange] = useState<Range>("D");
+  const [anchor, setAnchor] = useState<Date>(() => stripTime(new Date()));
+  const [data, setData] = useState<ClientProgress | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openMetric, setOpenMetric] = useState<Metric | null>(null);
+
+  const rangeDays = RANGES.find((r) => r.key === range)?.days ?? 1;
+  const from = useMemo(() => addDays(anchor, -(rangeDays - 1)), [anchor, rangeDays]);
+  const today = stripTime(new Date());
+  const isToday = anchor.getTime() === today.getTime();
+
+  useEffect(() => {
+    if (!gymId || !Number.isFinite(memberId)) return;
+    setLoading(true);
+    getClientProgress(gymId, memberId, iso(from), iso(anchor))
+      .then((res) => {
+        setData(res);
+        setError(null);
+      })
+      .catch(() => setError("Could not load this client's progress."))
+      .finally(() => setLoading(false));
+  }, [gymId, memberId, from, anchor]);
+
+  const shift = (dir: -1 | 1) => {
+    const next = addDays(anchor, dir * rangeDays);
+    setAnchor(next > today ? today : stripTime(next));
+  };
+
+  const days = data?.days ?? [];
+  const sum = (pick: (d: ProgressDay) => number | null) =>
+    days.reduce((acc, d) => acc + (pick(d) ?? 0), 0);
+  const avg = (pick: (d: ProgressDay) => number | null) => {
+    const values = days.map(pick).filter((v): v is number => v != null);
+    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  };
+  const steps = sum((d) => d.steps);
+  const burned = sum((d) => d.activeCalories);
+  const intake = sum((d) => d.intakeCalories);
+  const distanceKm = sum((d) => (d.distanceMeters ?? 0) / 1000);
+  const sleepAvg = avg((d) => d.sleepDurationMinutes);
+  const restingAvg = avg((d) => d.restingHeartRateBpm);
+  const latestWeight = [...days].reverse().find((d) => d.weightKg != null)?.weightKg ?? null;
+  const workoutCount = data?.workouts.length ?? 0;
+  const workoutCalories = sum((d) => d.workoutCalories);
+  const hasIntake = days.some((d) => d.intakeCalories != null);
+
+  const rangeLabel = (() => {
+    if (isToday) {
+      return { D: "Today", W: "This week", M: "This month", "3M": "Last 3 months", Y: "This year" }[range];
+    }
+    return range === "D" ? fmt(anchor) : `${fmt(from)} – ${fmt(anchor)}`;
+  })();
+
+  const card = (
+    metric: Metric,
+    title: string,
+    value: string,
+    sub: string,
+  ) => (
+    <button
+      key={metric}
+      type="button"
+      onClick={() => setOpenMetric(metric)}
+      className="rounded-2xl border border-[#e8e8e2] bg-white p-4 text-left shadow-sm transition hover:border-[#0b5a8a] hover:shadow"
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6b64]">{title}</p>
+      <p className="mt-2 text-2xl font-bold text-[#1a1a17]">{value}</p>
+      <p className="mt-1 text-xs text-[#6b6b64]">{sub} · tap for details</p>
+    </button>
+  );
+
+  const dayRow = (d: ProgressDay, text: string) => (
+    <div key={d.date} className="flex items-center justify-between border-b border-[#f0f0ec] py-2 text-sm last:border-0">
+      <span className="text-[#6b6b64]">{fmtDay(d.date)}</span>
+      <span className="font-semibold text-[#1a1a17]">{text}</span>
+    </div>
+  );
+
+  const popupBody = () => {
+    if (!data) return null;
+    if (days.length === 0) {
+      return <p className="text-sm text-[#6b6b64]">No data for this period.</p>;
+    }
+    switch (openMetric) {
+      case "steps":
+        return <div>{days.map((d) => dayRow(d, `${num(d.steps)} steps`))}</div>;
+      case "burned":
+        return (
+          <div>
+            {days.map((d) =>
+              dayRow(d, `${num(d.activeCalories)} kcal active${d.totalCalories != null ? ` · ${num(d.totalCalories)} kcal total` : ""}`),
+            )}
+          </div>
+        );
+      case "intake":
+        return hasIntake ? (
+          <div>
+            {days.map((d) =>
+              dayRow(
+                d,
+                `${num(d.intakeCalories)} kcal${d.intakeProteinG != null ? ` · P ${Math.round(d.intakeProteinG)}g · C ${Math.round(d.intakeCarbsG ?? 0)}g · F ${Math.round(d.intakeFatG ?? 0)}g` : ""}`,
+              ),
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-[#6b6b64]">
+            Calorie intake appears here once the client&apos;s app uploads their food log. The food
+            log currently lives on their phone only — no intake has synced yet, so nothing is shown
+            rather than a guessed number.
+          </p>
+        );
+      case "heart":
+        return (
+          <div>
+            {days.map((d) =>
+              dayRow(
+                d,
+                `Resting ${num(d.restingHeartRateBpm)} · latest ${num(d.latestHeartRateBpm)} · ${num(d.minHeartRateBpm)}–${num(d.maxHeartRateBpm)} bpm`,
+              ),
+            )}
+          </div>
+        );
+      case "distance":
+        return <div>{days.map((d) => dayRow(d, `${((d.distanceMeters ?? 0) / 1000).toFixed(2)} km`))}</div>;
+      case "sleep":
+        return (
+          <div>
+            {days.map((d) =>
+              dayRow(
+                d,
+                d.sleepDurationMinutes != null
+                  ? `${(d.sleepDurationMinutes / 60).toFixed(1)} h`
+                  : "No sleep data",
+              ),
+            )}
+          </div>
+        );
+      case "weight":
+        return <div>{days.map((d) => dayRow(d, d.weightKg != null ? `${d.weightKg.toFixed(1)} kg` : "—"))}</div>;
+      case "workouts":
+        return data.workouts.length ? (
+          <div>
+            {data.workouts.map((w, i) => (
+              <div key={i} className="border-b border-[#f0f0ec] py-2 text-sm last:border-0">
+                <p className="font-semibold text-[#1a1a17]">{w.title}</p>
+                <p className="text-[#6b6b64]">
+                  {new Date(w.startTime).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                  {w.durationMinutes != null ? ` · ${w.durationMinutes} min` : ""}
+                  {w.caloriesBurned != null ? ` · ${Math.round(w.caloriesBurned)} kcal` : ""}
+                  {w.setCount != null ? ` · ${w.setCount} sets` : ""}
+                  {w.totalReps != null ? ` · ${w.totalReps} reps` : ""}
+                  {w.totalVolumeKg != null ? ` · ${Math.round(w.totalVolumeKg)} kg volume` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[#6b6b64]">No workouts logged in this period.</p>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const popupTitles: Record<Metric, string> = {
+    steps: "Steps — day by day",
+    burned: "Calories burned — day by day",
+    intake: "Calorie intake — day by day",
+    heart: "Heart rate — day by day",
+    distance: "Distance — day by day",
+    sleep: "Sleep — day by day",
+    weight: "Weight — day by day",
+    workouts: "Workouts in this period",
+  };
+
+  const notUsingApp = data && (!data.hasAppAccount || !data.hasAnyRecords);
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <Link href="/trainerdashboard/clients" className="inline-flex items-center gap-1 text-sm font-semibold text-[#0b5a8a]">
+        <ArrowLeft size={16} /> All clients
+      </Link>
+
+      <h1 className="mt-4 text-2xl font-bold text-[#1a1a17]">
+        {data ? `${data.firstName} ${data.lastName}` : "Client progress"}
+      </h1>
+      {data?.email && <p className="text-sm text-[#6b6b64]">{data.email}</p>}
+
+      {/* Date toggle, as in the reference: D / W / M / 3M / Y pills */}
+      <div className="mt-6 flex flex-wrap gap-2">
+        {RANGES.map((r) => (
+          <button
+            key={r.key}
+            type="button"
+            onClick={() => setRange(r.key)}
+            className={`rounded-full px-6 py-2.5 text-sm font-semibold transition ${
+              range === r.key ? "bg-[#0b5a8a] text-white" : "bg-[#f1f1f1] text-[#1a1a17] hover:bg-[#e6e6e6]"
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Anchor row: label + prev / next / reset */}
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-xl font-semibold text-[#1a1a17]">{rangeLabel}</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => shift(-1)}
+            aria-label="Previous period"
+            className="rounded-full bg-[#f1f1f1] p-3 transition hover:bg-[#e6e6e6]"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => shift(1)}
+            disabled={isToday}
+            aria-label="Next period"
+            className="rounded-full bg-[#f1f1f1] p-3 transition hover:bg-[#e6e6e6] disabled:opacity-40"
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnchor(today)}
+            aria-label="Back to today"
+            className="rounded-full bg-[#f1f1f1] p-3 transition hover:bg-[#e6e6e6]"
+          >
+            <RotateCcw size={18} />
+          </button>
+        </div>
+      </div>
+
+      {loading && <p className="mt-8 text-sm text-[#6b6b64]">Loading progress…</p>}
+      {error && <p className="mt-8 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
+
+      {!loading && notUsingApp && (
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-bold">⚠ This client is not using the mobile app.</p>
+          <p className="mt-1">
+            No health data has synced for them yet. Ask them to sign in to the GymSuit app on their
+            phone and allow health access — their steps, heart rate, calories and workouts will
+            appear here once the app syncs.
+          </p>
+        </div>
+      )}
+
+      {!loading && data && !notUsingApp && days.length === 0 && (
+        <p className="mt-6 rounded-xl bg-[#f7f7f2] px-4 py-3 text-sm text-[#6b6b64]">
+          No data for this period — try a longer range or step back with the arrows.
+        </p>
+      )}
+
+      {!loading && data && (
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {card("steps", "Steps", num(steps), range === "D" ? "Today" : `${num(steps / Math.max(days.length, 1))} / day avg`)}
+          {card("burned", "Calories burned", `${num(burned)} kcal`, "Active calories")}
+          {card(
+            "intake",
+            "Calorie intake",
+            hasIntake ? `${num(intake)} kcal` : "Not synced yet",
+            hasIntake ? "From food log" : "Food log still on phone",
+          )}
+          {card(
+            "heart",
+            "Heart rate",
+            restingAvg != null ? `${Math.round(restingAvg)} bpm` : "—",
+            "Avg resting",
+          )}
+          {card("distance", "Distance", `${distanceKm.toFixed(1)} km`, "Total")}
+          {card(
+            "sleep",
+            "Sleep",
+            sleepAvg != null ? `${(sleepAvg / 60).toFixed(1)} h` : "—",
+            "Avg per night",
+          )}
+          {card("weight", "Weight", latestWeight != null ? `${latestWeight.toFixed(1)} kg` : "—", "Latest recorded")}
+          {card("workouts", "Workouts", `${workoutCount}`, `${num(workoutCalories)} kcal in workouts`)}
+        </div>
+      )}
+
+      {openMetric && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setOpenMetric(null)}>
+          <div
+            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#1a1a17]">{popupTitles[openMetric]}</h2>
+              <button
+                type="button"
+                onClick={() => setOpenMetric(null)}
+                aria-label="Close"
+                className="rounded-full bg-[#f1f1f1] p-2 hover:bg-[#e6e6e6]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-[#6b6b64]">{rangeLabel}</p>
+            <div className="mt-4">{popupBody()}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

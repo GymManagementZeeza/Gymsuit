@@ -26,5 +26,7 @@ public interface WorkoutRecordRepository extends JpaRepository<WorkoutRecord, Lo
     @Query("SELECT DISTINCT w.user.id FROM WorkoutRecord w WHERE w.startTime BETWEEN :start AND :end")
     List<Long> findUserIdsWithWorkouts(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    boolean existsByUserId(Long userId);
+
     void deleteAllByUserId(Long userId);
 }

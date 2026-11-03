@@ -27,5 +27,7 @@ public interface DailyHealthRecordRepository extends JpaRepository<DailyHealthRe
     @Query("SELECT DISTINCT r.user.id FROM DailyHealthRecord r WHERE r.recordDate BETWEEN :start AND :end")
     List<Long> findUserIdsWithRecords(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
+    boolean existsByUserId(Long userId);
+
     void deleteAllByUserId(Long userId);
 }

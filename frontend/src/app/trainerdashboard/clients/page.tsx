@@ -2,6 +2,7 @@
 
 /* Training Ledger page: Client desk — the trainer's actual assigned members and their real bookings. */
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/dashboard/ui";
 import { useSession } from "@/hooks/useSession";
 import { listMembers, type Member } from "@/lib/members";
@@ -28,6 +29,7 @@ function formatWhen(iso: string) {
 }
 
 export default function ClientsPage() {
+  const router = useRouter();
   const session = useSession();
   const gymId = session?.gymId ?? null;
   const trainerId = session?.trainerId ?? null;
@@ -255,7 +257,12 @@ export default function ClientsPage() {
               const next = upcomingSessionsByMember.get(client.id);
               const sessionCount = sessionCountByMember.get(client.id) ?? 0;
               return (
-                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center" key={client.id}>
+                <div
+                  className="flex cursor-pointer flex-col gap-4 p-5 transition hover:bg-[#f7f7f2] sm:flex-row sm:items-center"
+                  key={client.id}
+                  onClick={() => router.push(`/trainerdashboard/clients/${client.id}`)}
+                  title="Open this client's progress"
+                >
                   <div className="flex min-w-0 items-center gap-3 sm:w-56">
                     <Avatar initials={initialsOf(client)} tone={AVATAR_TONES[index % AVATAR_TONES.length]} />
                     <div className="min-w-0">
@@ -274,7 +281,10 @@ export default function ClientsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => openWorkoutModal(client)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openWorkoutModal(client);
+                    }}
                     className="flex items-center gap-1 bg-[#c7f36a] px-3 py-1.5 text-xs font-bold transition hover:bg-[#d8ff8a]"
                   >
                     Send workout
