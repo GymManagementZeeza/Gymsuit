@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { logout } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
+import { BUILD_INFO } from "@/generated/build-info";
 import { getCurrentUser } from "@/lib/users";
 import { getTrainer } from "@/lib/trainers";
 import { listSessionRequests } from "@/lib/sessionRequests";
@@ -234,6 +235,11 @@ export function TrainerShell({ children }: { children: ReactNode }) {
           <p className="display-face mb-6 text-2xl leading-[1.05] tracking-[-0.03em] sm:text-3xl">{title}</p>
           {children}
         </main>
+        <footer className="shrink-0 px-4 pb-5 sm:px-7 lg:px-9">
+          <p className="text-[11px] text-[#a3a39a]">
+            Version {BUILD_INFO.version} · Built {BUILD_INFO.builtAt}
+          </p>
+        </footer>
       </div>
 
       {logoutConfirmOpen && (
