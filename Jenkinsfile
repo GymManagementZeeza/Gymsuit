@@ -7,7 +7,7 @@ pipeline {
         COMPOSE_DOCKER_CLI_BUILD = '1'
         NEXT_PUBLIC_API_BASE_URL = 'https://api.gymsuit.app'
         APP_CORS_ALLOWED_ORIGINS = 'https://gymsuit.app,http://gymsuit.app,http://localhost:3000,http://localhost:3001'
-        SPRING_DATASOURCE_URL = 'jdbc:mysql://192.168.0.2:3306/gymmanagement'
+        SPRING_DATASOURCE_URL = 'jdbc:mysql://192.168.0.37:3306/gymmanagement'
         SPRING_DATASOURCE_USERNAME = 'athul'
     }
 

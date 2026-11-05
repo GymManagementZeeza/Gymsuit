@@ -44,7 +44,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://192.168.0.2:3306/gymmanagement}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://192.168.0.37:3306/gymmanagement}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-athul}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       APP_JWT_SECRET: ${APP_JWT_SECRET}
@@ -57,7 +57,7 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
-      FOOD_RECOGNITION_URL: ${FOOD_RECOGNITION_URL:-http://192.168.0.2:8001/predict}
+      FOOD_RECOGNITION_URL: ${FOOD_RECOGNITION_URL:-http://192.168.0.37:8001/predict}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-gymsuit}
