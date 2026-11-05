@@ -49,18 +49,26 @@ public final class FoodPhotoStore {
         }
     }
 
-    /// Photos that exist locally but have not been confirmed uploaded yet.
-    public func pendingPhotos() -> [String: Data] {
+    /// Sizes in bytes of the photos that exist locally but have not been
+    /// confirmed uploaded yet, keyed by entry id. Sizes rather than data, so a
+    /// backlog is only read into memory one upload batch at a time.
+    public func pendingPhotoSizes() -> [String: Int] {
         let uploaded = Set(UserDefaults.standard.stringArray(forKey: uploadedKey) ?? [])
-        var pending: [String: Data] = [:]
-        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        var pending: [String: Int] = [:]
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.fileSizeKey])) ?? []
         for file in files where file.pathExtension == "jpg" {
             let entryId = file.deletingPathExtension().lastPathComponent
-            if !uploaded.contains(entryId), let data = try? Data(contentsOf: file) {
-                pending[entryId] = data
+            if !uploaded.contains(entryId) {
+                pending[entryId] = (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
             }
         }
         return pending
+    }
+
+    /// Removes every cached photo and its upload tracking.
+    public func clearAll() {
+        try? FileManager.default.removeItem(at: directory)
+        UserDefaults.standard.removeObject(forKey: uploadedKey)
     }
 
     public func markUploaded(ids: [String]) {

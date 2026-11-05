@@ -67,7 +67,7 @@ public class FoodIntakeRecord {
      * object store; null for manually typed entries with no photo.
      */
     @jakarta.persistence.Lob
-    @Column(name = "photo_data")
+    @Column(name = "photo_data", columnDefinition = "MEDIUMBLOB")
     private byte[] photoData;
 
     private String photoContentType;

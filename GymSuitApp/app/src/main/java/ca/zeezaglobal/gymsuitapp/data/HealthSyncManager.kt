@@ -14,6 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,44 +44,74 @@ class HealthSyncManager(private val context: Context) {
     private val foodApi = FoodIntakeApi(context.applicationContext)
 
     /**
-     * Uploads the whole on-device food log to the backend (idempotent by
-     * entry id). Best-effort: a failure is logged only and never fails
-     * health sync or the food UI. Runs automatically at the end of
-     * [sync] and can also be called right after a food entry is added.
+     * Sends queued deletes, then uploads the food entries and meal photos the
+     * backend hasn't confirmed yet (idempotent by entry id). Best-effort: a
+     * failure is logged only and never fails health sync or the food UI, and
+     * whatever didn't go through is retried by the next call. Runs
+     * automatically at the end of [sync] and right after a food entry is added.
      */
     suspend fun syncFoodIntake(): Boolean = withContext(Dispatchers.IO) {
         if (!authManager.isLoggedIn()) {
             return@withContext false
         }
         try {
-            // Only not-yet-uploaded meal photos ride along; the rest of the
-            // log syncs as before and already-stored photos are untouched.
-            val pendingPhotos = FoodPhotoStore.pendingPhotos(context.applicationContext)
-            val result = foodApi.sync(foodStore.getAll(), pendingPhotos)
-            result.onSuccess { count ->
-                Log.i(TAG, "Food intake synced: $count entries, ${pendingPhotos.size} photos")
-                FoodPhotoStore.markUploaded(context.applicationContext, pendingPhotos.keys)
+            foodSyncMutex.withLock {
+                val deletesSent = sendFoodDeletes()
+                uploadPendingFood() && deletesSent
             }
-            result.isSuccess
         } catch (e: Exception) {
             Log.w(TAG, "Food intake sync caught: ${e.message}")
             false
         }
     }
 
-    /** Removes one backend intake row after the matching local entry is deleted. Best-effort. */
+    /** Queues the backend delete for a local entry, so it's retried if this attempt fails. */
     suspend fun deleteFoodEntry(entryId: String): Boolean = withContext(Dispatchers.IO) {
         FoodPhotoStore.delete(context.applicationContext, entryId)
+        foodStore.queueRemoteDelete(entryId)
         if (!authManager.isLoggedIn()) {
             return@withContext false
         }
         try {
-            foodApi.delete(entryId)
+            foodSyncMutex.withLock { sendFoodDeletes() }
         } catch (e: Exception) {
             Log.w(TAG, "Food intake delete caught: ${e.message}")
             false
         }
     }
+
+    private suspend fun sendFoodDeletes(): Boolean {
+        for (id in foodStore.pendingRemoteDeletes()) {
+            if (!foodApi.delete(id)) {
+                return false
+            }
+            foodStore.clearRemoteDelete(id)
+        }
+        return true
+    }
+
+    /** Uploads in small batches, recording each one as it succeeds so a backlog makes progress. */
+    private suspend fun uploadPendingFood(): Boolean {
+        val appContext = context.applicationContext
+        val uploaded = foodStore.uploadedIds()
+        val photoSizes = FoodPhotoStore.pendingPhotoSizes(appContext)
+        val pending = foodStore.getAll().filter { it.id !in uploaded || it.id in photoSizes }
+        for (batch in batchFoodUploads(pending, photoSizes)) {
+            val photos = batch.filter { it.id in photoSizes }
+                .mapNotNull { entry -> FoodPhotoStore.read(appContext, entry.id)?.let { entry.id to it } }
+                .toMap()
+            val result = foodApi.sync(batch, photos)
+            if (result.isFailure) {
+                return false
+            }
+            Log.i(TAG, "Food intake synced: ${batch.size} entries, ${photos.size} photos")
+            foodStore.markUploaded(batch.map { it.id })
+            // Only photos this batch actually sent, so none is marked done without being uploaded.
+            FoodPhotoStore.markUploaded(appContext, photos.keys)
+        }
+        return true
+    }
+
     private val prefs = context.getSharedPreferences("health_sync_prefs", Context.MODE_PRIVATE)
 
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
@@ -92,6 +124,9 @@ class HealthSyncManager(private val context: Context) {
         private const val KEY_LAST_SYNC_ISO = "last_sync_iso"
         private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         private val ISO_FORMATTER = DateTimeFormatter.ISO_INSTANT
+        // Shared across instances: each screen creates its own manager, and two
+        // overlapping uploads would otherwise insert the same entry twice.
+        private val foodSyncMutex = Mutex()
     }
 
     suspend fun sync(): Boolean = withContext(Dispatchers.IO) {

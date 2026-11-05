@@ -255,6 +255,7 @@ struct RegisterView: View {
                 )
                 await MainActor.run {
                     self.isLoading = false
+                    FoodStore.shared.claim(forEmail: session.email)
                     self.authManager.saveSession(session)
                     self.onRegisterSuccess()
                 }

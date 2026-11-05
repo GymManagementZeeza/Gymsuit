@@ -277,6 +277,7 @@ struct SettingsView: View {
         deleteError = nil
         do {
             try await MobileAuthApi.shared.deleteAccount(accessToken: token)
+            FoodStore.shared.clearAll()
             authManager.clear()
             onLogout()
         } catch {

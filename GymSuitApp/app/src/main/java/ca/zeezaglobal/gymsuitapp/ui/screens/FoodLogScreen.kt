@@ -377,6 +377,8 @@ fun FoodLogScreen() {
             onManual = {
                 chooserMeal = null
                 prefill = null
+                // A cancelled scan must not attach its photo to this entry.
+                scanImage = null
                 addForMeal = meal
             }
         )
