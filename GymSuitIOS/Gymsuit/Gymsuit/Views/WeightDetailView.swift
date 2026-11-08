@@ -440,7 +440,9 @@ struct WeightDetailView: View {
     private func loadHistory() async {
         let samples = await HealthKitManager.shared.fetchWeightSamples(days: 30)
         await MainActor.run {
-            self.historySamples = samples
+            // History shows every sample, including ones written back from
+            // the server; the tuple's fromBackend flag is dropped here.
+            self.historySamples = samples.map { (date: $0.date, kg: $0.kg) }
             self.isLoadingHistory = false
         }
     }

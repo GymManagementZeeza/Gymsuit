@@ -8,6 +8,7 @@ import com.zeezaglobal.gymmanagement.dto.MemberTrainerRequest;
 import com.zeezaglobal.gymmanagement.dto.MemberWeightRequest;
 import com.zeezaglobal.gymmanagement.dto.WeightLogResponse;
 import com.zeezaglobal.gymmanagement.entity.ActivityType;
+import com.zeezaglobal.gymmanagement.entity.DailyHealthRecord;
 import com.zeezaglobal.gymmanagement.entity.Gym;
 import com.zeezaglobal.gymmanagement.entity.Member;
 import com.zeezaglobal.gymmanagement.entity.NotificationChannel;
@@ -21,6 +22,7 @@ import com.zeezaglobal.gymmanagement.exception.ConflictException;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
 import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.CheckInRepository;
+import com.zeezaglobal.gymmanagement.repository.DailyHealthRecordRepository;
 import com.zeezaglobal.gymmanagement.repository.GymTransactionRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberPaymentRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberRepository;
@@ -37,6 +39,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -55,6 +58,7 @@ public class MemberService {
     private final SessionRequestRepository sessionRequestRepository;
     private final GymTransactionRepository gymTransactionRepository;
     private final WeightLogRepository weightLogRepository;
+    private final DailyHealthRecordRepository dailyHealthRecordRepository;
     private final TrainerRepository trainerRepository;
     private final GymService gymService;
     private final EventPublisher eventPublisher;
@@ -151,6 +155,23 @@ public class MemberService {
         member.setWeightKg(request.weightKg());
         member = memberRepository.save(member);
         logWeightIfPresent(member);
+        // A weight logged in the app must also reach today's daily health
+        // record — the weekly report reads weight from there, and this
+        // endpoint never touched it, so manual weigh-ins never showed.
+        userRepository.findByMemberId(id).ifPresent(user -> {
+            LocalDate today = LocalDate.now();
+            DailyHealthRecord record = dailyHealthRecordRepository
+                    .findByUserIdAndRecordDate(user.getId(), today)
+                    .orElseGet(() -> {
+                        DailyHealthRecord d = new DailyHealthRecord();
+                        d.setUser(user);
+                        d.setRecordDate(today);
+                        return d;
+                    });
+            record.setWeightKg(request.weightKg());
+            record.setUpdatedAt(LocalDateTime.now());
+            dailyHealthRecordRepository.save(record);
+        });
         return MemberResponse.fromEntity(member);
     }
 

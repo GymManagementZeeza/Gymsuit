@@ -1166,7 +1166,11 @@ public final class HealthKitManager: ObservableObject {
         }
     }
 
-    public func fetchWeightSamples(days: Int = 30) async -> [(date: Date, kg: Double)] {
+    /// Weight samples, oldest first. `fromBackend` marks samples this app
+    /// wrote back from the server (metadata `syncedFromBackend`); sync
+    /// uploads must skip those, or the server value would loop back as if
+    /// the user had weighed in again.
+    public func fetchWeightSamples(days: Int = 30) async -> [(date: Date, kg: Double, fromBackend: Bool)] {
         guard isAvailable, let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else { return [] }
         let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date(), options: .strictEndDate)
@@ -1179,7 +1183,9 @@ public final class HealthKitManager: ObservableObject {
                     return
                 }
                 let results = quantitySamples.map {
-                    (date: $0.startDate, kg: $0.quantity.doubleValue(for: .gramUnit(with: .kilo)))
+                    (date: $0.startDate,
+                     kg: $0.quantity.doubleValue(for: .gramUnit(with: .kilo)),
+                     fromBackend: $0.metadata?["ca.zeezaglobal.Gymsuit.syncedFromBackend"] as? Bool ?? false)
                 }
                 continuation.resume(returning: results)
             }

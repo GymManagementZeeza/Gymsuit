@@ -145,6 +145,17 @@ class HealthSyncManager(private val context: Context) {
             val today = LocalDate.now()
 
             // 1. Gather local Health Connect daily metrics for past 7 days
+            // Weight: the latest Health Connect sample on or before each day.
+            // readWeightHistory was only used by the weight screens until now,
+            // so weight never reached the server — the report averaged whatever
+            // stale rows the backend still held, which is how a phantom
+            // 5.7 kg drop appeared in one week.
+            val weightHistory = try {
+                healthConnectManager.readWeightHistory()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read weight history for sync", e)
+                emptyList()
+            }
             val dailyDtos = mutableListOf<DailyHealthSyncDto>()
             for (offset in 0 until 7) {
                 val targetDate = today.minusDays(offset.toLong())
@@ -154,8 +165,10 @@ class HealthSyncManager(private val context: Context) {
                 val cal = healthConnectManager.readCaloriesBreakdownForDate(targetDate)
                 val hr = healthConnectManager.tryReadHeartRateDataForDate(targetDate)
                 val sleep = healthConnectManager.readDetailedSleepForDate(targetDate)
+                val dayEnd = targetDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+                val weightForDay = weightHistory.filter { it.time <= dayEnd }.maxByOrNull { it.time }?.kg
 
-                val hasData = progress.steps > 0 || cal.hasData || hr?.hasData == true || sleep?.hasData == true
+                val hasData = progress.steps > 0 || cal.hasData || hr?.hasData == true || sleep?.hasData == true || weightForDay != null
                 if (hasData) {
                     var sStartIso: String? = null
                     var sEndIso: String? = null
@@ -178,6 +191,7 @@ class HealthSyncManager(private val context: Context) {
                             sleepDurationMinutes = if (sleep?.hasData == true && sleep.totalSleepMinutes > 0) sleep.totalSleepMinutes else null,
                             sleepStartTime = sStartIso,
                             sleepEndTime = sEndIso,
+                            weightKg = weightForDay,
                             sourceDevice = "ANDROID_HEALTH_CONNECT"
                         )
                     )
@@ -282,7 +296,13 @@ class HealthSyncManager(private val context: Context) {
                             }
 
                             remote.weightKg?.let { wt ->
-                                if (wt > 0) healthConnectManager.insertWeight(wt, endOfDay)
+                                // Only fill the gap: if Health Connect already has
+                                // a sample that day, writing the server value
+                                // again would plant a duplicate sample.
+                                val hasLocalWeightThatDay = weightHistory.any {
+                                    it.time >= startOfDay && it.time < endOfDay
+                                }
+                                if (wt > 0 && !hasLocalWeightThatDay) healthConnectManager.insertWeight(wt, endOfDay)
                             }
                         } catch (e: Exception) {
                             Log.w(TAG, "Error writing remote daily record to Health Connect", e)

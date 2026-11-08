@@ -177,6 +177,15 @@ public final class HealthSyncManager: ObservableObject {
             let today = Date()
 
             // 1. Collect local daily records for the past 7 days
+            // Weight: the latest Apple Health sample on or before each day,
+            // excluding samples this app wrote back from the server (those
+            // are tagged fromBackend — uploading them would loop the server
+            // value back as a new weigh-in). fetchWeightSamples was only
+            // used by the weight history screen until now, so weight never
+            // reached the server — the report averaged whatever stale rows
+            // the backend still held, which is how a phantom 5.7 kg drop
+            // appeared in one week.
+            let weightSamples = await healthKitManager.fetchWeightSamples(days: 90)
             var dailyDtos: [DailyHealthSyncDto] = []
             for offset in 0..<7 {
                 guard let targetDate = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
@@ -187,8 +196,12 @@ public final class HealthSyncManager: ObservableObject {
                 let distanceMeters = await healthKitManager.fetchDistanceMeters(for: targetDate)
                 let hr = await healthKitManager.fetchHeartRateSummary(for: targetDate)
                 let sleep = await healthKitManager.fetchSleepSession(for: targetDate)
+                let dayEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: targetDate)) ?? targetDate
+                let weightForDay = weightSamples
+                    .filter { !$0.fromBackend && $0.date <= dayEnd }
+                    .max(by: { $0.date < $1.date })?.kg
 
-                let hasData = steps > 0 || calories.hasData || (distanceMeters != nil && distanceMeters! > 0) || (hr?.hasData == true && (hr?.latestBpm ?? 0) > 0) || sleep != nil
+                let hasData = steps > 0 || calories.hasData || (distanceMeters != nil && distanceMeters! > 0) || (hr?.hasData == true && (hr?.latestBpm ?? 0) > 0) || sleep != nil || weightForDay != nil
                 if hasData {
                     var sleepStartIso: String? = nil
                     var sleepEndIso: String? = nil
@@ -210,6 +223,7 @@ public final class HealthSyncManager: ObservableObject {
                         sleepDurationMinutes: sleep?.durationMinutes,
                         sleepStartTime: sleepStartIso,
                         sleepEndTime: sleepEndIso,
+                        weightKg: weightForDay,
                         sourceDevice: "IOS_APPLE_HEALTH"
                     ))
                 }
@@ -310,7 +324,15 @@ public final class HealthSyncManager: ObservableObject {
                 }
 
                 if let weight = remote.weightKg, weight > 0 {
-                    _ = await healthKitManager.writeWeight(kg: weight, date: recordDate)
+                    // Only fill the gap: if Apple Health already has a
+                    // sample that day, writing the server value again
+                    // would plant a duplicate sample.
+                    let hasLocalWeightThatDay = weightSamples.contains {
+                        calendar.isDate($0.date, inSameDayAs: recordDate)
+                    }
+                    if !hasLocalWeightThatDay {
+                        _ = await healthKitManager.writeWeight(kg: weight, date: recordDate)
+                    }
                 }
             }
 

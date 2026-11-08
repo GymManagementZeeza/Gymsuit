@@ -1514,10 +1514,13 @@ class HealthConnectManager(private val context: Context) {
                     })
                 }
                 dataJson.put("weight_records", weightsArray)
-                dataJson.put("latest_weight_kg", weightResponse.records.maxByOrNull { it.time }?.weight?.inKilograms ?: 75.0)
+                // No fabricated fallback: with no weight records there is
+                // simply no latest weight, not a made-up 75.0 kg.
+                weightResponse.records.maxByOrNull { it.time }?.weight?.inKilograms?.let {
+                    dataJson.put("latest_weight_kg", it)
+                }
             } catch (e: Exception) {
                 dataJson.put("weight_error", e.message)
-                dataJson.put("latest_weight_kg", 75.0)
             }
 
             // 2. Sleep Sessions
@@ -1665,7 +1668,7 @@ class HealthConnectManager(private val context: Context) {
                 deviceSdkAvailable = false,
                 healthData = ca.zeezaglobal.gymsuitapp.data.model.HealthDataPayload(
                     weightRecords = emptyList(),
-                    latestWeightKg = 75.0,
+                    latestWeightKg = null,
                     sleepSessions = emptyList(),
                     latestSleepMinutes = 465,
                     latestSleepFormatted = "7h 45m",
@@ -1698,7 +1701,9 @@ class HealthConnectManager(private val context: Context) {
         } catch (e: Exception) {
             emptyList()
         }
-        val latestWeight = weightRecords.lastOrNull()?.weightKg ?: 75.0
+        // No fabricated fallback: with no weight records there is simply
+        // no latest weight, not a made-up 75.0 kg.
+        val latestWeight = weightRecords.lastOrNull()?.weightKg
 
         // 2. Sleep Sessions for targetDate
         val sleepSessions = try {

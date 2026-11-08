@@ -78,7 +78,7 @@ public class HealthReportService {
             double totalDistanceKm,
             Double avgSleepMinutes,
             Integer avgRestingHr,
-            Double avgWeightKg,
+            Double latestWeightKg,
             List<DailyHealthRecord> dailyRecords,
             List<WorkoutRecord> workouts,
             List<ExerciseSummary> exercises) {
@@ -129,8 +129,11 @@ public class HealthReportService {
         int sleepCount = 0;
         long restingHrSum = 0;
         int restingHrCount = 0;
-        double weightSum = 0;
-        int weightCount = 0;
+        // Weekly weight is the LATEST measurement in the week, not an
+        // average: averaging a sparse set of daily rows (some stale, some
+        // fresh) is what produced a phantom 5.7 kg drop in one week.
+        // `daily` is ordered by date ascending, so the last value wins.
+        Double latestWeightKg = null;
         int daysWithSteps = 0;
         for (DailyHealthRecord r : daily) {
             if (r.getSteps() != null && r.getSteps() > 0) {
@@ -150,8 +153,7 @@ public class HealthReportService {
                 restingHrCount++;
             }
             if (r.getWeightKg() != null && r.getWeightKg() > 0) {
-                weightSum += r.getWeightKg();
-                weightCount++;
+                latestWeightKg = r.getWeightKg();
             }
         }
 
@@ -163,7 +165,7 @@ public class HealthReportService {
                 totalActiveCalories, totalDistanceKm,
                 sleepCount > 0 ? (double) sleepSum / sleepCount : null,
                 restingHrCount > 0 ? (int) Math.round((double) restingHrSum / restingHrCount) : null,
-                weightCount > 0 ? weightSum / weightCount : null,
+                latestWeightKg,
                 daily, workouts, exercises);
     }
 
@@ -270,11 +272,11 @@ public class HealthReportService {
                                                 (double) (d.avgRestingHr() - p.avgRestingHr()), true) : null)
                         : statCard("❤️", "–", "avg. resting heart rate", null));
         gridRow(sb,
-                d.avgWeightKg() != null
-                        ? statCard("⚖️", fmt1(d.avgWeightKg()) + " kg", "avg. weight",
-                                p != null && p.avgWeightKg() != null
-                                        ? weightPill(d.avgWeightKg() - p.avgWeightKg()) : null)
-                        : statCard("⚖️", "–", "avg. weight", null),
+                d.latestWeightKg() != null
+                        ? statCard("⚖️", fmt1(d.latestWeightKg()) + " kg", "latest weight",
+                                p != null && p.latestWeightKg() != null
+                                        ? weightPill(d.latestWeightKg() - p.latestWeightKg()) : null)
+                        : statCard("⚖️", "–", "latest weight", null),
                 statCard("💪", fmt1(d.totalVolumeKg()) + " kg", "total volume lifted",
                         p != null ? deltaPill(fmt1(Math.abs(d.totalVolumeKg() - p.totalVolumeKg())) + " kg",
                                 d.totalVolumeKg() - p.totalVolumeKg(), false) : null),
