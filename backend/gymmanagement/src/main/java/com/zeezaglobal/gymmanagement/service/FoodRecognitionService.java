@@ -54,54 +54,6 @@ public class FoodRecognitionService {
         this.restClient = RestClient.builder().build();
     }
 
-    /*
-     * =========================================================================
-     * Legacy Python Inference Service Code (Commented Out)
-     * =========================================================================
-     *
-     * private final RestTemplate restTemplate;
-     * private final String inferenceUrl;
-     *
-     * public FoodRecognitionService(
-     *         @Value("${app.food-recognition.url:http://localhost:8001/predict}") String inferenceUrl) {
-     *     this.inferenceUrl = inferenceUrl;
-     *     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-     *     factory.setConnectTimeout(3000);
-     *     factory.setReadTimeout(15000);
-     *     this.restTemplate = new RestTemplate(factory);
-     * }
-     *
-     * public FoodRecognitionResponse recognizeLegacy(MultipartFile image) throws IOException {
-     *     ByteArrayResource resource = new ByteArrayResource(image.getBytes()) {
-     *         @Override
-     *         public String getFilename() {
-     *             return image.getOriginalFilename() != null ? image.getOriginalFilename() : "dish.jpg";
-     *         }
-     *     };
-     *     MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-     *     body.add("image", resource);
-     *
-     *     HttpHeaders headers = new HttpHeaders();
-     *     headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-     *     HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
-     *
-     *     try {
-     *         FoodRecognitionResponse response =
-     *                 restTemplate.postForObject(inferenceUrl, request, FoodRecognitionResponse.class);
-     *         if (response == null) {
-     *             throw new FoodRecognitionUnavailableException("Inference service returned no prediction.");
-     *         }
-     *         return response;
-     *     } catch (RestClientException e) {
-     *         log.warn("Food recognition service unreachable at {}: {}", inferenceUrl, e.getMessage());
-     *         throw new FoodRecognitionUnavailableException(
-     *                 "Food recognition service is not running. Start it with: "
-     *                         + "uvicorn inference_server:app --port 8001 (from FoodImageTraining/)");
-     *     }
-     * }
-     * =========================================================================
-     */
-
     public FoodRecognitionResponse recognize(MultipartFile image) throws IOException {
         final String activeApiKey;
         final String activeModel;

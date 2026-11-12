@@ -12,7 +12,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Thrown when the backend answers 503 — its inference server is down. */
+/** Thrown when the backend answers 503 — food recognition is unavailable. */
 class FoodRecognitionUnavailableException(message: String) : Exception(message)
 
 data class FoodRecognitionResult(
@@ -24,9 +24,8 @@ data class FoodRecognitionResult(
 
 /**
  * Meal recognition via the backend (`POST /api/mobile/food/recognize`), which
- * proxies to the trained FastAPI inference server. Replaces the old on-device
- * ONNX Food-101 classifier: the model now lives on the server, the app only
- * uploads the photo. Multipart body, field `image`.
+ * identifies the dish with a vision model server-side; the app only uploads
+ * the photo. Multipart body, field `image`.
  */
 class FoodRecognitionApi(private val context: Context) {
 

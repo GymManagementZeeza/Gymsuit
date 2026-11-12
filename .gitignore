@@ -23,4 +23,3 @@ DerivedData/
 firebase-service-account.json
 # Build artifacts — never commit
 *.aab
-FoodImageTraining/
