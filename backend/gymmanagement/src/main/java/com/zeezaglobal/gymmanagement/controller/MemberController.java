@@ -40,7 +40,7 @@ public class MemberController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@security.canViewMember(#gymId, #id)")
+    @PreAuthorize("@security.canReadMemberNutrition(#gymId, #id)")
     public MemberResponse getById(@PathVariable Long gymId, @PathVariable Long id) {
         return memberService.findById(gymId, id);
     }
@@ -76,7 +76,7 @@ public class MemberController {
     }
 
     @GetMapping("/{id}/weight-history")
-    @PreAuthorize("@security.canViewMember(#gymId, #id)")
+    @PreAuthorize("@security.canReadMemberNutrition(#gymId, #id)")
     public List<WeightLogResponse> getWeightHistory(@PathVariable Long gymId, @PathVariable Long id) {
         return memberService.findWeightHistory(gymId, id);
     }

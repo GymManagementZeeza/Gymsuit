@@ -5,7 +5,7 @@ export type CurrentUser = {
   userId: number;
   email: string;
   displayName: string;
-  role: "ADMIN" | "OWNER" | "MANAGER" | "TRAINER" | "MEMBER";
+  role: "ADMIN" | "OWNER" | "MANAGER" | "TRAINER" | "NUTRITIONIST" | "MEMBER";
   gymId: number | null;
   trainerId: number | null;
   memberId: number | null;

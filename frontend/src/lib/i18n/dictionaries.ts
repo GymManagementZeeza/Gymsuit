@@ -48,6 +48,7 @@ const en = {
     OWNER: "Owner",
     MANAGER: "Manager",
     TRAINER: "Trainer",
+    NUTRITIONIST: "Nutrition expert",
     MEMBER: "Member",
   },
   header: {
@@ -256,6 +257,7 @@ const ml: DeepPartial<Dictionary> = {
     OWNER: "ഉടമ",
     MANAGER: "മാനേജർ",
     TRAINER: "പരിശീലകൻ",
+    NUTRITIONIST: "പോഷകാഹാര വിദഗ്ധൻ",
     MEMBER: "അംഗം",
   },
   header: {

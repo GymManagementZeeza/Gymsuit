@@ -59,6 +59,7 @@ public class MobileAuthService {
             if (!user.isEnabled()) {
                 throw new BadRequestException("This account is disabled. Please contact your gym administrator.");
             }
+            rejectWebOnlyRole(user);
         }
 
         otpService.generate(cleanEmail);
@@ -74,6 +75,7 @@ public class MobileAuthService {
         if (!user.isEnabled()) {
             throw new BadRequestException("This account is disabled. Please contact your gym administrator.");
         }
+        rejectWebOnlyRole(user);
 
         UserPrincipal principal = new UserPrincipal(user);
         return issueMobileSession(principal, user);
@@ -143,8 +145,17 @@ public class MobileAuthService {
         if (!user.isEnabled()) {
             throw new BadRequestException("This account is disabled. Please contact your gym administrator.");
         }
+        rejectWebOnlyRole(user);
 
         return issueMobileSession(principal, user);
+    }
+
+    /** Nutrition experts only have a web dashboard — the mobile apps are built for members. */
+    private void rejectWebOnlyRole(User user) {
+        if (user.getRole() == Role.NUTRITIONIST) {
+            throw new BadRequestException(
+                    "Nutrition expert accounts sign in on the web dashboard at gymsuit.app, not in the mobile app.");
+        }
     }
 
     @Transactional

@@ -54,6 +54,10 @@ public class User {
     @JoinColumn(name = "manager_id")
     private Manager manager;
 
+    /** Display name for roles with no linked person record (e.g. NUTRITIONIST). Null for everyone else. */
+    @Column(name = "full_name")
+    private String fullName;
+
     @Column(nullable = false)
     private boolean enabled = true;
 }

@@ -54,6 +54,8 @@ public class AuthService {
     private final HealthRawRecordRepository healthRawRecordRepository;
     private final HealthRecordTombstoneRepository healthRecordTombstoneRepository;
     private final OtpCodeRepository otpCodeRepository;
+    private final com.zeezaglobal.gymmanagement.repository.NutritionistClientRepository nutritionistClientRepository;
+    private final com.zeezaglobal.gymmanagement.repository.NutritionistInviteRepository nutritionistInviteRepository;
 
     public LoginResponse login(LoginRequest request) {
         var authentication = authenticationManager.authenticate(
@@ -145,6 +147,9 @@ public class AuthService {
         healthRawRecordRepository.deleteAllByUserId(userId);
         healthRecordTombstoneRepository.deleteAllByUserId(userId);
         otpCodeRepository.deleteAllByEmail(user.getEmail());
+        // A nutritionist's client links and invites belong to them; a member's links go with their member record.
+        nutritionistClientRepository.deleteAllByNutritionistId(userId);
+        nutritionistInviteRepository.deleteAllByNutritionistId(userId);
         // Challenges created by this user stay for the other participants;
         // clear the creator so the non-nullable FK does not block the delete.
         for (Challenge challenge : challengeRepository.findAllByCreatedBy(user)) {

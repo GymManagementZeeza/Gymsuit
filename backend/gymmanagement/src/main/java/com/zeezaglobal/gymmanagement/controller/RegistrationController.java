@@ -3,6 +3,11 @@ package com.zeezaglobal.gymmanagement.controller;
 import com.zeezaglobal.gymmanagement.dto.LoginResponse;
 import com.zeezaglobal.gymmanagement.dto.MemberRegisterRequest;
 import com.zeezaglobal.gymmanagement.dto.MembershipPlanResponse;
+import com.zeezaglobal.gymmanagement.dto.EmailRequest;
+import com.zeezaglobal.gymmanagement.dto.NutritionistRegisterRequest;
+import com.zeezaglobal.gymmanagement.security.AuthRateLimiter;
+import com.zeezaglobal.gymmanagement.service.NutritionistService;
+import jakarta.servlet.http.HttpServletRequest;
 import com.zeezaglobal.gymmanagement.dto.OwnerRegisterRequest;
 import com.zeezaglobal.gymmanagement.security.RefreshCookieFactory;
 import com.zeezaglobal.gymmanagement.service.MembershipPlanService;
@@ -28,6 +33,8 @@ public class RegistrationController {
     private final RegistrationService registrationService;
     private final MembershipPlanService membershipPlanService;
     private final RefreshCookieFactory refreshCookieFactory;
+    private final NutritionistService nutritionistService;
+    private final AuthRateLimiter rateLimiter;
 
     @PostMapping("/owner")
     public ResponseEntity<LoginResponse> registerOwner(@Valid @RequestBody OwnerRegisterRequest request) {
@@ -37,6 +44,22 @@ public class RegistrationController {
     @PostMapping("/member")
     public ResponseEntity<LoginResponse> registerMember(@Valid @RequestBody MemberRegisterRequest request) {
         return withRefreshCookie(registrationService.registerMember(request));
+    }
+
+    /** Standalone nutrition expert sign-up, step 1: email a verification code to a new address. */
+    @PostMapping("/nutritionist/code")
+    public ResponseEntity<Void> sendNutritionistCode(@Valid @RequestBody EmailRequest request, HttpServletRequest httpRequest) {
+        rateLimiter.check(AuthRateLimiter.Action.OTP_SEND, request.email(), httpRequest);
+        nutritionistService.sendSignupCode(request.email());
+        return ResponseEntity.accepted().build();
+    }
+
+    /** Step 2: verify the code and create the account (no gym). Signs the new nutritionist in. */
+    @PostMapping("/nutritionist")
+    public ResponseEntity<LoginResponse> registerNutritionist(
+            @Valid @RequestBody NutritionistRegisterRequest request, HttpServletRequest httpRequest) {
+        rateLimiter.check(AuthRateLimiter.Action.OTP_VERIFY, request.email(), httpRequest);
+        return withRefreshCookie(nutritionistService.register(request));
     }
 
     /** Public plan list a prospective member can pick from before they have an account — no auth yet. */
