@@ -1,6 +1,7 @@
 package com.zeezaglobal.gymmanagement.controller;
 
 import com.zeezaglobal.gymmanagement.dto.NutritionistClientResponse;
+import com.zeezaglobal.gymmanagement.dto.NutritionistInviteAcceptRequest;
 import com.zeezaglobal.gymmanagement.dto.NutritionistInvitePreviewResponse;
 import com.zeezaglobal.gymmanagement.dto.NutritionistInviteRequest;
 import com.zeezaglobal.gymmanagement.dto.NutritionistInviteResponse;
@@ -64,7 +65,8 @@ public class NutritionistController {
     }
 
     @PostMapping("/api/nutritionist-invites/{token}/accept")
-    public Map<String, String> accept(@PathVariable String token) {
-        return Map.of("nutritionistName", nutritionistService.accept(token));
+    public Map<String, String> accept(
+            @PathVariable String token, @RequestBody(required = false) NutritionistInviteAcceptRequest signup) {
+        return Map.of("nutritionistName", nutritionistService.accept(token, signup));
     }
 }

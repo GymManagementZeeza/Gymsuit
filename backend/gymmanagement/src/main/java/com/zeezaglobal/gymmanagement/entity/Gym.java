@@ -70,6 +70,13 @@ public class Gym {
     @JoinColumn(name = "owner_id")
     private Manager owner;
 
+    /**
+     * True only for the single built-in "GymSuit Independent" gym that holds members who signed up without
+     * a gym (app sign-up with no gym, or a standalone nutritionist's invite). Hidden from gym search; it has
+     * no owner. Null on gyms created before this column existed, which means false.
+     */
+    private Boolean independent;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "gym_managers",

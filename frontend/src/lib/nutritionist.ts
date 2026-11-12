@@ -29,6 +29,7 @@ export type NutritionInvitePreview = {
   status: InviteStatus;
   expiresAt: string;
   hasAccount: boolean;
+  staffAccount: boolean;
 };
 
 export function listNutritionClients() {
@@ -71,9 +72,13 @@ export function previewNutritionInvite(token: string) {
   return publicRequest<NutritionInvitePreview>(`/api/nutritionist-invites/${encodeURIComponent(token)}`);
 }
 
-export function acceptNutritionInvite(token: string) {
+/** Accepts an invite. `signup` is required only when the invited email has no GymSuit account yet. */
+export function acceptNutritionInvite(
+  token: string,
+  signup?: { firstName: string; lastName: string; phone: string },
+) {
   return publicRequest<{ nutritionistName: string }>(
     `/api/nutritionist-invites/${encodeURIComponent(token)}/accept`,
-    { method: "POST" },
+    { method: "POST", body: signup ? JSON.stringify(signup) : undefined },
   );
 }

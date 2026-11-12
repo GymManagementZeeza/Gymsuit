@@ -11,6 +11,8 @@ public record NutritionistInvitePreviewResponse(
         TrainerInviteStatus status,
         Instant expiresAt,
         /** True when a GymSuit member account with this email exists, so accepting can link it right away. */
-        boolean hasAccount
+        boolean hasAccount,
+        /** True when the email belongs to a staff/nutritionist login, which can't be linked as a client. */
+        boolean staffAccount
 ) {
 }

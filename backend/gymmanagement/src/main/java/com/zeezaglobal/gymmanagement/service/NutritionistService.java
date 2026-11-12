@@ -2,10 +2,12 @@ package com.zeezaglobal.gymmanagement.service;
 
 import com.zeezaglobal.gymmanagement.dto.LoginResponse;
 import com.zeezaglobal.gymmanagement.dto.NutritionistClientResponse;
+import com.zeezaglobal.gymmanagement.dto.NutritionistInviteAcceptRequest;
 import com.zeezaglobal.gymmanagement.dto.NutritionistInvitePreviewResponse;
 import com.zeezaglobal.gymmanagement.dto.NutritionistInviteRequest;
 import com.zeezaglobal.gymmanagement.dto.NutritionistInviteResponse;
 import com.zeezaglobal.gymmanagement.dto.NutritionistRegisterRequest;
+import com.zeezaglobal.gymmanagement.entity.Member;
 import com.zeezaglobal.gymmanagement.entity.NutritionistClient;
 import com.zeezaglobal.gymmanagement.entity.NutritionistInvite;
 import com.zeezaglobal.gymmanagement.entity.Role;
@@ -15,6 +17,7 @@ import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import com.zeezaglobal.gymmanagement.exception.ConflictException;
 import com.zeezaglobal.gymmanagement.exception.ResourceNotFoundException;
 import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
+import com.zeezaglobal.gymmanagement.repository.MemberRepository;
 import com.zeezaglobal.gymmanagement.repository.NutritionistClientRepository;
 import com.zeezaglobal.gymmanagement.repository.NutritionistInviteRepository;
 import com.zeezaglobal.gymmanagement.repository.UserRepository;
@@ -30,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -53,6 +57,8 @@ public class NutritionistService {
     private final SecurityService securityService;
     private final EventPublisher eventPublisher;
     private final PasswordEncoder passwordEncoder;
+    private final MemberRepository memberRepository;
+    private final IndependentGymService independentGymService;
 
     @Value("${app.diet-url:https://diet.gymsuit.app}")
     private String dietUrl;
@@ -170,23 +176,26 @@ public class NutritionistService {
     /** Public: what the accept page shows for a token. */
     public NutritionistInvitePreviewResponse preview(String token) {
         NutritionistInvite invite = getInviteOrThrow(token);
-        boolean hasAccount = userRepository.findByEmail(invite.getEmail())
-                .map(u -> u.getMember() != null)
-                .orElse(false);
+        User existing = userRepository.findByEmail(invite.getEmail()).orElse(null);
+        boolean hasAccount = existing != null && existing.getMember() != null;
+        boolean staffAccount = existing != null && existing.getMember() == null;
         return new NutritionistInvitePreviewResponse(
                 displayName(invite.getNutritionist()),
                 invite.getEmail(),
                 invite.getStatus(),
                 invite.getExpiresAt(),
-                hasAccount);
+                hasAccount,
+                staffAccount);
     }
 
     /**
-     * Public: accept an invite. The emailed token proves the invitee controls the address. Their nutrition data
-     * lives on their GymSuit member account, so one must already exist for this email.
+     * Public: accept an invite. The emailed token proves the invitee controls the address, so it is the only
+     * credential needed. If that email already has a GymSuit member account it is linked as-is; if it has no
+     * account at all, {@code signup} (name + phone) creates one in the Independent gym first. The new member
+     * then signs in to the GymSuit app with that email and a code.
      */
     @Transactional
-    public String accept(String token) {
+    public String accept(String token, NutritionistInviteAcceptRequest signup) {
         NutritionistInvite invite = getInviteOrThrow(token);
         if (invite.getStatus() != TrainerInviteStatus.PENDING) {
             throw new BadRequestException("This invitation is no longer valid");
@@ -197,18 +206,24 @@ public class NutritionistService {
             throw new BadRequestException("This invitation has expired — ask your nutritionist to send a new one");
         }
 
-        User client = userRepository.findByEmail(invite.getEmail())
-                .filter(u -> u.getMember() != null)
-                .orElseThrow(() -> new BadRequestException(
-                        "There's no GymSuit app account for " + invite.getEmail()
-                                + " yet. Install the GymSuit app, sign up with this email, then open this link again."));
+        User client = userRepository.findByEmail(invite.getEmail()).orElse(null);
+        Member member;
+        if (client == null) {
+            member = registerInvitedClient(invite.getEmail(), signup);
+        } else if (client.getMember() != null) {
+            member = client.getMember();
+        } else {
+            // A gym owner/trainer/manager or another nutritionist — no member profile holds their nutrition data.
+            throw new BadRequestException(
+                    invite.getEmail() + " is a staff account, not a GymSuit app account, so it can't be linked. "
+                            + "Ask your nutritionist to invite the email you use in the GymSuit app.");
+        }
 
         Long nutritionistId = invite.getNutritionist().getId();
-        Long memberId = client.getMember().getId();
-        if (!clientRepository.existsByNutritionistIdAndMemberId(nutritionistId, memberId)) {
+        if (!clientRepository.existsByNutritionistIdAndMemberId(nutritionistId, member.getId())) {
             NutritionistClient link = new NutritionistClient();
             link.setNutritionist(invite.getNutritionist());
-            link.setMember(client.getMember());
+            link.setMember(member);
             link.setLinkedAt(Instant.now());
             clientRepository.save(link);
         }
@@ -216,6 +231,34 @@ public class NutritionistService {
         invite.setAcceptedAt(Instant.now());
         inviteRepository.save(invite);
         return displayName(invite.getNutritionist());
+    }
+
+    /** Creates a GymSuit member account (member + MEMBER user) for an invited email with no account yet. */
+    private Member registerInvitedClient(String email, NutritionistInviteAcceptRequest signup) {
+        if (signup == null || isBlank(signup.firstName()) || isBlank(signup.lastName()) || isBlank(signup.phone())) {
+            throw new BadRequestException("First name, last name and phone are required to create your account");
+        }
+        Member member = new Member();
+        member.setGym(independentGymService.get());
+        member.setFirstName(signup.firstName().trim());
+        member.setLastName(signup.lastName().trim());
+        member.setEmail(email);
+        member.setPhone(signup.phone().trim());
+        member.setJoinDate(LocalDate.now());
+        member.setWaiverAccepted(true);
+        member.setJoiningFeePaid(true);
+        member = memberRepository.save(member);
+
+        // Signs in to the app via email code; the schema still needs a password, so store unusable filler.
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setRole(Role.MEMBER);
+        user.setGym(member.getGym());
+        user.setMember(member);
+        user.setEnabled(true);
+        userRepository.save(user);
+        return member;
     }
 
     // ---- Helpers --------------------------------------------------------------------------------------------
@@ -247,6 +290,10 @@ public class NutritionistService {
         return user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : user.getEmail();
     }
 
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
@@ -264,8 +311,8 @@ public class NutritionistService {
                 + "<p><a href=\"" + link + "\" style=\"display:inline-block;background:#2563eb;color:#fff;"
                 + "padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;\">"
                 + "Accept invitation</a></p>"
-                + "<p style=\"font-size:12px;color:#777;\">Don't have the GymSuit app yet? Install it and sign up with "
-                + escape(email) + " first, then open the link.</p>"
+                + "<p style=\"font-size:12px;color:#777;\">New to GymSuit? You can create your account right from "
+                + "this link, then sign in to the GymSuit app with " + escape(email) + ".</p>"
                 + "<p style=\"font-size:12px;color:#777;\">Or open this link: " + link + "</p>"
                 + "<p style=\"font-size:12px;color:#777;\">This invitation expires in 7 days. "
                 + "If you weren't expecting it, you can ignore this email.</p>"

@@ -30,6 +30,7 @@ public class MobileOnboardingService {
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
     private final GymRepository gymRepository;
+    private final IndependentGymService independentGymService;
     private final WeightLogRepository weightLogRepository;
     private final DailyHealthRecordRepository dailyHealthRecordRepository;
     private final com.zeezaglobal.gymmanagement.repository.WorkoutRecordRepository workoutRecordRepository;
@@ -50,13 +51,7 @@ public class MobileOnboardingService {
         if (user != null && user.getGym() != null) {
             defaultGym = user.getGym();
         } else {
-            defaultGym = gymRepository.findAll().stream().findFirst().orElseGet(() -> {
-                Gym gym = new Gym();
-                gym.setName("GymSuit Global");
-                gym.setEmail("support@gymsuit.app");
-                gym.setPhone("18005550199");
-                return gymRepository.save(gym);
-            });
+            defaultGym = independentGymService.get();
         }
 
         Member member = null;
@@ -79,7 +74,7 @@ public class MobileOnboardingService {
                     .findFirst()
                     .orElseGet(() -> {
                         Member m = new Member();
-                        Gym g = gymRepository.findAll().stream().findFirst().orElse(null);
+                        Gym g = independentGymService.get();
                         m.setGym(g);
                         m.setEmail(cleanEmail);
                         m.setFirstName(cleanEmail);

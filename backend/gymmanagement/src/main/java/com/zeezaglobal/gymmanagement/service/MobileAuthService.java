@@ -42,6 +42,7 @@ public class MobileAuthService {
     private final GymRepository gymRepository;
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
+    private final IndependentGymService independentGymService;
     private final EmailService emailService;
 
     public void sendOtp(MobileSendOtpRequest request) {
@@ -98,13 +99,7 @@ public class MobileAuthService {
             gym = gymRepository.findById(request.gymId()).orElse(null);
         }
         if (gym == null) {
-            gym = gymRepository.findAll().stream().findFirst().orElseGet(() -> {
-                Gym defaultGym = new Gym();
-                defaultGym.setName("GymSuit Global");
-                defaultGym.setEmail("support@gymsuit.app");
-                defaultGym.setPhone(request.phone());
-                return gymRepository.save(defaultGym);
-            });
+            gym = independentGymService.get();
         }
 
         // Create Member entity
@@ -166,19 +161,13 @@ public class MobileAuthService {
             throw new ConflictException("An account with email " + cleanEmail + " already exists");
         }
 
-        // Determine Gym association (provided ID, or first available gym, or create default system gym)
+        // Determine Gym association: the chosen gym, or the built-in Independent gym when none was picked
         Gym gym = null;
         if (request.gymId() != null) {
             gym = gymRepository.findById(request.gymId()).orElse(null);
         }
         if (gym == null) {
-            gym = gymRepository.findAll().stream().findFirst().orElseGet(() -> {
-                Gym defaultGym = new Gym();
-                defaultGym.setName("GymSuit Global");
-                defaultGym.setEmail("support@gymsuit.app");
-                defaultGym.setPhone(request.phone());
-                return gymRepository.save(defaultGym);
-            });
+            gym = independentGymService.get();
         }
 
         // Create Member entity
