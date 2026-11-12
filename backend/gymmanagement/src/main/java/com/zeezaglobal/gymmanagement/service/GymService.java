@@ -45,6 +45,7 @@ public class GymService {
 
     public List<GymSearchResult> search(String query) {
         return gymRepository.findByNameContainingIgnoreCase(query).stream()
+                .filter(gym -> !Boolean.TRUE.equals(gym.getIndependent()))
                 .map(GymSearchResult::fromEntity)
                 .toList();
     }

@@ -92,6 +92,7 @@ public class PaymentService {
             case TRAINER -> paymentRepository.findAllByGymIdAndTrainerIdOrderByPeriodStartDesc(gymId, user.getTrainerId());
             case MANAGER -> paymentRepository.findAllByGymIdAndManagerIdOrderByPeriodStartDesc(gymId, user.getManagerId());
             case MEMBER -> throw new BadRequestException("Members do not have payment records");
+            case NUTRITIONIST -> throw new BadRequestException("Nutritionists do not have payment records");
         };
 
         return payments.stream().map(PaymentResponse::fromEntity).toList();

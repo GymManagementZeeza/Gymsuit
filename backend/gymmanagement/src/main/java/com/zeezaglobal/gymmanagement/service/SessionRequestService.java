@@ -51,6 +51,7 @@ public class SessionRequestService {
             case ADMIN, OWNER, MANAGER -> sessionRequestRepository.findAllByGymId(gymId);
             case TRAINER -> sessionRequestRepository.findAllByGymIdAndTrainerId(gymId, user.getTrainerId());
             case MEMBER -> sessionRequestRepository.findAllByGymIdAndMemberId(gymId, user.getMemberId());
+            case NUTRITIONIST -> List.of();
         };
 
         return requests.stream().map(SessionRequestResponse::fromEntity).toList();

@@ -10,6 +10,7 @@ import com.zeezaglobal.gymmanagement.repository.ChallengeDailyProgressRepository
 import com.zeezaglobal.gymmanagement.repository.ChallengeParticipantRepository;
 import com.zeezaglobal.gymmanagement.repository.ChallengeRepository;
 import com.zeezaglobal.gymmanagement.repository.DailyHealthRecordRepository;
+import com.zeezaglobal.gymmanagement.repository.FoodIntakeRepository;
 import com.zeezaglobal.gymmanagement.repository.HealthCanonicalRecordRepository;
 import com.zeezaglobal.gymmanagement.repository.HealthDeviceRepository;
 import com.zeezaglobal.gymmanagement.repository.HealthRawRecordRepository;
@@ -18,6 +19,7 @@ import com.zeezaglobal.gymmanagement.repository.HealthSourcePreferenceRepository
 import com.zeezaglobal.gymmanagement.repository.HealthUserSyncStateRepository;
 import com.zeezaglobal.gymmanagement.repository.OtpCodeRepository;
 import com.zeezaglobal.gymmanagement.repository.RefreshTokenRepository;
+import com.zeezaglobal.gymmanagement.repository.StepBadgeRepository;
 import com.zeezaglobal.gymmanagement.repository.UserPointTransactionRepository;
 import com.zeezaglobal.gymmanagement.repository.UserRepository;
 import com.zeezaglobal.gymmanagement.repository.WorkoutRecordRepository;
@@ -54,6 +56,10 @@ public class AuthService {
     private final HealthRawRecordRepository healthRawRecordRepository;
     private final HealthRecordTombstoneRepository healthRecordTombstoneRepository;
     private final OtpCodeRepository otpCodeRepository;
+    private final FoodIntakeRepository foodIntakeRepository;
+    private final StepBadgeRepository stepBadgeRepository;
+    private final com.zeezaglobal.gymmanagement.repository.NutritionistClientRepository nutritionistClientRepository;
+    private final com.zeezaglobal.gymmanagement.repository.NutritionistInviteRepository nutritionistInviteRepository;
 
     public LoginResponse login(LoginRequest request) {
         var authentication = authenticationManager.authenticate(
@@ -144,7 +150,12 @@ public class AuthService {
         healthCanonicalRecordRepository.deleteAllByUserId(userId);
         healthRawRecordRepository.deleteAllByUserId(userId);
         healthRecordTombstoneRepository.deleteAllByUserId(userId);
+        foodIntakeRepository.deleteAllByUserId(userId);
+        stepBadgeRepository.deleteAllByUserId(userId);
         otpCodeRepository.deleteAllByEmail(user.getEmail());
+        // A nutritionist's client links and invites belong to them; a member's links go with their member record.
+        nutritionistClientRepository.deleteAllByNutritionistId(userId);
+        nutritionistInviteRepository.deleteAllByNutritionistId(userId);
         // Challenges created by this user stay for the other participants;
         // clear the creator so the non-nullable FK does not block the delete.
         for (Challenge challenge : challengeRepository.findAllByCreatedBy(user)) {

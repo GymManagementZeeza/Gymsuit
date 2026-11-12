@@ -224,7 +224,8 @@ public class MemberPaymentService {
         List<MemberPayment> payments = switch (user.getRole()) {
             case ADMIN, OWNER, MANAGER -> memberPaymentRepository.findAllByGymIdOrderByCreatedAtDesc(gymId);
             case MEMBER -> memberPaymentRepository.findAllByGymIdAndMemberIdOrderByCreatedAtDesc(gymId, user.getMemberId());
-            case TRAINER -> throw new BadRequestException("Trainers do not have access to member payment records");
+            case TRAINER, NUTRITIONIST -> throw new BadRequestException(
+                    user.getRole() + " users do not have access to member payment records");
         };
 
         return payments.stream().map(MemberPaymentResponse::fromEntity).toList();

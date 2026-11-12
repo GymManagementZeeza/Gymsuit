@@ -8,4 +8,6 @@ import java.util.List;
 public interface GymRepository extends JpaRepository<Gym, Long> {
 
     List<Gym> findByNameContainingIgnoreCase(String name);
+
+    java.util.Optional<Gym> findFirstByIndependentTrueOrderByIdAsc();
 }

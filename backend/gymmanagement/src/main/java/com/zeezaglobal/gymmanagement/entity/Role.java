@@ -5,5 +5,6 @@ public enum Role {
     OWNER,
     MANAGER,
     TRAINER,
+    NUTRITIONIST,
     MEMBER
 }

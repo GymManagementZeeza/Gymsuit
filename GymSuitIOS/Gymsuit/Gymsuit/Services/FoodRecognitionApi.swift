@@ -1,8 +1,8 @@
 import Foundation
 
 /// Errors from the food recognition endpoint, mirroring Android's
-/// FoodRecognitionApi: `.unavailable` is the backend's 503 (its inference
-/// server is down); anything else is a generic failure.
+/// FoodRecognitionApi: `.unavailable` is the backend's 503 (food
+/// recognition is unavailable); anything else is a generic failure.
 public enum FoodRecognitionError: Error {
     case unavailable
     case unauthorized
@@ -10,8 +10,8 @@ public enum FoodRecognitionError: Error {
 }
 
 /// Meal recognition via the backend (`POST /api/mobile/food/recognize`), which
-/// proxies to the trained FastAPI inference server. The model lives on the
-/// server — the app only uploads the photo. Multipart body, field `image`.
+/// identifies the dish with a vision model server-side — the app only uploads
+/// the photo. Multipart body, field `image`.
 /// Mirrors Android's FoodRecognitionApi (same endpoint, boundary, timeout).
 public final class FoodRecognitionApi {
     public static let shared = FoodRecognitionApi()
@@ -107,7 +107,7 @@ public final class FoodRecognitionApi {
             throw FoodRecognitionError.unauthorized
         }
         if httpResponse.statusCode == 503 {
-            print("[FoodRecognitionApi] <-- 503 Service Unavailable (inference server down)")
+            print("[FoodRecognitionApi] <-- 503 Service Unavailable (food recognition unavailable)")
             throw FoodRecognitionError.unavailable
         }
         let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"

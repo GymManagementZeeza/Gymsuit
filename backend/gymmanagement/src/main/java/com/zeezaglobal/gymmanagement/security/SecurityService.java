@@ -5,6 +5,7 @@ import com.zeezaglobal.gymmanagement.entity.Role;
 import com.zeezaglobal.gymmanagement.repository.GymManagerAccessRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberPaymentRepository;
 import com.zeezaglobal.gymmanagement.repository.MemberRepository;
+import com.zeezaglobal.gymmanagement.repository.NutritionistClientRepository;
 import com.zeezaglobal.gymmanagement.repository.PaymentRepository;
 import com.zeezaglobal.gymmanagement.repository.SessionRequestRepository;
 import com.zeezaglobal.gymmanagement.repository.TrainingSessionRepository;
@@ -23,6 +24,7 @@ public class SecurityService {
     private final MemberPaymentRepository memberPaymentRepository;
     private final GymManagerAccessRepository gymManagerAccessRepository;
     private final MemberRepository memberRepository;
+    private final NutritionistClientRepository nutritionistClientRepository;
 
     public UserPrincipal currentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -222,6 +224,21 @@ public class SecurityService {
         return user.getRole() == Role.ADMIN
                 || ((user.getRole() == Role.OWNER || user.getRole() == Role.MANAGER || user.getRole() == Role.TRAINER)
                         && gymId.equals(user.getGymId()));
+    }
+
+    /**
+     * Read-only view of a member's profile, weight history and nutrition progress: everyone allowed by
+     * {@link #canViewMember}, plus a standalone nutritionist the member has accepted an invite from.
+     * Never use this to guard a write — nutritionists must not edit member records.
+     */
+    public boolean canReadMemberNutrition(Long gymId, Long memberId) {
+        if (canViewMember(gymId, memberId)) {
+            return true;
+        }
+        UserPrincipal user = currentUser();
+        return user != null && user.getRole() == Role.NUTRITIONIST
+                && memberRepository.findByIdAndGymId(memberId, gymId).isPresent()
+                && nutritionistClientRepository.existsByNutritionistIdAndMemberId(user.getUserId(), memberId);
     }
 
     /**

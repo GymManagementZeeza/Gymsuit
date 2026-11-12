@@ -64,6 +64,8 @@ public class UserService {
             displayName = user.getTrainer().getFirstName() + " " + user.getTrainer().getLastName();
         } else if (user.getMember() != null) {
             displayName = user.getMember().getFirstName() + " " + user.getMember().getLastName();
+        } else if (user.getFullName() != null && !user.getFullName().isBlank()) {
+            displayName = user.getFullName();
         } else {
             displayName = user.getEmail();
         }
@@ -160,6 +162,8 @@ public class UserService {
                 user.setGym(gym);
                 user.setTrainer(trainer);
             }
+            case NUTRITIONIST -> throw new BadRequestException(
+                    "Nutrition experts are independent of gyms and sign up themselves at diet.gymsuit.app");
             case MEMBER -> {
                 if (request.gymId() == null || request.memberId() == null) {
                     throw new BadRequestException("Member users must be associated with a gym and a member record");

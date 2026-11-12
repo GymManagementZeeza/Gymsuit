@@ -17,8 +17,7 @@ import java.util.Map;
 
 /**
  * Identify a dish from a photo. Authenticated like the other /api/mobile/**
- * endpoints. Forwards the upload to the Python inference service
- * (FoodImageTraining/inference_server.py).
+ * endpoints. Delegates to FoodRecognitionService (vision LLM).
  */
 @RestController
 @RequestMapping("/api/mobile/food")

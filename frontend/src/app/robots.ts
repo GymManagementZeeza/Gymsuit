@@ -15,6 +15,8 @@ export default function robots(): MetadataRoute.Robots {
           "/clientdashboard/",
           "/trainerdashboard",
           "/trainerdashboard/",
+          "/nutritiondashboard",
+          "/nutritiondashboard/",
           "/otp",
           "/scanner",
         ],

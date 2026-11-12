@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 /**
- * Trainer view of one client's synced progress. Authorization reuses the
- * scoped member check: a trainer may only open their own assigned clients,
- * staff may open any member of the gym.
+ * Trainer / nutritionist view of one client's synced progress (read-only).
+ * A trainer may only open their own assigned clients; owners, managers and
+ * nutritionists may open any member of their gym.
  */
 @RestController
 @RequestMapping("/api/gyms/{gymId}/members/{memberId}/progress")
@@ -28,7 +28,7 @@ public class ClientProgressController {
     private final ClientProgressService clientProgressService;
 
     @GetMapping
-    @PreAuthorize("@security.canViewMember(#gymId, #memberId)")
+    @PreAuthorize("@security.canReadMemberNutrition(#gymId, #memberId)")
     public ClientProgressResponse getProgress(
             @PathVariable Long gymId,
             @PathVariable Long memberId,
@@ -37,9 +37,9 @@ public class ClientProgressController {
         return clientProgressService.getProgress(gymId, memberId, from, to);
     }
 
-    /** Serves one meal photo a client uploaded. Same trainer-scoped guard as the progress view. */
+    /** Serves one meal photo a client uploaded. Same guard as the progress view. */
     @GetMapping("/photo/{externalId}")
-    @PreAuthorize("@security.canViewMember(#gymId, #memberId)")
+    @PreAuthorize("@security.canReadMemberNutrition(#gymId, #memberId)")
     public ResponseEntity<byte[]> getIntakePhoto(
             @PathVariable Long gymId,
             @PathVariable Long memberId,

@@ -2,7 +2,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api
 
 export type LoginResponse = {
   token: string;
-  role: "ADMIN" | "OWNER" | "MANAGER" | "TRAINER" | "MEMBER";
+  role: "ADMIN" | "OWNER" | "MANAGER" | "TRAINER" | "NUTRITIONIST" | "MEMBER";
   gymId: number | null;
   trainerId: number | null;
   memberId: number | null;
@@ -30,6 +30,8 @@ export function dashboardPathForRole(role: LoginResponse["role"]): string {
   switch (role) {
     case "TRAINER":
       return "/trainerdashboard";
+    case "NUTRITIONIST":
+      return "/nutritiondashboard";
     case "MEMBER":
       return "/clientdashboard";
     default:
@@ -244,6 +246,22 @@ export function requestOtp(email: string) {
   return apiRequest<void>("/api/auth/otp/request", {
     method: "POST",
     body: JSON.stringify({ email }),
+  });
+}
+
+/** Standalone nutrition expert sign-up, step 1: emails a code to an address with no account yet. */
+export function sendNutritionistSignupCode(email: string) {
+  return apiRequest<void>("/api/auth/register/nutritionist/code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** Step 2: verifies the code and creates the gym-less nutrition expert account (signs them in). */
+export function registerNutritionist(input: { email: string; otp: string; firstName: string; lastName: string }) {
+  return sessionRequest<LoginResponse>("/api/auth/register/nutritionist", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
