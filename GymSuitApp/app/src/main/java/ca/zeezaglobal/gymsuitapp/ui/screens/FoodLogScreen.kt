@@ -10,6 +10,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.core.content.FileProvider
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +27,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import ca.zeezaglobal.gymsuitapp.data.food.FoodDatabase
 import ca.zeezaglobal.gymsuitapp.data.food.FoodItem
@@ -41,9 +44,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,6 +96,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ca.zeezaglobal.gymsuitapp.data.FoodEntry
+import ca.zeezaglobal.gymsuitapp.data.remote.EatingHabitScoreApi
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionApi
 import ca.zeezaglobal.gymsuitapp.data.remote.MealPlanApi
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionUnavailableException
@@ -126,6 +132,18 @@ fun FoodLogScreen() {
     var mealPlan by remember { mutableStateOf<MealPlanApi.MealPlan?>(null) }
     LaunchedEffect(Unit) {
         MealPlanApi(context).getCurrent().onSuccess { mealPlan = it }
+    }
+
+    // Overall eating-habit score (0–100) from the backend, computed from
+    // the food logged over the last 7 days. Loaded once when the page
+    // opens; a failed load simply hides the card — the food UI never
+    // depends on the score.
+    var habitScore by remember { mutableStateOf<EatingHabitScoreApi.EatingHabitScore?>(null) }
+    var habitScoreLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        EatingHabitScoreApi(context).getScore(days = 7, calorieTargetKcal = DAILY_CALORIE_TARGET)
+            .onSuccess { habitScore = it }
+        habitScoreLoaded = true
     }
     var scanning by remember { mutableStateOf(false) }
     var scanImage by remember { mutableStateOf<Bitmap?>(null) }
@@ -269,6 +287,15 @@ fun FoodLogScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 120.dp)
         ) {
+            // Overall eating-habit score, shown at the top of the page.
+            // A failed load leaves habitScore null and the card hidden.
+            if (habitScoreLoaded) {
+                habitScore?.let { loaded ->
+                    item(key = "eating-habit-score") {
+                        EatingHabitScoreCard(loaded, Modifier.animateItem())
+                    }
+                }
+            }
             // Nutritionist's meal plan, shown on today's page only.
             mealPlan?.let { plan ->
                 if (date == today) {
@@ -587,6 +614,132 @@ private fun AddFoodSheet(
                 ) { Text("Save") }
             }
         }
+    }
+}
+
+/**
+ * Overall eating-habit score at the top of the meals page, in the style of
+ * the design mock: a ring with the score in the middle, the label beside
+ * it, and the component breakdown underneath. When nothing was logged in
+ * the window the backend returns a null score, and the card shows a
+ * prompt instead of a number.
+ */
+@Composable
+private fun EatingHabitScoreCard(
+    score: EatingHabitScoreApi.EatingHabitScore,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        if (score.score == null) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("Eating habit score", style = MaterialTheme.typography.labelLarge)
+                Text("Log food to see your score", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Once you've logged food in the last ${score.windowDays} days, " +
+                        "your overall eating habit score (out of 100) appears here.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ScoreRing(score = score.score, modifier = Modifier.size(132.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Eating habit score", style = MaterialTheme.typography.labelLarge)
+                        Text(score.label, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "Based on ${score.daysLogged} logged " +
+                                "${if (score.daysLogged == 1) "day" else "days"} " +
+                                "in the last ${score.windowDays} days",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "Avg ${score.avgCaloriesKcal.toInt()} kcal · " +
+                                "${score.avgProteinG.toInt()} g protein a day " +
+                                "(target ${score.proteinTargetG.toInt()} g)",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                HorizontalDivider()
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    ScoreComponent("Protein", "${score.components.protein.toInt()}/25")
+                    ScoreComponent("Calories", "${score.components.calories.toInt()}/25")
+                    ScoreComponent("Balance", "${score.components.balance.toInt()}/25")
+                    ScoreComponent("Pattern", "${score.components.pattern.toInt()}/25")
+                    ScoreComponent("Food quality", "${score.foodQuality.toInt()}%")
+                }
+            }
+        }
+    }
+}
+
+/** Circular progress ring with the score in the middle, like the design mock. */
+@Composable
+private fun ScoreRing(score: Int, modifier: Modifier = Modifier) {
+    val animated by animateFloatAsState(
+        targetValue = (score / 100f).coerceIn(0f, 1f),
+        label = "habitScoreRing"
+    )
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val progressColor = MaterialTheme.colorScheme.primary
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round)
+            drawArc(
+                color = trackColor,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = stroke
+            )
+            drawArc(
+                color = progressColor,
+                startAngle = -90f,
+                sweepAngle = 360f * animated,
+                useCenter = false,
+                style = stroke
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("$score", style = MaterialTheme.typography.displayMedium)
+            Text(
+                "out of 100",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ScoreComponent(label: String, value: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.weight(1f)
+    ) {
+        Text(value, style = MaterialTheme.typography.titleMedium)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
