@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.data.FoodStore
+import android.content.Context
 import ca.zeezaglobal.gymsuitapp.di.AppComponent
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,14 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
+
+    // Developer options (test-only): a gear on this screen autofills the test account's email.
+    val devPrefs = remember { context.getSharedPreferences(DEV_PREFS, Context.MODE_PRIVATE) }
+    var devEnabled by remember { mutableStateOf(devPrefs.getBoolean(DEV_KEY_ENABLED, false)) }
+    var showDevDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(devEnabled) {
+        if (devEnabled && email.isBlank()) email = TEST_ACCOUNT_EMAIL
+    }
 
     val scrollState = rememberScrollState()
 
@@ -100,6 +109,29 @@ fun LoginScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+
+            // Settings (developer options)
+            IconButton(
+                onClick = { showDevDialog = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(end = 12.dp, top = 8.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.3f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = "Settings",
                             tint = Color.White
                         )
                     }
@@ -447,5 +479,74 @@ fun LoginScreen(
                 }
             }
         }
+
+        if (showDevDialog) {
+            AlertDialog(
+                onDismissRequest = { showDevDialog = false },
+                icon = { Icon(Icons.Outlined.DeveloperMode, contentDescription = null) },
+                title = { Text("Developer options") },
+                text = {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = "Enable developer options",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Autofills the test account email for sign-in.",
+                                    fontSize = 12.sp,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = devEnabled,
+                                onCheckedChange = { on ->
+                                    devEnabled = on
+                                    devPrefs.edit().putBoolean(DEV_KEY_ENABLED, on).apply()
+                                    if (on) {
+                                        email = TEST_ACCOUNT_EMAIL
+                                        otpSent = false
+                                        otp = ""
+                                        errorMessage = null
+                                        infoMessage = null
+                                    }
+                                }
+                            )
+                        }
+                        if (devEnabled) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = colorScheme.secondaryContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Test account: $TEST_ACCOUNT_EMAIL\nUse the fixed test code when it's enabled on the server.",
+                                    fontSize = 12.sp,
+                                    color = colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDevDialog = false }) { Text("Done") }
+                }
+            )
+        }
     }
 }
+
+/** Test-only developer options for the login screen. */
+private const val DEV_PREFS = "gymsuit_dev"
+private const val DEV_KEY_ENABLED = "dev_enabled"
+private const val TEST_ACCOUNT_EMAIL = "athul.6560@gmail.com"
+

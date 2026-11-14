@@ -43,6 +43,7 @@ public class MobileAuthService {
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final IndependentGymService independentGymService;
+    private final com.zeezaglobal.gymmanagement.config.TestLoginSupport testLoginSupport;
     private final EmailService emailService;
 
     public void sendOtp(MobileSendOtpRequest request) {
@@ -55,6 +56,10 @@ public class MobileAuthService {
             }
         } else {
             // mode = "login"
+            // TEST ONLY: keep the designated test account present so QA can always sign in.
+            if (testLoginSupport.matches(cleanEmail) && userRepository.findByEmail(cleanEmail).isEmpty()) {
+                createTestAccount(cleanEmail);
+            }
             User user = userRepository.findByEmail(cleanEmail)
                     .orElseThrow(() -> new BadRequestException("No account found for " + cleanEmail + ". Please register first."));
             if (!user.isEnabled()) {
@@ -143,6 +148,32 @@ public class MobileAuthService {
         rejectWebOnlyRole(user);
 
         return issueMobileSession(principal, user);
+    }
+
+    /** TEST ONLY: creates the designated test member (Independent gym) if it was deleted. */
+    @Transactional
+    void createTestAccount(String email) {
+        Gym gym = independentGymService.get();
+        Member member = new Member();
+        member.setGym(gym);
+        member.setFirstName("Test");
+        member.setLastName("Account");
+        member.setEmail(email);
+        member.setPhone("0000000000");
+        member.setJoinDate(java.time.LocalDate.now());
+        member.setWaiverAccepted(true);
+        member.setJoiningFeePaid(true);
+        member = memberRepository.save(member);
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+        user.setRole(Role.MEMBER);
+        user.setEnabled(true);
+        user.setGym(gym);
+        user.setMember(member);
+        userRepository.save(user);
+        log.info("Created test account {}", email);
     }
 
     /** Nutrition experts only have a web dashboard — the mobile apps are built for members. */
