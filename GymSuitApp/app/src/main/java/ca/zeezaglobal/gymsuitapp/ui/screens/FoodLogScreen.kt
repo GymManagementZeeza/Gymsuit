@@ -27,8 +27,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import ca.zeezaglobal.gymsuitapp.data.food.FoodDatabase
 import ca.zeezaglobal.gymsuitapp.data.food.FoodItem
@@ -36,6 +40,9 @@ import ca.zeezaglobal.gymsuitapp.data.food.RegionalFoodRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import java.io.ByteArrayOutputStream
 import java.io.File
 import androidx.compose.animation.core.animateFloatAsState
@@ -48,7 +55,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,6 +71,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material3.Button
@@ -618,11 +625,12 @@ private fun AddFoodSheet(
 }
 
 /**
- * Overall eating-habit score at the top of the meals page, in the style of
- * the design mock: a ring with the score in the middle, the label beside
- * it, and the component breakdown underneath. When nothing was logged in
- * the window the backend returns a null score, and the card shows a
- * prompt instead of a number.
+ * Overall eating-habit score at the top of the meals page, in the design
+ * of the uploaded mock: a tick-ring dial with the score in the middle and
+ * the label under it, flanked by a fork and a knife, with Food Quality
+ * and Glucose Impact cards underneath. When nothing was logged in the
+ * window the backend returns a null score, and the card shows a prompt
+ * instead of a number.
  */
 @Composable
 private fun EatingHabitScoreCard(
@@ -630,7 +638,8 @@ private fun EatingHabitScoreCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(24.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         if (score.score == null) {
@@ -649,97 +658,198 @@ private fun EatingHabitScoreCard(
         } else {
             Column(
                 modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ScoreRing(score = score.score, modifier = Modifier.size(132.dp))
-                    Spacer(Modifier.width(16.dp))
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Eating habit score", style = MaterialTheme.typography.labelLarge)
-                        Text(score.label, style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Based on ${score.daysLogged} logged " +
-                                "${if (score.daysLogged == 1) "day" else "days"} " +
-                                "in the last ${score.windowDays} days",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Avg ${score.avgCaloriesKcal.toInt()} kcal · " +
-                                "${score.avgProteinG.toInt()} g protein a day " +
-                                "(target ${score.proteinTargetG.toInt()} g)",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-                HorizontalDivider()
                 Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    ScoreComponent("Protein", "${score.components.protein.toInt()}/25")
-                    ScoreComponent("Calories", "${score.components.calories.toInt()}/25")
-                    ScoreComponent("Balance", "${score.components.balance.toInt()}/25")
-                    ScoreComponent("Pattern", "${score.components.pattern.toInt()}/25")
-                    ScoreComponent("Food quality", "${score.foodQuality.toInt()}%")
+                    UtensilIcon(type = Utensil.FORK, modifier = Modifier.size(36.dp, 120.dp))
+                    ScoreDial(score = score.score, label = score.label, modifier = Modifier.size(200.dp))
+                    UtensilIcon(type = Utensil.KNIFE, modifier = Modifier.size(36.dp, 120.dp))
                 }
+                // Food Quality and Glucose Impact, as in the mock. Glucose
+                // is not tracked, so that card honestly shows "Not tracked"
+                // instead of a made-up number.
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ScoreStatCard(
+                        title = "Food Quality",
+                        value = "${score.foodQuality.toInt()}%",
+                        status = foodQualityStatus(score.foodQuality),
+                        good = score.foodQuality >= 75.0,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ScoreStatCard(
+                        title = "Glucose Impact",
+                        value = "—",
+                        status = "Not tracked",
+                        good = false,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Text(
+                    "Based on ${score.daysLogged} logged " +
+                        "${if (score.daysLogged == 1) "day" else "days"} in the last ${score.windowDays} days · " +
+                        "Avg ${score.avgCaloriesKcal.toInt()} kcal · ${score.avgProteinG.toInt()} g protein",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
-/** Circular progress ring with the score in the middle, like the design mock. */
+private fun foodQualityStatus(quality: Double): String = when {
+    quality >= 80.0 -> "Nutritious"
+    quality >= 60.0 -> "Fair"
+    else -> "Needs work"
+}
+
+/** Circular gauge with tick marks, like the design mock: blue ticks for the scored share, pale ticks for the rest. */
 @Composable
-private fun ScoreRing(score: Int, modifier: Modifier = Modifier) {
-    val animated by animateFloatAsState(
+private fun ScoreDial(score: Int, label: String, modifier: Modifier = Modifier) {
+    val progress by animateFloatAsState(
         targetValue = (score / 100f).coerceIn(0f, 1f),
-        label = "habitScoreRing"
+        label = "habitScoreDial"
     )
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
-    val progressColor = MaterialTheme.colorScheme.primary
+    val tickColor = MaterialTheme.colorScheme.primary
+    val tickRestColor = Color(0xFFDCE8F2)
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val stroke = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round)
-            drawArc(
-                color = trackColor,
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = stroke
-            )
-            drawArc(
-                color = progressColor,
-                startAngle = -90f,
-                sweepAngle = 360f * animated,
-                useCenter = false,
-                style = stroke
-            )
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val outer = size.minDimension / 2f - 4.dp.toPx()
+            val tickLength = 10.dp.toPx()
+            val tickCount = 60
+            val litTicks = (tickCount * progress).roundToInt()
+            for (i in 0 until tickCount) {
+                val angle = Math.toRadians(i * 360.0 / tickCount - 90.0)
+                val start = Offset(
+                    center.x + (outer - tickLength) * cos(angle).toFloat(),
+                    center.y + (outer - tickLength) * sin(angle).toFloat()
+                )
+                val end = Offset(
+                    center.x + outer * cos(angle).toFloat(),
+                    center.y + outer * sin(angle).toFloat()
+                )
+                drawLine(
+                    color = if (i < litTicks) tickColor else tickRestColor,
+                    start = start,
+                    end = end,
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$score", style = MaterialTheme.typography.displayMedium)
+            Text("$score", style = MaterialTheme.typography.displayLarge)
             Text(
-                "out of 100",
-                style = MaterialTheme.typography.bodySmall,
+                label,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
+/** Small stat card under the dial, as in the mock: title, big value, status line. */
 @Composable
-private fun RowScope.ScoreComponent(label: String, value: String) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.weight(1f)
+private fun ScoreStatCard(
+    title: String,
+    value: String,
+    status: String,
+    good: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
     ) {
-        Text(value, style = MaterialTheme.typography.titleMedium)
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(value, style = MaterialTheme.typography.headlineMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (good) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF2E9E5B),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    status,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (good) Color(0xFF2E9E5B)
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+private enum class Utensil { FORK, KNIFE }
+
+/** Flat fork / knife silhouette in the mock's pale blue. */
+@Composable
+private fun UtensilIcon(type: Utensil, modifier: Modifier = Modifier) {
+    val color = Color(0xFFA9C7DE)
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        when (type) {
+            Utensil.FORK -> {
+                // Four tines.
+                val tineWidth = w * 0.14f
+                val gap = (w - tineWidth * 4f) / 5f
+                for (i in 0 until 4) {
+                    val x = gap + i * (tineWidth + gap)
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(x, 0f),
+                        size = Size(tineWidth, h * 0.30f),
+                        cornerRadius = CornerRadius(tineWidth / 2f, tineWidth / 2f)
+                    )
+                }
+                // Head bar joining the tines.
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, h * 0.28f),
+                    size = Size(w, h * 0.08f),
+                    cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                )
+                // Handle.
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(w * 0.36f, h * 0.36f),
+                    size = Size(w * 0.28f, h * 0.64f),
+                    cornerRadius = CornerRadius(w * 0.14f, w * 0.14f)
+                )
+            }
+            Utensil.KNIFE -> {
+                // Blade with a slanted tip.
+                val blade = Path().apply {
+                    moveTo(w * 0.30f, h * 0.02f)
+                    lineTo(w * 0.72f, h * 0.10f)
+                    lineTo(w * 0.72f, h * 0.58f)
+                    lineTo(w * 0.30f, h * 0.58f)
+                    close()
+                }
+                drawPath(blade, color)
+                // Handle.
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(w * 0.36f, h * 0.64f),
+                    size = Size(w * 0.28f, h * 0.36f),
+                    cornerRadius = CornerRadius(w * 0.14f, w * 0.14f)
+                )
+            }
+        }
     }
 }
 
