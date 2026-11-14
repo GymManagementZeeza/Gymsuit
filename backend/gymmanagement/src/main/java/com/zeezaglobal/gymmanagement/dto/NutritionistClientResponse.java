@@ -17,6 +17,11 @@ public record NutritionistClientResponse(
         Instant linkedAt
 ) {
     public static NutritionistClientResponse fromEntity(NutritionistClient link) {
+        return fromEntity(link, null);
+    }
+
+    /** latestSyncedWeightKg (from the app's health sync) takes priority over the profile weight; may be null. */
+    public static NutritionistClientResponse fromEntity(NutritionistClient link, Double latestSyncedWeightKg) {
         Member m = link.getMember();
         return new NutritionistClientResponse(
                 m.getId(),
@@ -24,7 +29,7 @@ public record NutritionistClientResponse(
                 m.getFirstName(),
                 m.getLastName(),
                 m.getEmail(),
-                m.getWeightKg(),
+                latestSyncedWeightKg != null ? latestSyncedWeightKg : m.getWeightKg(),
                 m.getGoalWeightKg(),
                 link.getLinkedAt());
     }

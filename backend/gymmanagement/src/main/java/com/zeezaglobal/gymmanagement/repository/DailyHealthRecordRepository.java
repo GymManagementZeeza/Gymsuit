@@ -29,5 +29,7 @@ public interface DailyHealthRecordRepository extends JpaRepository<DailyHealthRe
 
     boolean existsByUserId(Long userId);
 
+    Optional<DailyHealthRecord> findTopByUserIdAndWeightKgIsNotNullOrderByRecordDateDesc(Long userId);
+
     void deleteAllByUserId(Long userId);
 }

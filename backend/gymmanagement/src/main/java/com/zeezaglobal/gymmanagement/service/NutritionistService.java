@@ -60,6 +60,7 @@ public class NutritionistService {
     private final MemberRepository memberRepository;
     private final IndependentGymService independentGymService;
     private final com.zeezaglobal.gymmanagement.repository.MealPlanRepository mealPlanRepository;
+    private final com.zeezaglobal.gymmanagement.repository.DailyHealthRecordRepository dailyHealthRecordRepository;
 
     @Value("${app.diet-url:https://diet.gymsuit.app}")
     private String dietUrl;
@@ -96,8 +97,16 @@ public class NutritionistService {
     public List<NutritionistClientResponse> listClients() {
         Long me = requireNutritionist();
         return clientRepository.findAllByNutritionistIdOrderByLinkedAtDesc(me).stream()
-                .map(NutritionistClientResponse::fromEntity)
+                .map(link -> NutritionistClientResponse.fromEntity(link, latestSyncedWeightKg(link.getMember().getId())))
                 .toList();
+    }
+
+    /** The most recent weight the client's app synced, so the roster isn't stale when the profile weight is unset. */
+    private Double latestSyncedWeightKg(Long memberId) {
+        return userRepository.findByMemberId(memberId)
+                .flatMap(u -> dailyHealthRecordRepository.findTopByUserIdAndWeightKgIsNotNullOrderByRecordDateDesc(u.getId()))
+                .map(com.zeezaglobal.gymmanagement.entity.DailyHealthRecord::getWeightKg)
+                .orElse(null);
     }
 
     @Transactional
