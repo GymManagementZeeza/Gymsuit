@@ -8,8 +8,23 @@
     {
       "name": "frontend-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "email-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "const h=require('http'),f=require('fs'),p=require('path');const r=process.cwd(),t={'.html':'text/html','.gif':'image/gif','.png':'image/png'};h.createServer((q,s)=>{const u=decodeURIComponent(q.url.split('?')[0]);const x=p.join(r,u==='/'?'nutritionist-invite.html':u);if(!x.startsWith(r)){s.writeHead(403);return s.end();}f.readFile(x,(e,d)=>{if(e){s.writeHead(404);return s.end('not found');}s.writeHead(200,{'Content-Type':t[p.extname(x)]||'application/octet-stream'});s.end(d);});}).listen(4599,'127.0.0.1');"
+      ],
+      "cwd": "backend/gymmanagement/target/email-preview",
+      "port": 4599
     }
   ]
 }

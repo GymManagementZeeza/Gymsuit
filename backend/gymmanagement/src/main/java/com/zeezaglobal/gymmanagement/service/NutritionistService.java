@@ -154,7 +154,7 @@ public class NutritionistService {
         try {
             eventPublisher.publishEmail(email,
                     name + " invited you to share your nutrition on GymSuit",
-                    inviteEmailHtml(name, email, link));
+                    NutritionistInviteEmail.html(name, email, link, dietUrl));
         } catch (AmqpException e) {
             log.error("Could not queue nutritionist invite email to {}: {}", email, e.getMessage(), e);
             throw new BadRequestException("Could not send the invite right now, please try again");
@@ -298,24 +298,4 @@ public class NutritionistService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static String escape(String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
-    }
-
-    private String inviteEmailHtml(String nutritionistName, String email, String link) {
-        return "<div style=\"font-family: Arial, sans-serif; padding: 20px; color: #333;\">"
-                + "<h2>" + escape(nutritionistName) + " invited you on GymSuit</h2>"
-                + "<p>" + escape(nutritionistName) + " is a nutrition expert and would like to follow your food log, "
-                + "macros and weight from the GymSuit app to guide your diet.</p>"
-                + "<p>They can only view this — they can't change anything in your account.</p>"
-                + "<p><a href=\"" + link + "\" style=\"display:inline-block;background:#2563eb;color:#fff;"
-                + "padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;\">"
-                + "Accept invitation</a></p>"
-                + "<p style=\"font-size:12px;color:#777;\">New to GymSuit? You can create your account right from "
-                + "this link, then sign in to the GymSuit app with " + escape(email) + ".</p>"
-                + "<p style=\"font-size:12px;color:#777;\">Or open this link: " + link + "</p>"
-                + "<p style=\"font-size:12px;color:#777;\">This invitation expires in 7 days. "
-                + "If you weren't expecting it, you can ignore this email.</p>"
-                + "</div>";
-    }
 }
