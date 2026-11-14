@@ -60,6 +60,7 @@ public class AuthService {
     private final StepBadgeRepository stepBadgeRepository;
     private final com.zeezaglobal.gymmanagement.repository.NutritionistClientRepository nutritionistClientRepository;
     private final com.zeezaglobal.gymmanagement.repository.NutritionistInviteRepository nutritionistInviteRepository;
+    private final com.zeezaglobal.gymmanagement.repository.MealPlanRepository mealPlanRepository;
 
     public LoginResponse login(LoginRequest request) {
         var authentication = authenticationManager.authenticate(
@@ -156,6 +157,7 @@ public class AuthService {
         // A nutritionist's client links and invites belong to them; a member's links go with their member record.
         nutritionistClientRepository.deleteAllByNutritionistId(userId);
         nutritionistInviteRepository.deleteAllByNutritionistId(userId);
+        mealPlanRepository.deleteAllByNutritionistId(userId);
         // Challenges created by this user stay for the other participants;
         // clear the creator so the non-nullable FK does not block the delete.
         for (Challenge challenge : challengeRepository.findAllByCreatedBy(user)) {

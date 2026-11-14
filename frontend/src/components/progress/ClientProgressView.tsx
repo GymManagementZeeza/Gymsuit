@@ -71,6 +71,7 @@ export default function ClientProgressView({
   gymId: gymIdProp,
   memberId: memberIdProp,
   loginPath,
+  children,
 }: {
   backHref: string;
   backLabel: string;
@@ -79,6 +80,8 @@ export default function ClientProgressView({
   /** Defaults to the `[id]` route param. */
   memberId?: number;
   loginPath?: string;
+  /** Extra section shown under the client's name (e.g. the nutritionist's meal plans). */
+  children?: ReactNode;
 }) {
   const params = useParams();
   const memberId = memberIdProp ?? Number(params.id);
@@ -378,6 +381,8 @@ export default function ClientProgressView({
         {data ? `${data.firstName} ${data.lastName}` : "Client progress"}
       </h1>
       {data?.email && <p className="text-sm text-[#6b6b64]">{data.email}</p>}
+
+      {children}
 
       {/* Date toggle, as in the reference: D / W / M / 3M / Y pills */}
       <div className="mt-6 flex flex-wrap gap-2">

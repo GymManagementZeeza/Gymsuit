@@ -40,6 +40,7 @@ class AuthServiceDeleteAccountTest {
     @Mock private StepBadgeRepository stepBadgeRepository;
     @Mock private NutritionistClientRepository nutritionistClientRepository;
     @Mock private NutritionistInviteRepository nutritionistInviteRepository;
+    @Mock private com.zeezaglobal.gymmanagement.repository.MealPlanRepository mealPlanRepository;
     @Mock private com.zeezaglobal.gymmanagement.repository.RefreshTokenRepository refreshTokenRepository;
     @Mock private com.zeezaglobal.gymmanagement.repository.DailyHealthRecordRepository dailyHealthRecordRepository;
     @Mock private com.zeezaglobal.gymmanagement.repository.WorkoutRecordRepository workoutRecordRepository;
@@ -81,6 +82,7 @@ class AuthServiceDeleteAccountTest {
 
         verify(nutritionistClientRepository).deleteAllByNutritionistId(7L);
         verify(nutritionistInviteRepository).deleteAllByNutritionistId(7L);
+        verify(mealPlanRepository).deleteAllByNutritionistId(7L);
         assertNull(created.getCreatedBy(), "creator is cleared so the challenge survives for other participants");
     }
 }

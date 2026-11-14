@@ -66,6 +66,7 @@ public class MemberService {
     private final SecurityService securityService;
     private final FoodIntakeRepository foodIntakeRepository;
     private final com.zeezaglobal.gymmanagement.repository.NutritionistClientRepository nutritionistClientRepository;
+    private final com.zeezaglobal.gymmanagement.repository.MealPlanRepository mealPlanRepository;
 
     public List<MemberResponse> findAllByGym(Long gymId) {
         gymService.getGymOrThrow(gymId);
@@ -238,6 +239,7 @@ public class MemberService {
         sessionRequestRepository.deleteAllByMemberId(member.getId());
         weightLogRepository.deleteAllByMemberId(member.getId());
         nutritionistClientRepository.deleteAllByMemberId(member.getId());
+        mealPlanRepository.deleteAllByMemberId(member.getId());
 
         List<GymTransaction> transactions = gymTransactionRepository.findAllByMemberId(member.getId());
         transactions.forEach(transaction -> transaction.setMember(null));

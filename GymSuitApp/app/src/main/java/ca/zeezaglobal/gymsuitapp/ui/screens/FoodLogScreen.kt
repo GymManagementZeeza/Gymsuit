@@ -92,6 +92,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ca.zeezaglobal.gymsuitapp.data.FoodEntry
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionApi
+import ca.zeezaglobal.gymsuitapp.data.remote.MealPlanApi
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionUnavailableException
 import ca.zeezaglobal.gymsuitapp.data.FoodPhotoStore
 import ca.zeezaglobal.gymsuitapp.data.FoodStore
@@ -122,6 +123,10 @@ fun FoodLogScreen() {
     // Server scan flow: photo -> backend API -> pick result -> prefilled add sheet
     val scope = rememberCoroutineScope()
     val recognitionApi = remember { FoodRecognitionApi(context) }
+    var mealPlan by remember { mutableStateOf<MealPlanApi.MealPlan?>(null) }
+    LaunchedEffect(Unit) {
+        MealPlanApi(context).getCurrent().onSuccess { mealPlan = it }
+    }
     var scanning by remember { mutableStateOf(false) }
     var scanImage by remember { mutableStateOf<Bitmap?>(null) }
     var scanCandidates by remember { mutableStateOf<List<DishCandidate>>(emptyList()) }
@@ -264,6 +269,12 @@ fun FoodLogScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 120.dp)
         ) {
+            // Nutritionist's meal plan, shown on today's page only.
+            mealPlan?.let { plan ->
+                if (date == today) {
+                    item(key = "meal-plan-${plan.id}") { MealPlanCard(plan, Modifier.animateItem()) }
+                }
+            }
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),

@@ -82,3 +82,36 @@ export function acceptNutritionInvite(
     { method: "POST", body: signup ? JSON.stringify(signup) : undefined },
   );
 }
+
+export type MealPlan = {
+  id: number;
+  date: string;
+  nutritionistName: string;
+  breakfast: string | null;
+  lunch: string | null;
+  eveningSnack: string | null;
+  dinner: string | null;
+  note: string | null;
+  updatedAt: string;
+};
+
+export type MealPlanInput = {
+  date: string;
+  breakfast?: string;
+  lunch?: string;
+  eveningSnack?: string;
+  dinner?: string;
+  note?: string;
+};
+
+export function listMealPlans(memberId: number) {
+  return authFetch<MealPlan[]>(`/api/nutritionist/clients/${memberId}/meal-plans`);
+}
+
+/** Saves the plan (same day replaces it) and emails + notifies the client. */
+export function sendMealPlan(memberId: number, input: MealPlanInput) {
+  return authFetch<MealPlan>(`/api/nutritionist/clients/${memberId}/meal-plans`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}

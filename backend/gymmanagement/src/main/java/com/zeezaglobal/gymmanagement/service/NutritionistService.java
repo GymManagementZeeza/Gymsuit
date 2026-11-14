@@ -59,6 +59,7 @@ public class NutritionistService {
     private final PasswordEncoder passwordEncoder;
     private final MemberRepository memberRepository;
     private final IndependentGymService independentGymService;
+    private final com.zeezaglobal.gymmanagement.repository.MealPlanRepository mealPlanRepository;
 
     @Value("${app.diet-url:https://diet.gymsuit.app}")
     private String dietUrl;
@@ -105,6 +106,7 @@ public class NutritionistService {
         NutritionistClient link = clientRepository.findByNutritionistIdAndMemberId(me, memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
         clientRepository.delete(link);
+        mealPlanRepository.deleteAllByNutritionistIdAndMemberId(me, memberId);
     }
 
     // ---- Invites --------------------------------------------------------------------------------------------

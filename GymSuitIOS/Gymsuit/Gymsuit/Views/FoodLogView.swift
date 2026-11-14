@@ -28,6 +28,7 @@ struct FoodLogView: View {
     @State private var scanError: String?
 
     @State private var remindersOn = false
+    @State private var mealPlan: MealPlan?
 
     private let dailyTarget = 2000
 
@@ -77,6 +78,12 @@ struct FoodLogView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    // Nutritionist's meal plan, shown on today's page only.
+                    if isToday, let mealPlan {
+                        MealPlanCardView(plan: mealPlan)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     DailyIntakeGraphView(
                         protein: totalProtein,
                         carbs: totalCarbs,
@@ -175,6 +182,11 @@ struct FoodLogView: View {
                 } else {
                     scanError = "Couldn't read that photo. Try another one."
                 }
+            }
+        }
+        .task {
+            if let plan = try? await MealPlanApi.shared.fetchCurrent() {
+                withAnimation(.easeOut(duration: 0.35)) { mealPlan = plan }
             }
         }
         .task {
