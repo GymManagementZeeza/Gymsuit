@@ -38,6 +38,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubblePrefs
 import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubbleService
+import ca.zeezaglobal.gymsuitapp.data.remote.MobileAuthApi
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
 import kotlinx.coroutines.launch
@@ -374,15 +375,88 @@ fun SettingsPageContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Account deletion (mirrors iOS Settings "Delete Account").
+        // Play Store policy requires in-app account deletion for apps that
+        // let users create an account; the privacy policy already promises it.
+        var showDeleteAccountDialog by remember { mutableStateOf(false) }
+        var isDeletingAccount by remember { mutableStateOf(false) }
+        var deleteAccountError by remember { mutableStateOf<String?>(null) }
+
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            SettingListItem(
+                icon = Icons.Outlined.Lock,
+                title = "Privacy Policy",
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://gymsuit.app/privacy")
+                    )
+                    context.startActivity(intent)
+                }
+            )
+            SettingListItem(
+                icon = Icons.Filled.Delete,
+                title = "Delete Account",
+                textColor = Color(0xFFDC2626),
+                iconTint = Color(0xFFDC2626),
+                onClick = { if (!isDeletingAccount) showDeleteAccountDialog = true }
+            )
             SettingListItem(
                 icon = Icons.Outlined.ExitToApp,
                 title = "Log Out",
                 textColor = Color(0xFFDC2626),
                 iconTint = Color(0xFFDC2626),
                 onClick = onLogoutClick
+            )
+        }
+
+        if (deleteAccountError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = deleteAccountError!!,
+                fontSize = 13.sp,
+                color = Color(0xFFEF4444)
+            )
+        }
+
+        if (showDeleteAccountDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteAccountDialog = false },
+                title = { Text(text = "Delete Account") },
+                text = {
+                    Text(
+                        text = "This permanently deletes your account and your synced health data. This cannot be undone."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteAccountDialog = false
+                            isDeletingAccount = true
+                            deleteAccountError = null
+                            settingsScope.launch {
+                                val result =
+                                    MobileAuthApi().deleteAccount(userSession?.token.orEmpty())
+                                isDeletingAccount = false
+                                result
+                                    .onSuccess { onLogoutClick() }
+                                    .onFailure {
+                                        deleteAccountError =
+                                            it.message ?: "Failed to delete account."
+                                    }
+                            }
+                        }
+                    ) {
+                        Text(text = "Delete", color = Color(0xFFDC2626))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteAccountDialog = false }) {
+                        Text(text = "Cancel")
+                    }
+                }
             )
         }
     }

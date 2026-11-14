@@ -148,6 +148,49 @@ class MobileAuthApi {
         }
     }
 
+    /**
+     * Self-service account deletion (DELETE /api/auth/account). Deletes the
+     * caller's account and personal data on the server. Mirrors iOS
+     * MobileAuthApi.deleteAccount. The caller must pass its current access
+     * token; on success it should discard the session.
+     */
+    suspend fun deleteAccount(accessToken: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL("https://api.gymsuit.app/api/auth/account")
+                connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "DELETE"
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("Authorization", "Bearer $accessToken")
+                    connectTimeout = TIMEOUT_MS
+                    readTimeout = TIMEOUT_MS
+                }
+                val responseCode = connection.responseCode
+                if (responseCode !in 200..299) {
+                    val errorText = connection.errorStream?.let { stream ->
+                        BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
+                    } ?: "HTTP $responseCode"
+                    val message = try {
+                        JSONObject(errorText).optString("message", errorText)
+                    } catch (e: Exception) {
+                        errorText
+                    }
+                    if (responseCode == 401) {
+                        ca.zeezaglobal.gymsuitapp.data.local.AuthManager.unauthorizedEvent.tryEmit(Unit)
+                    }
+                    throw Exception(message)
+                }
+                Result.success(Unit)
+            } finally {
+                connection?.disconnect()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteAccount failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateProfile(
         email: String,
         firstName: String,

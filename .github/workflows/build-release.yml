@@ -1,0 +1,78 @@
+# Builds the signed release AAB for the Google Play production track.
+#
+# Before the first run, create the upload keystore once (on your own machine)
+# and add these four repository secrets (Settings > Secrets and variables >
+# Actions):
+#   ANDROID_KEYSTORE_BASE64 - base64 of the .jks file
+#       (base64 -w0 upload-keystore.jks)
+#   KEYSTORE_PASSWORD       - the keystore password
+#   KEY_ALIAS               - the key alias inside the keystore
+#   KEY_PASSWORD            - the key password
+# Create the keystore with:
+#   keytool -genkeypair -v -keystore upload-keystore.jks -keyalg RSA \
+#     -keysize 2048 -validity 10000 -alias gymsuit-upload
+# Keep the .jks file and all four values safe: the upload key cannot be
+# recovered if lost (Google can reset it, but only through Play Console
+# support). Never commit the .jks file to the repo.
+#
+# Run from the Actions tab (workflow_dispatch) -> download the
+# gymsuit-release-aab artifact -> upload app-release.aab to Play Console.
+
+name: Build release AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    name: Build signed release bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The runner image already ships an Android SDK (cmdline-tools,
+      # platform-tools, build-tools, recent platforms) with ANDROID_HOME
+      # set. android-actions/setup-android is intentionally NOT used:
+      # its defaults break on current runners (it tries to install the
+      # long-removed `tools` package, and its license step prompts
+      # interactively instead of accepting non-interactively).
+      - name: Accept Android SDK licenses and install packages
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore upload keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload-keystore.jks"
+
+      - name: Build signed release bundle
+        working-directory: GymSuitApp
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --stacktrace
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: gymsuit-release-aab
+          path: GymSuitApp/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
