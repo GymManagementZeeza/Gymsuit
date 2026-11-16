@@ -1,9 +1,11 @@
 package com.zeezaglobal.gymmanagement.service;
 
 import com.zeezaglobal.gymmanagement.entity.OtpCode;
+import com.zeezaglobal.gymmanagement.entity.Role;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.OtpCodeRepository;
+import com.zeezaglobal.gymmanagement.repository.UserRepository;
 import com.zeezaglobal.gymmanagement.config.TestLoginSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,11 +26,28 @@ public class OtpService {
     private final OtpCodeRepository otpCodeRepository;
     private final EventPublisher eventPublisher;
     private final TestLoginSupport testLoginSupport;
+    private final UserRepository userRepository;
     private final SecureRandom random = new SecureRandom();
+
+    /**
+     * The fixed test code applies only to the designated QA account. It must never
+     * hijack a privileged account: if the address belongs to an OWNER or ADMIN user,
+     * that user always gets a real emailed code instead. (This bit us: the deploy
+     * pointed the test login at the owner's email, so no OTP email was ever sent
+     * even though send-otp kept answering 200.)
+     */
+    private boolean fixedCodeAllowed(String email) {
+        if (!testLoginSupport.matches(email)) {
+            return false;
+        }
+        return userRepository.findByEmail(email)
+                .map(user -> user.getRole() != Role.OWNER && user.getRole() != Role.ADMIN)
+                .orElse(true);
+    }
 
     public void generate(String email) {
         // TEST ONLY: the designated test account always gets the same fixed code and no real email is sent.
-        boolean testAccount = testLoginSupport.matches(email);
+        boolean testAccount = fixedCodeAllowed(email);
         String code = testAccount ? testLoginSupport.fixedOtp() : String.format("%06d", random.nextInt(1_000_000));
 
         OtpCode otp = new OtpCode();
@@ -55,7 +74,7 @@ public class OtpService {
 
     public void verify(String email, String code) {
         // TEST ONLY: accept the fixed code for the designated test account, ignoring expiry.
-        if (testLoginSupport.matches(email) && testLoginSupport.fixedOtp().equals(code)) {
+        if (fixedCodeAllowed(email) && testLoginSupport.fixedOtp().equals(code)) {
             otpCodeRepository.findTopByEmailAndConsumedFalseOrderByIdDesc(email).ifPresent(existing -> {
                 existing.setConsumed(true);
                 otpCodeRepository.save(existing);

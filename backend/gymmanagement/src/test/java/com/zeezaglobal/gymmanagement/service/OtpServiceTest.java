@@ -2,9 +2,12 @@ package com.zeezaglobal.gymmanagement.service;
 
 import com.zeezaglobal.gymmanagement.config.TestLoginSupport;
 import com.zeezaglobal.gymmanagement.entity.OtpCode;
+import com.zeezaglobal.gymmanagement.entity.Role;
+import com.zeezaglobal.gymmanagement.entity.User;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import com.zeezaglobal.gymmanagement.messaging.EventPublisher;
 import com.zeezaglobal.gymmanagement.repository.OtpCodeRepository;
+import com.zeezaglobal.gymmanagement.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -31,6 +34,7 @@ class OtpServiceTest {
 
     @Mock private OtpCodeRepository otpCodeRepository;
     @Mock private EventPublisher eventPublisher;
+    @Mock private UserRepository userRepository;
 
     private TestLoginSupport enabledSupport() {
         TestLoginSupport s = new TestLoginSupport();
@@ -47,7 +51,14 @@ class OtpServiceTest {
     }
 
     private OtpService service(TestLoginSupport support) {
-        return new OtpService(otpCodeRepository, eventPublisher, support);
+        return new OtpService(otpCodeRepository, eventPublisher, support, userRepository);
+    }
+
+    private User userWithRole(Role role) {
+        User user = new User();
+        user.setEmail(TEST_EMAIL);
+        user.setRole(role);
+        return user;
     }
 
     @Test
@@ -91,6 +102,32 @@ class OtpServiceTest {
     @Test
     void verifyRejectsFixedCodeForTestEmailWhenDisabled() {
         OtpService service = service(disabledSupport());
+        when(otpCodeRepository.findTopByEmailAndConsumedFalseOrderByIdDesc(TEST_EMAIL))
+                .thenReturn(Optional.empty());
+        assertThrows(BadRequestException.class, () -> service.verify(TEST_EMAIL, FIXED));
+    }
+
+    @Test
+    void ownerAccountGetsRealCodeAndEmailEvenWhenTestLoginEnabled() {
+        // Regression: the deploy pointed the test login at the owner's email, so
+        // send-otp answered 200 but no email was ever sent. Privileged accounts
+        // must always get a real emailed code.
+        OtpService service = service(enabledSupport());
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(userWithRole(Role.OWNER)));
+        service.generate(TEST_EMAIL);
+
+        ArgumentCaptor<OtpCode> saved = ArgumentCaptor.forClass(OtpCode.class);
+        verify(otpCodeRepository).save(saved.capture());
+        assertEquals(6, saved.getValue().getCode().length());
+        org.junit.jupiter.api.Assertions.assertNotEquals(FIXED, saved.getValue().getCode(),
+                "owner must never get the fixed test code");
+        verify(eventPublisher).publishEmail(eq(TEST_EMAIL), anyString(), anyString());
+    }
+
+    @Test
+    void verifyRejectsFixedCodeForOwnerEvenWhenTestLoginEnabled() {
+        OtpService service = service(enabledSupport());
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(userWithRole(Role.OWNER)));
         when(otpCodeRepository.findTopByEmailAndConsumedFalseOrderByIdDesc(TEST_EMAIL))
                 .thenReturn(Optional.empty());
         assertThrows(BadRequestException.class, () -> service.verify(TEST_EMAIL, FIXED));

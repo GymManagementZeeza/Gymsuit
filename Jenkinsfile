@@ -9,9 +9,10 @@ pipeline {
         APP_CORS_ALLOWED_ORIGINS = 'https://gymsuit.app,http://gymsuit.app,https://diet.gymsuit.app,http://localhost:3000,http://localhost:3001'
         SPRING_DATASOURCE_URL = 'jdbc:mysql://192.168.0.37:3306/gymmanagement'
         SPRING_DATASOURCE_USERNAME = 'athul'
-        // TEST ONLY: fixed-OTP sign-in for athul.6560@gmail.com (QA / Play review). Clear this to disable.
-        TEST_LOGIN_EMAIL = 'athul.6560@gmail.com'
-        TEST_LOGIN_OTP = '123456'
+        // TEST ONLY: fixed-OTP sign-in stays OFF unless the server deliberately sets
+        // TEST_LOGIN_EMAIL (a dedicated QA address, never a real user's email) and a
+        // 6-digit TEST_LOGIN_OTP. It used to be hardcoded here to the owner's email,
+        // which silently stopped real OTP emails to that account (API still said sent).
     }
 
     options {
