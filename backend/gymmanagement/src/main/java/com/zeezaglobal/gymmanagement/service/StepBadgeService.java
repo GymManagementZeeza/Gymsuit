@@ -51,6 +51,18 @@ public class StepBadgeService {
         MILESTONES.put(20_000, "Trail Blazer");
     }
 
+    /**
+     * Resolves a badge's display name from its threshold — the lookup that
+     * replaces the old {@code step_badges.badge_name} column. The name is a
+     * function of the threshold, so it is derived here rather than stored.
+     * An unknown threshold (e.g. a milestone retired from {@link #MILESTONES})
+     * falls back to a readable label instead of null.
+     */
+    public static String nameFor(int threshold) {
+        String name = MILESTONES.get(threshold);
+        return name != null ? name : String.format("%,d Steps", threshold);
+    }
+
     /** Resend content-id of the celebration GIF in the email HTML. */
     private static final String GIF_CID = "badge-celebration";
     /** Classpath resource of the celebration GIF (shipped with the app). */
@@ -79,7 +91,6 @@ public class StepBadgeService {
             StepBadge badge = new StepBadge();
             badge.setUser(user);
             badge.setThreshold(threshold);
-            badge.setBadgeName(milestone.getValue());
             badge.setStepsAchieved(steps);
             badge.setBadgeDate(date);
             badge.setAwardedAt(Instant.now());
@@ -98,7 +109,7 @@ public class StepBadgeService {
     }
 
     private StepBadgeDto toDto(StepBadge b) {
-        return new StepBadgeDto(b.getId(), b.getThreshold(), b.getBadgeName(),
+        return new StepBadgeDto(b.getId(), b.getThreshold(), nameFor(b.getThreshold()),
                 b.getStepsAchieved(), b.getBadgeDate(), b.getAwardedAt());
     }
 
@@ -118,7 +129,7 @@ public class StepBadgeService {
                 return;
             }
             String subject = newBadges.size() == 1
-                    ? "\uD83C\uDFC5 You earned the \"" + newBadges.get(0).getBadgeName() + "\" badge!"
+                    ? "\uD83C\uDFC5 You earned the \"" + nameFor(newBadges.get(0).getThreshold()) + "\" badge!"
                     : "\uD83C\uDFC5 You earned " + newBadges.size() + " GymSuit step badges!";
             String html = buildBadgeEmailHtml(user, newBadges);
             byte[] gif = loadCelebrationGif();
@@ -174,7 +185,7 @@ public class StepBadgeService {
             sb.append("<div style=\"background:#ffffff;border-radius:20px;padding:20px;margin:0 0 12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;\">");
             sb.append("<div style=\"font-size:44px;line-height:1;\">\uD83C\uDFC5</div>");
             sb.append("<div class=\"badge-pop\" style=\"font-size:20px;font-weight:800;margin:8px 0 2px;\">")
-                    .append(escape(b.getBadgeName())).append("</div>");
+                    .append(escape(nameFor(b.getThreshold()))).append("</div>");
             sb.append("<div style=\"font-size:14px;color:#5f6368;\">")
                     .append(String.format("%,d", b.getThreshold())).append(" steps in a single day</div>");
             sb.append("<div style=\"margin-top:10px;\">");

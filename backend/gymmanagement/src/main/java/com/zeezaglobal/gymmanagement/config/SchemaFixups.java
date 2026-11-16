@@ -37,6 +37,30 @@ public class SchemaFixups implements ApplicationRunner {
                 (type, nullable) -> !nullable,
                 "ALTER TABLE challenges MODIFY COLUMN created_by BIGINT NULL",
                 "Made challenges.created_by nullable so account deletion can keep a user's challenges");
+
+        // step_badges.badge_name was a stored copy of StepBadgeService.MILESTONES.get(threshold) — a value
+        // fully determined by the threshold (a 2NF partial dependency). The name is now derived via
+        // StepBadgeService.nameFor(threshold), so the column is dropped. It was NOT NULL with no default,
+        // so leaving it would make every new (unmapped) badge insert fail. No data is lost: the names were
+        // exactly the milestone map values.
+        dropColumn("step_badges", "badge_name",
+                "Dropped redundant step_badges.badge_name; it is now derived from the threshold");
+    }
+
+    /** Drops a column if it still exists. Idempotent: a no-op once the column is gone. */
+    private void dropColumn(String table, String column, String done) {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                            + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+                    Integer.class, table, column);
+            if (count != null && count > 0) {
+                jdbcTemplate.execute("ALTER TABLE `" + table + "` DROP COLUMN `" + column + "`");
+                log.info(done);
+            }
+        } catch (Exception e) {
+            log.warn("Could not drop {}.{}: {}", table, column, e.getMessage());
+        }
     }
 
     private interface Needs {

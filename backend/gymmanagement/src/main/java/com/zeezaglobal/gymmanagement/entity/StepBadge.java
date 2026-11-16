@@ -42,13 +42,14 @@ public class StepBadge {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    /** Milestone threshold this badge was earned for (e.g. 5000). */
+    /**
+     * Milestone threshold this badge was earned for (e.g. 5000). The display
+     * name is NOT stored — it is a pure function of the threshold, resolved
+     * through {@code StepBadgeService.MILESTONES} (the single source of truth).
+     * Storing it here would duplicate that lookup and let the two drift apart.
+     */
     @Column(nullable = false)
     private int threshold;
-
-    /** Display name, e.g. "Stride Starter". */
-    @Column(nullable = false)
-    private String badgeName;
 
     /** The reconciled step total of the day the badge was earned for. */
     @Column(nullable = false)
