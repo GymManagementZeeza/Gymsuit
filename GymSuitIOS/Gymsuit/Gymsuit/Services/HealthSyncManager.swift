@@ -39,7 +39,21 @@ public final class HealthSyncManager: ObservableObject {
         return await runFoodWorkInOrder { [self] in
             let deletesSent = await sendFoodDeletes()
             let uploaded = await uploadPendingFood()
+            // Pull meals logged elsewhere (other device, diet website, MCP
+            // client) and merge them in — after deletes+uploads so the server
+            // reflects our local changes first and nothing just deleted is
+            // pulled back.
+            await pullServerFood()
             return deletesSent && uploaded
+        }
+    }
+
+    /// Best-effort pull of the last 30 days of server food entries into the local log.
+    @MainActor
+    private func pullServerFood() async {
+        let serverEntries = await foodApi.fetch()
+        if !serverEntries.isEmpty {
+            FoodStore.shared.mergeFromServer(serverEntries)
         }
     }
 

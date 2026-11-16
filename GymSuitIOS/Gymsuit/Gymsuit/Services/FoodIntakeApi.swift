@@ -60,6 +60,69 @@ public final class FoodIntakeApi {
         }
     }
 
+    /// One food entry as the backend serves it from GET /api/mobile/food.
+    private struct ServerFoodEntry: Decodable {
+        let externalId: String
+        let recordDate: String
+        let meal: String?
+        let dishName: String?
+        let calories: Int?
+        let proteinG: Double?
+        let carbsG: Double?
+        let fatG: Double?
+    }
+
+    /// A sensible within-day hour per meal, so pulled entries sort naturally
+    /// (the server stores only the date).
+    private func mealHour(_ meal: MealType) -> Int {
+        switch meal {
+        case .breakfast: return 8
+        case .lunch: return 13
+        case .snack: return 16
+        case .dinner: return 20
+        }
+    }
+
+    /// Fetches the member's food entries from `from` (default 30 days back)
+    /// through today, so the app can show meals logged on another device, the
+    /// diet website or an MCP client. Entries map back to `FoodEntry` by their
+    /// externalId, so the caller merges by id and never duplicates a local one.
+    /// Best-effort: any failure returns an empty list rather than disturbing
+    /// the local log.
+    public func fetch(from: Date = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()) async -> [FoodEntry] {
+        guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return [] }
+        let fromStr = dateFormatter.string(from: from)
+        guard let url = URL(string: "\(baseURL)?from=\(fromStr)") else { return [] }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = timeoutInterval
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return [] }
+            let decoded = try JSONDecoder().decode([ServerFoodEntry].self, from: data)
+            let calendar = Calendar.current
+            return decoded.map { dto in
+                let meal = dto.meal.flatMap { MealType(rawValue: $0) } ?? .snack
+                let day = dateFormatter.date(from: dto.recordDate) ?? Date()
+                let dated = calendar.date(bySettingHour: mealHour(meal), minute: 0, second: 0, of: day) ?? day
+                return FoodEntry(
+                    id: dto.externalId,
+                    name: dto.dishName ?? "",
+                    meal: meal,
+                    calories: dto.calories ?? 0,
+                    proteinG: dto.proteinG ?? 0,
+                    carbsG: dto.carbsG ?? 0,
+                    fatG: dto.fatG ?? 0,
+                    timestampMillis: Int64(dated.timeIntervalSince1970 * 1000)
+                )
+            }
+        } catch {
+            return []
+        }
+    }
+
     @discardableResult
     public func delete(externalId: String) async -> Bool {
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return false }

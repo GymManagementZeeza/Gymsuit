@@ -197,6 +197,12 @@ struct FoodLogView: View {
             }
             MealReminders.restore()
         }
+        .task {
+            // Auto-sync food on open: push anything pending, then pull meals
+            // logged elsewhere (other device, diet website, MCP client). The
+            // store is @Published, so merged entries appear automatically.
+            await HealthSyncManager.shared.syncFoodIntake()
+        }
     }
 
     // MARK: - Header
@@ -292,9 +298,8 @@ struct FoodLogView: View {
             ProgressView(value: Double(min(totalKcal, dailyTarget)), total: Double(dailyTarget))
                 .tint(AppColors.calories)
                 .animation(.easeInOut, value: totalKcal)
-            Text("Protein \(Int(protein)) g  •  Carbs \(Int(carbs)) g  •  Fat \(Int(fat)) g")
-                .font(.system(size: 14))
-                .foregroundColor(AppColors.textSecondary)
+            MacroBar(protein: protein, carbs: carbs, fat: fat)
+                .padding(.top, 4)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -517,6 +522,67 @@ struct FoodLogView: View {
 
 /// Full-screen blocking overlay shown while the photo is uploaded to
 /// FoodRecognitionApi and a result comes back.
+/// The day's macro split as a stacked bar: protein, carbs and fat sized by
+/// their share of the day's calories (4 / 4 / 9 kcal per gram), with a
+/// grams-and-percent legend. Mirrors the Android MacroBar on the food screen.
+private struct MacroBar: View {
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+
+    private var pKcal: Double { protein * 4 }
+    private var cKcal: Double { carbs * 4 }
+    private var fKcal: Double { fat * 9 }
+    private var total: Double { pKcal + cKcal + fKcal }
+
+    private let proteinColor = AppColors.primary
+    private let carbsColor = AppColors.warning
+    private let fatColor = AppColors.purple
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GeometryReader { geo in
+                let gap: CGFloat = 3
+                let avail = max(geo.size.width - gap * 2, 0)
+                HStack(spacing: gap) {
+                    if total > 0 {
+                        Capsule().fill(proteinColor)
+                            .frame(width: max(CGFloat(pKcal / total) * avail, 0))
+                        Capsule().fill(carbsColor)
+                            .frame(width: max(CGFloat(cKcal / total) * avail, 0))
+                        Capsule().fill(fatColor)
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Capsule().fill(AppColors.divider)
+                    }
+                }
+            }
+            .frame(height: 14)
+            .animation(.easeInOut(duration: 0.6), value: total)
+
+            HStack(spacing: 14) {
+                legend("Protein", protein, total > 0 ? pKcal / total : 0, proteinColor)
+                legend("Carbs", carbs, total > 0 ? cKcal / total : 0, carbsColor)
+                legend("Fat", fat, total > 0 ? fKcal / total : 0, fatColor)
+            }
+        }
+    }
+
+    private func legend(_ label: String, _ grams: Double, _ fraction: Double, _ color: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(label) \(Int(grams)) g")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(AppColors.textPrimary)
+                Text("\(Int((fraction * 100).rounded()))%")
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textSecondary)
+            }
+        }
+    }
+}
+
 private struct ScanningOverlay: View {
     var body: some View {
         ZStack {

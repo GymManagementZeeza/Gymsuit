@@ -34,7 +34,7 @@
 		DA860E2F30894D930074CF6F /* Embed Watch Content */ = {
 			isa = PBXCopyFilesBuildPhase;
 			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolder = Product;
+			dstSubfolderSpec = 16;
 			files = (
 				DA860E2B30894D930074CF6F /* GymsuitKit Watch App.app in Embed Watch Content */,
 			);
@@ -43,7 +43,7 @@
 		5E74024F339E1871D44BB351 /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			dstPath = "";
-			dstSubfolder = 13;
+			dstSubfolderSpec = 13;
 			files = (
 				6230C9EB83B2E347583A0AC5 /* GymsuitWidgets.appex in Embed App Extensions */,
 			);

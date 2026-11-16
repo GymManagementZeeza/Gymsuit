@@ -47,6 +47,24 @@ public final class FoodStore: ObservableObject {
         persist()
     }
 
+    /// Merges food entries pulled from the backend (logged on another device,
+    /// the diet website or an MCP client) into the local log. Only entries not
+    /// already present are added, so a local entry (which may hold an edit not
+    /// yet uploaded) is never overwritten, and one the user just deleted whose
+    /// remote delete hasn't been confirmed is not resurrected. Added entries
+    /// are marked uploaded, since they came from the server and must not be
+    /// pushed back. `entries` is @Published, so the UI refreshes automatically.
+    public func mergeFromServer(_ serverEntries: [FoodEntry]) {
+        let localIds = Set(entries.map(\.id))
+        let pending = pendingRemoteDeletes()
+        let toAdd = serverEntries.filter { !$0.id.isEmpty && !localIds.contains($0.id) && !pending.contains($0.id) }
+        guard !toAdd.isEmpty else { return }
+        entries.append(contentsOf: toAdd)
+        entries.sort { $0.timestampMillis < $1.timestampMillis }
+        markUploaded(ids: toAdd.map(\.id))
+        persist()
+    }
+
     /// Entries the backend has confirmed. Logged entries never change, so each one uploads once.
     public func uploadedIds() -> Set<String> {
         Set(UserDefaults.standard.stringArray(forKey: uploadedKey) ?? [])
