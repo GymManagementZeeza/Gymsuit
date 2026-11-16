@@ -217,8 +217,11 @@ class HealthSyncManager(private val context: Context) {
                 }
             }
 
-            // 2. Gather logged workouts
-            val loggedWorkouts = workoutStore.getLoggedWorkouts()
+            // 2. Gather logged workouts. Skip server-origin ones (pulled from
+            // the backend / an MCP client): re-uploading them here would null
+            // out the server's stored calorie estimate.
+            val serverOrigin = workoutStore.serverOriginIds()
+            val loggedWorkouts = workoutStore.getLoggedWorkouts().filter { it.id !in serverOrigin }
             val workoutDtos = loggedWorkouts.map { w ->
                 val startInstant = Instant.ofEpochMilli(w.timestampMillis)
                 val endInstant = startInstant.plusSeconds((w.durationMinutes.coerceAtLeast(1) * 60).toLong())

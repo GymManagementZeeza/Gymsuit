@@ -19,6 +19,7 @@ class WorkoutStore(private val context: Context) {
 
     val exercises: List<Exercise> = loadExercises()
     private val logFile = File(context.filesDir, "logged_workouts.json")
+    private val syncPrefs = context.getSharedPreferences("workout_sync_prefs", Context.MODE_PRIVATE)
 
     private fun loadExercises(): List<Exercise> {
         return try {
@@ -104,6 +105,33 @@ class WorkoutStore(private val context: Context) {
         return updated
     }
 
+    /** Ids of workouts pulled from the backend (logged on another device or an
+     *  MCP client). They are excluded from the health-sync upload so re-sending
+     *  them can never overwrite the server's stored calorie estimate. */
+    fun serverOriginIds(): Set<String> =
+        syncPrefs.getStringSet(KEY_SERVER_ORIGIN_IDS, emptySet()) ?: emptySet()
+
+    private fun markServerOrigin(ids: Collection<String>) {
+        syncPrefs.edit().putStringSet(KEY_SERVER_ORIGIN_IDS, serverOriginIds() + ids).apply()
+    }
+
+    /**
+     * Merges workouts pulled from the backend into the local log. Only sessions
+     * not already present (by id) are added, so a locally-logged workout is
+     * never overwritten. Added workouts are recorded as server-origin so the
+     * upload skips them. Returns the merged list (unchanged if nothing new).
+     */
+    fun mergeFromServer(serverWorkouts: List<LoggedWorkout>): List<LoggedWorkout> {
+        val current = getLoggedWorkouts()
+        val localIds = current.mapTo(HashSet()) { it.id }
+        val toAdd = serverWorkouts.filter { it.id.isNotBlank() && it.id !in localIds }
+        if (toAdd.isEmpty()) return current
+        markServerOrigin(toAdd.map { it.id })
+        val updated = (current + toAdd).sortedByDescending { it.timestampMillis }
+        persist(updated)
+        return updated
+    }
+
     fun markSynced(id: String): List<LoggedWorkout> {
         val updated = getLoggedWorkouts().map {
             if (it.id == id) it.copy(syncedToHealth = true) else it
@@ -153,4 +181,8 @@ class WorkoutStore(private val context: Context) {
 
     private fun JSONArray.toStringList(): List<String> =
         List(length()) { i -> optString(i) }
+
+    private companion object {
+        const val KEY_SERVER_ORIGIN_IDS = "server_origin_workout_ids"
+    }
 }

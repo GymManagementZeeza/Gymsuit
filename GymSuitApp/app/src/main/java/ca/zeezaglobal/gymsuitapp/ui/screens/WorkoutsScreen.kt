@@ -229,6 +229,18 @@ fun WorkoutsScreen(
             .onSuccess { trainerSuggestion = it }
     }
 
+    // Pull workouts logged elsewhere (another device, or an MCP client — e.g.
+    // "I did 2 sets of bench press") and merge them into the local log so they
+    // show here, then refresh what's displayed.
+    LaunchedEffect(Unit) {
+        ca.zeezaglobal.gymsuitapp.data.remote.WorkoutApi(context).fetch().onSuccess { pulled ->
+            if (pulled.isNotEmpty()) {
+                workoutStore.mergeFromServer(pulled)
+                loggedWorkouts = workoutStore.getLoggedWorkouts()
+            }
+        }
+    }
+
     // iOS: `loadRealWorkouts` on appear (WorkoutStreakCardView) plus
     // `.task(id: selectedDate)` in the day summary — one reload covers both.
     LaunchedEffect(selectedDate) {
