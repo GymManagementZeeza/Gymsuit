@@ -46,6 +46,10 @@ import kotlin.math.sin
 import java.io.ByteArrayOutputStream
 import java.io.File
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -334,11 +338,11 @@ fun FoodLogScreen() {
                             )
                         }
                         LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                        Text(
-                            "Protein ${dayEntries.sumOf { it.proteinG }.toInt()} g  •  " +
-                                "Carbs ${dayEntries.sumOf { it.carbsG }.toInt()} g  •  " +
-                                "Fat ${dayEntries.sumOf { it.fatG }.toInt()} g",
-                            style = MaterialTheme.typography.bodyMedium
+                        MacroBar(
+                            proteinG = dayEntries.sumOf { it.proteinG }.toInt(),
+                            carbsG = dayEntries.sumOf { it.carbsG }.toInt(),
+                            fatG = dayEntries.sumOf { it.fatG }.toInt(),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                         )
                     }
                 }
@@ -797,6 +801,93 @@ private fun ScoreStatCard(
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/**
+ * The day's macro split as a Material 3 stacked bar: protein, carbs and fat
+ * sized by their share of the day's calories (4 / 4 / 9 kcal per gram), with a
+ * grams-and-percent legend. Material 3 has no chart component, so this is a
+ * Canvas custom-draw; it uses MaterialTheme colour roles (primary / tertiary /
+ * secondary) so it tracks the theme, and the segments grow with the standard
+ * Material easing whenever the totals change.
+ */
+@Composable
+private fun MacroBar(proteinG: Int, carbsG: Int, fatG: Int, modifier: Modifier = Modifier) {
+    val proteinColor = MaterialTheme.colorScheme.primary
+    val carbsColor = MaterialTheme.colorScheme.tertiary
+    val fatColor = MaterialTheme.colorScheme.secondary
+    val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+
+    val pKcal = proteinG * 4f
+    val cKcal = carbsG * 4f
+    val fKcal = fatG * 9f
+    val total = pKcal + cKcal + fKcal
+
+    val spec = tween<Float>(durationMillis = 600, easing = FastOutSlowInEasing)
+    val pFrac by animateFloatAsState(if (total > 0f) pKcal / total else 0f, spec, label = "proteinFrac")
+    val cFrac by animateFloatAsState(if (total > 0f) cKcal / total else 0f, spec, label = "carbsFrac")
+    val fFrac by animateFloatAsState(if (total > 0f) fKcal / total else 0f, spec, label = "fatFrac")
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+        ) {
+            val h = size.height
+            val w = size.width
+            val radius = CornerRadius(h / 2f, h / 2f)
+            drawRoundRect(color = trackColor, size = Size(w, h), cornerRadius = radius)
+            if (total <= 0f) return@Canvas
+            val gap = 3.dp.toPx()
+            var x = 0f
+            for ((frac, color) in listOf(pFrac to proteinColor, cFrac to carbsColor, fFrac to fatColor)) {
+                val full = frac * w
+                val segW = full - gap
+                if (segW > 0.5f) {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(x, 0f),
+                        size = Size(segW, h),
+                        cornerRadius = radius
+                    )
+                }
+                x += full
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            MacroLegendItem("Protein", proteinG, if (total > 0f) pKcal / total else 0f, proteinColor)
+            MacroLegendItem("Carbs", carbsG, if (total > 0f) cKcal / total else 0f, carbsColor)
+            MacroLegendItem("Fat", fatG, if (total > 0f) fKcal / total else 0f, fatColor)
+        }
+    }
+}
+
+@Composable
+private fun MacroLegendItem(label: String, grams: Int, fraction: Float, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(
+            Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Column {
+            Text(
+                "$label $grams g",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                "${(fraction * 100).roundToInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
