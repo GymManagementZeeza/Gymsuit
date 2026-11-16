@@ -1,6 +1,7 @@
 package com.zeezaglobal.gymmanagement.controller;
 
 import com.zeezaglobal.gymmanagement.dto.EatingHabitScoreResponse;
+import com.zeezaglobal.gymmanagement.dto.FoodIntakeResponse;
 import com.zeezaglobal.gymmanagement.dto.FoodIntakeSyncRequest;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import com.zeezaglobal.gymmanagement.security.UserPrincipal;
@@ -17,7 +18,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -44,6 +48,21 @@ public class MobileFoodController {
             throw new AccessDeniedException("Authentication required");
         }
         return eatingHabitScoreService.scoreForUser(principal.getUserId(), days, calorieTargetKcal);
+    }
+
+    /**
+     * All of the signed-in member's food entries from {@code from} (YYYY-MM-DD,
+     * default 30 days ago) through today, so the app can merge meals logged on
+     * another device, the diet website or an MCP client into its on-device log.
+     */
+    @GetMapping
+    public List<FoodIntakeResponse> list(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from) {
+        UserPrincipal principal = securityService.currentUser();
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+        return foodIntakeService.listForUser(principal, from);
     }
 
     @PostMapping("/sync")

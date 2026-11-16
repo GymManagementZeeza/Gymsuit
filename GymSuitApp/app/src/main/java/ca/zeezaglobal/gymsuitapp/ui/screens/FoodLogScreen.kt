@@ -152,6 +152,14 @@ fun FoodLogScreen() {
             .onSuccess { habitScore = it }
         habitScoreLoaded = true
     }
+
+    // Auto-sync food on open: push anything pending, then pull meals logged
+    // elsewhere (other device, diet website, MCP client) and show them. The
+    // sync merges into the local store, so reloading from it picks them up.
+    LaunchedEffect(Unit) {
+        HealthSyncManager(context).syncFoodIntake()
+        entries = store.getAll()
+    }
     var scanning by remember { mutableStateOf(false) }
     var scanImage by remember { mutableStateOf<Bitmap?>(null) }
     var scanCandidates by remember { mutableStateOf<List<DishCandidate>>(emptyList()) }

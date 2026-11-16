@@ -88,6 +88,26 @@ class FoodStore(context: Context) {
 
     fun delete(id: String): List<FoodEntry> = persist(getAll().filter { it.id != id })
 
+    /**
+     * Merges food entries pulled from the backend (logged on another device,
+     * the diet website or an MCP client) into the local log. Only entries not
+     * already present locally are added, so a local entry (which may hold an
+     * edit not yet uploaded) is never overwritten, and an entry the user just
+     * deleted but whose remote delete hasn't been confirmed is not resurrected.
+     * Added entries are marked uploaded, since they came from the server and
+     * must not be pushed back. Returns the merged list (unchanged if nothing
+     * new arrived).
+     */
+    fun mergeFromServer(serverEntries: List<FoodEntry>): List<FoodEntry> {
+        val local = getAll()
+        val localIds = local.mapTo(HashSet()) { it.id }
+        val pendingDeletes = pendingRemoteDeletes()
+        val toAdd = serverEntries.filter { it.id.isNotBlank() && it.id !in localIds && it.id !in pendingDeletes }
+        if (toAdd.isEmpty()) return local
+        markUploaded(toAdd.map { it.id })
+        return persist(local + toAdd)
+    }
+
     private fun persist(entries: List<FoodEntry>): List<FoodEntry> {
         try {
             val arr = JSONArray()

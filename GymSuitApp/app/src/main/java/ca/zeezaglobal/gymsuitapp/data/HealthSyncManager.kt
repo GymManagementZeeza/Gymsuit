@@ -57,11 +57,30 @@ class HealthSyncManager(private val context: Context) {
         try {
             foodSyncMutex.withLock {
                 val deletesSent = sendFoodDeletes()
-                uploadPendingFood() && deletesSent
+                val uploaded = uploadPendingFood()
+                // Pull meals logged elsewhere (other device, diet website, MCP
+                // client) and merge them in. Done after deletes+uploads so the
+                // server reflects our local changes first and nothing just
+                // deleted is pulled back.
+                pullServerFood()
+                uploaded && deletesSent
             }
         } catch (e: Exception) {
             Log.w(TAG, "Food intake sync caught: ${e.message}")
             false
+        }
+    }
+
+    /** Best-effort pull of the last 30 days of server food entries into the local log. */
+    private suspend fun pullServerFood() {
+        try {
+            val result = foodApi.fetch(LocalDate.now().minusDays(30))
+            result.getOrNull()?.let { serverEntries ->
+                val merged = foodStore.mergeFromServer(serverEntries)
+                Log.i(TAG, "Food pull merged ${serverEntries.size} server entries; local now ${merged.size}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Food pull caught: ${e.message}")
         }
     }
 

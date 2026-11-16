@@ -1,5 +1,6 @@
 package com.zeezaglobal.gymmanagement.service;
 
+import com.zeezaglobal.gymmanagement.dto.FoodIntakeResponse;
 import com.zeezaglobal.gymmanagement.dto.FoodIntakeSyncRequest;
 import com.zeezaglobal.gymmanagement.entity.FoodIntakeRecord;
 import com.zeezaglobal.gymmanagement.entity.User;
@@ -11,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Mobile food-log upload. The apps keep food_log.json on-device today; this
@@ -116,6 +119,27 @@ public class FoodIntakeService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    /**
+     * All of the member's food entries from {@code from} (default: 30 days ago)
+     * through today, oldest first, so the app can pull meals logged on other
+     * devices, the diet website or an MCP client and merge them into its local
+     * log. The photo blob is omitted here (see {@link FoodIntakeResponse}).
+     * The end is today + 1 day to tolerate a device a timezone ahead of the server.
+     */
+    @Transactional(readOnly = true)
+    public List<FoodIntakeResponse> listForUser(UserPrincipal principal, LocalDate from) {
+        LocalDate start = from != null ? from : LocalDate.now().minusDays(30);
+        LocalDate end = LocalDate.now().plusDays(1);
+        if (end.isBefore(start)) {
+            end = start;
+        }
+        return foodIntakeRepository
+                .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(principal.getUserId(), start, end)
+                .stream()
+                .map(FoodIntakeResponse::fromEntity)
+                .toList();
     }
 
     /** Removes one entry the app deleted locally; a no-op when it was never synced. */

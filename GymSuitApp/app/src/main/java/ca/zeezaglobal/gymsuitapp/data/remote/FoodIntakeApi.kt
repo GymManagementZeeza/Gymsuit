@@ -3,6 +3,7 @@ package ca.zeezaglobal.gymsuitapp.data.remote
 import android.content.Context
 import android.util.Log
 import ca.zeezaglobal.gymsuitapp.data.FoodEntry
+import ca.zeezaglobal.gymsuitapp.data.MealType
 import ca.zeezaglobal.gymsuitapp.data.local.AuthManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,6 +15,7 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -69,6 +71,79 @@ class FoodIntakeApi(private val context: Context) {
             Log.w(TAG, "Food intake sync failed: ${e.message}")
             Result.failure(e)
         }
+    }
+
+    /**
+     * Fetches the member's food entries from [from] (default: 30 days back)
+     * through today, so the app can show meals logged on another device, the
+     * diet website or an MCP client. Entries map back to [FoodEntry] by their
+     * externalId, so the caller merges by id and never duplicates a local one.
+     * The within-day time is derived from the meal slot (breakfast/lunch/…),
+     * since the server stores only the date. Best-effort: a failure is logged
+     * and returns an empty list rather than disturbing the local log.
+     */
+    suspend fun fetch(from: LocalDate = LocalDate.now().minusDays(30)): Result<List<FoodEntry>> =
+        withContext(Dispatchers.IO) {
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL("$BASE_URL?from=${from.format(DATE_FORMATTER)}")
+                connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = TIMEOUT_MS
+                    readTimeout = TIMEOUT_MS
+                }
+                val token = authManager.getAccessToken()
+                if (!token.isNullOrBlank()) {
+                    connection.setRequestProperty("Authorization", "Bearer $token")
+                }
+                val code = connection.responseCode
+                if (code == 401) {
+                    AuthManager.unauthorizedEvent.tryEmit(Unit)
+                }
+                if (code !in 200..299) {
+                    return@withContext Result.failure(Exception("Food fetch failed ($code)"))
+                }
+                val text = connection.inputStream.bufferedReader().use { it.readText() }
+                val arr = JSONArray(text)
+                val zone = ZoneId.systemDefault()
+                val entries = ArrayList<FoodEntry>(arr.length())
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    val meal = runCatching { MealType.valueOf(o.optString("meal")) }
+                        .getOrDefault(MealType.SNACK)
+                    val date = runCatching { LocalDate.parse(o.optString("recordDate")) }
+                        .getOrDefault(LocalDate.now())
+                    val millis = date.atTime(mealHour(meal), 0)
+                        .atZone(zone).toInstant().toEpochMilli()
+                    entries.add(
+                        FoodEntry(
+                            id = o.optString("externalId"),
+                            name = o.optString("dishName"),
+                            meal = meal,
+                            calories = o.optInt("calories"),
+                            proteinG = o.optDouble("proteinG", 0.0),
+                            carbsG = o.optDouble("carbsG", 0.0),
+                            fatG = o.optDouble("fatG", 0.0),
+                            timestampMillis = millis
+                        )
+                    )
+                }
+                Result.success(entries)
+            } catch (e: Exception) {
+                Log.w(TAG, "Food fetch failed: ${e.message}")
+                Result.failure(e)
+            } finally {
+                connection?.disconnect()
+            }
+        }
+
+    /** A sensible within-day hour per meal, so pulled entries sort naturally. */
+    private fun mealHour(meal: MealType): Int = when (meal) {
+        MealType.BREAKFAST -> 8
+        MealType.LUNCH -> 13
+        MealType.SNACK -> 16
+        MealType.DINNER -> 20
     }
 
     suspend fun delete(externalId: String): Boolean = withContext(Dispatchers.IO) {
