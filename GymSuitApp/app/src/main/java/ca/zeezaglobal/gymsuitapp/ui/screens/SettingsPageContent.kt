@@ -38,6 +38,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubblePrefs
 import ca.zeezaglobal.gymsuitapp.ui.overlay.StepsBubbleService
+import ca.zeezaglobal.gymsuitapp.notifications.MealReminders
+import androidx.compose.material.icons.filled.Notifications
 import ca.zeezaglobal.gymsuitapp.data.remote.MobileAuthApi
 import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.data.remote.WorkoutOnboardingApi
@@ -371,6 +373,70 @@ fun SettingsPageContent(
                 fontSize = 13.sp,
                 color = Color(0xFFDC2626)
             )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Notifications — meal reminders (moved here from the meals page).
+        Text(
+            text = "Notifications",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF6B7280)
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        var remindersOn by remember { mutableStateOf(MealReminders.isEnabled(context) && MealReminders.hasNotificationPermission(context)) }
+        val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            remindersOn = granted
+            MealReminders.setEnabled(context, granted)
+        }
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Notifications,
+                    contentDescription = "Meal reminders",
+                    tint = Color(0xFF0062FF),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Meal reminders",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF111827)
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "Morning, noon, evening and night",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+                Switch(
+                    checked = remindersOn,
+                    onCheckedChange = { on ->
+                        if (on && !MealReminders.hasNotificationPermission(context)) {
+                            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            remindersOn = on
+                            MealReminders.setEnabled(context, on)
+                        }
+                    }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))

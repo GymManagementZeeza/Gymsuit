@@ -21,8 +21,6 @@ import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
-import ca.zeezaglobal.gymsuitapp.notifications.MealReminders
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
@@ -84,7 +82,6 @@ import androidx.compose.material.icons.filled.BreakfastDining
 import androidx.compose.material.icons.filled.Cookie
 import androidx.compose.material.icons.filled.DinnerDining
 import androidx.compose.material.icons.filled.LunchDining
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.animation.animateContentSize
@@ -260,13 +257,6 @@ fun FoodLogScreen() {
         label = "foodProgress"
     )
 
-    // Meal reminders (morning, noon, evening, night)
-    var remindersOn by remember { mutableStateOf(MealReminders.isEnabled(context) && MealReminders.hasNotificationPermission(context)) }
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        remindersOn = granted
-        MealReminders.setEnabled(context, granted)
-    }
-
     var showAiSheet by remember { mutableStateOf(false) }
 
     // Apple-style grouped list: light grey page, white cards, one blue accent.
@@ -300,55 +290,6 @@ fun FoodLogScreen() {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Next day")
             }
         }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape)
-                        .background(Color(0xFFF2F2F7)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Notifications,
-                        contentDescription = null,
-                        tint = Color(0xFF007AFF)
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Meal reminders",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF1C1C1E)
-                    )
-                    Text(
-                        "Morning, noon, evening and night",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8E8E93)
-                    )
-                }
-                Switch(
-                    checked = remindersOn,
-                    onCheckedChange = { on ->
-                        if (on && !MealReminders.hasNotificationPermission(context)) {
-                            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            remindersOn = on
-                            MealReminders.setEnabled(context, on)
-                        }
-                    }
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
 
         if (scanning) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
