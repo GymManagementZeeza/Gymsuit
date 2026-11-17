@@ -35,7 +35,13 @@ public record EatingHabitScoreResponse(
          */
         double foodQuality,
         /** One rounded score per logged day, oldest first. */
-        List<DayScore> dailyScores
+        List<DayScore> dailyScores,
+        /** One-sentence plain-language read of the score (what is going well / the main gap). */
+        String summary,
+        /** Up to 3 specific things to improve, weakest area first. Empty when nothing is lacking. */
+        List<String> improvements,
+        /** A general healthy-eating tip; rotates by date. */
+        String healthTip
 ) {
     public record Components(
             double protein,

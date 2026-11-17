@@ -96,6 +96,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -735,6 +736,60 @@ private fun EatingHabitScoreCard(
                         "${if (score.daysLogged == 1) "day" else "days"} in the last ${score.windowDays} days · " +
                         "Avg ${score.avgCaloriesKcal.toInt()} kcal · ${score.avgProteinG.toInt()} g protein",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ScoreInsights(score)
+            }
+        }
+    }
+}
+
+/** Short plain-language summary, what to improve, and a healthy-eating tip, under the score. */
+@Composable
+private fun ScoreInsights(score: EatingHabitScoreApi.EatingHabitScore) {
+    if (score.summary.isBlank() && score.improvements.isEmpty() && score.healthTip.isBlank()) return
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (score.summary.isNotBlank()) {
+                Text(
+                    score.summary,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            if (score.improvements.isNotEmpty()) {
+                Text(
+                    "What to improve",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                score.improvements.forEach { tip ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("•", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            tip,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            if (score.healthTip.isNotBlank()) {
+                Text(
+                    "Healthy tip",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    score.healthTip,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

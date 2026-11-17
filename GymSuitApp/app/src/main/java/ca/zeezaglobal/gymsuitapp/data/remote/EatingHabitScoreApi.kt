@@ -40,7 +40,10 @@ class EatingHabitScoreApi(context: Context) {
         val proteinTargetG: Double,
         val calorieTargetKcal: Int,
         val components: Components,
-        val foodQuality: Double
+        val foodQuality: Double,
+        val summary: String = "",
+        val improvements: List<String> = emptyList(),
+        val healthTip: String = ""
     )
 
     suspend fun getScore(days: Int = 7, calorieTargetKcal: Int = 2000): Result<EatingHabitScore> =
@@ -80,7 +83,12 @@ class EatingHabitScoreApi(context: Context) {
                             balance = components.optDouble("balance", 0.0),
                             pattern = components.optDouble("pattern", 0.0)
                         ),
-                        foodQuality = json.optDouble("foodQuality", 0.0)
+                        foodQuality = json.optDouble("foodQuality", 0.0),
+                        summary = json.optString("summary", ""),
+                        improvements = json.optJSONArray("improvements")?.let { a ->
+                            List(a.length()) { i -> a.optString(i) }
+                        } ?: emptyList(),
+                        healthTip = json.optString("healthTip", "")
                     )
                 )
             } catch (e: Exception) {

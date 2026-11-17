@@ -123,7 +123,9 @@ public class EatingHabitScoreService {
                     null, "No data yet", 0, windowDays, start, end,
                     0.0, 0.0, round1(proteinTargetG), calorieTargetKcal,
                     new EatingHabitScoreResponse.Components(0.0, 0.0, 0.0, 0.0),
-                    0.0, List.of());
+                    0.0, List.of(),
+                    "Log your meals for a few days and we'll show how your eating is going and what to improve.",
+                    List.of(), healthTipFor(end));
         }
 
         List<EatingHabitScoreResponse.DayScore> dailyScores = new ArrayList<>();
@@ -134,6 +136,11 @@ public class EatingHabitScoreService {
         double foodQualitySum = 0.0;
         double kcalSum = 0.0;
         double proteinGSum = 0.0;
+        double carbsGSum = 0.0;
+        double fatGSum = 0.0;
+        double slotCountSum = 0.0;
+        double dishCountSum = 0.0;
+        Map<String, Integer> slotDays = new TreeMap<>();
         for (Map.Entry<LocalDate, DayTotals> entry : byDay.entrySet()) {
             DayTotals day = entry.getValue();
             double protein = proteinPoints(day.proteinG, proteinTargetG);
@@ -150,11 +157,24 @@ public class EatingHabitScoreService {
             foodQualitySum += (protein + balance) / 50.0 * 100.0;
             kcalSum += day.calories;
             proteinGSum += day.proteinG;
+            carbsGSum += day.carbsG;
+            fatGSum += day.fatG;
+            slotCountSum += day.mealSlots.size();
+            dishCountSum += day.dishes.size();
+            for (String slot : day.mealSlots) {
+                slotDays.merge(slot, 1, Integer::sum);
+            }
         }
 
         int daysLogged = byDay.size();
         double overall = (proteinSum + caloriesSum + balanceSum + patternSum) / daysLogged;
         int score = (int) Math.round(overall);
+        double[] avgPoints = {proteinSum / daysLogged, caloriesSum / daysLogged,
+                balanceSum / daysLogged, patternSum / daysLogged};
+        List<String> improvements = improvements(avgPoints, kcalSum / daysLogged, calorieTargetKcal,
+                proteinGSum / daysLogged, proteinTargetG, kcalSum, proteinGSum, carbsGSum, fatGSum,
+                slotCountSum / daysLogged, dishCountSum / daysLogged, slotDays, daysLogged, windowDays);
+        String summary = summaryFor(score, avgPoints, daysLogged, windowDays);
         return new EatingHabitScoreResponse(
                 score,
                 labelFor(score),
@@ -172,7 +192,114 @@ public class EatingHabitScoreService {
                         round1(balanceSum / daysLogged),
                         round1(patternSum / daysLogged)),
                 round1(foodQualitySum / daysLogged),
-                dailyScores);
+                dailyScores,
+                summary,
+                improvements,
+                healthTipFor(end));
+    }
+
+    private static final String[] COMPONENT_NAMES = {"protein", "calorie balance", "macro balance", "meal pattern"};
+    private static final double GOOD_POINTS = 20.0;
+
+    private static String summaryFor(int score, double[] avg, int daysLogged, int windowDays) {
+        int best = 0;
+        int worst = 0;
+        for (int i = 1; i < avg.length; i++) {
+            if (avg[i] > avg[best]) best = i;
+            if (avg[i] < avg[worst]) worst = i;
+        }
+        String days = daysLogged + " of " + windowDays + " days logged";
+        if (avg[worst] >= GOOD_POINTS) {
+            return "Great work (" + days + "): all four areas are in good shape. Keep this routine going.";
+        }
+        String lead = score >= 75 ? "Good progress" : score >= 60 ? "Decent start" : "Room to improve";
+        return lead + " (" + days + "). Your " + COMPONENT_NAMES[best] + " is your strongest area; "
+                + COMPONENT_NAMES[worst] + " is the biggest opportunity.";
+    }
+
+    /** Specific, data-driven suggestions, weakest component first (max 3). */
+    private static List<String> improvements(
+            double[] avg, double avgKcal, int kcalTarget, double avgProteinG, double proteinTargetG,
+            double kcalSum, double proteinGSum, double carbsGSum, double fatGSum,
+            double avgSlots, double avgDishes, Map<String, Integer> slotDays,
+            int daysLogged, int windowDays) {
+        Integer[] order = {0, 1, 2, 3};
+        java.util.Arrays.sort(order, (a, b) -> Double.compare(avg[a], avg[b]));
+        List<String> out = new ArrayList<>();
+        for (int idx : order) {
+            if (avg[idx] >= GOOD_POINTS || out.size() >= 3) {
+                continue;
+            }
+            switch (idx) {
+                case 0 -> out.add("Protein: you average " + Math.round(avgProteinG) + " g a day against a target of "
+                        + Math.round(proteinTargetG) + " g. Add eggs, Greek yogurt, paneer, dal, chicken, fish or tofu to your meals.");
+                case 1 -> {
+                    double ratio = avgKcal / kcalTarget;
+                    out.add(ratio < 1.0
+                            ? "Calories: you average " + Math.round(avgKcal) + " kcal against about " + kcalTarget
+                                    + ". You may be under-eating; add a balanced snack or a larger portion at your lightest meal."
+                            : "Calories: you average " + Math.round(avgKcal) + " kcal against about " + kcalTarget
+                                    + ". Trim portions of calorie-dense foods, sugary drinks and fried snacks.");
+                }
+                case 2 -> out.add(macroTip(kcalSum, proteinGSum, carbsGSum, fatGSum));
+                default -> {
+                    if (avgSlots < 3.0) {
+                        String missing = slotDays.getOrDefault("BREAKFAST", 0) < daysLogged / 2.0 + 0.01
+                                && slotDays.getOrDefault("BREAKFAST", 0) < daysLogged ? "breakfast"
+                                : slotDays.getOrDefault("LUNCH", 0) < daysLogged ? "lunch"
+                                : slotDays.getOrDefault("DINNER", 0) < daysLogged ? "dinner" : "meals";
+                        out.add("Meal pattern: you log about " + Math.round(avgSlots * 10) / 10.0
+                                + " meal types a day. Try to log (and eat) regular " + missing + " and spread food across the day.");
+                    } else {
+                        out.add("Variety: you eat about " + Math.round(avgDishes) + " different dishes a day. Add more variety of vegetables, fruit, grains and proteins.");
+                    }
+                }
+            }
+        }
+        if (daysLogged < Math.max(2, windowDays / 2) && out.size() < 3) {
+            out.add("Log your food on more days: the score is based on " + daysLogged + " of the last "
+                    + windowDays + " days, so more logging gives a truer picture.");
+        }
+        return out;
+    }
+
+    private static String macroTip(double kcal, double proteinG, double carbsG, double fatG) {
+        if (kcal <= 0) {
+            return "Macro balance: log calories and macros so we can check your protein, carb and fat split.";
+        }
+        double p = proteinG * 4.0 / kcal * 100.0;
+        double c = carbsG * 4.0 / kcal * 100.0;
+        double f = fatG * 9.0 / kcal * 100.0;
+        double pDev = p < 15 ? 15 - p : Math.max(0, p - 30);
+        double cDev = c < 45 ? 45 - c : Math.max(0, c - 65);
+        double fDev = f < 20 ? 20 - f : Math.max(0, f - 35);
+        if (fDev >= pDev && fDev >= cDev) {
+            return f > 35
+                    ? "Macro balance: about " + Math.round(f) + "% of calories come from fat (aim 20-35%). Cut back on fried food, butter and oils."
+                    : "Macro balance: only " + Math.round(f) + "% of calories come from fat (aim 20-35%). Add nuts, seeds, olive oil or fish.";
+        }
+        if (cDev >= pDev) {
+            return c > 65
+                    ? "Macro balance: about " + Math.round(c) + "% of calories come from carbs (aim 45-65%). Swap some refined carbs for protein and vegetables."
+                    : "Macro balance: only " + Math.round(c) + "% of calories come from carbs (aim 45-65%). Add whole grains, fruit or starchy vegetables.";
+        }
+        return p > 30
+                ? "Macro balance: about " + Math.round(p) + "% of calories come from protein (aim 15-30%). Balance it with more vegetables and whole grains."
+                : "Macro balance: only " + Math.round(p) + "% of calories come from protein (aim 15-30%). Include a protein source at every meal.";
+    }
+
+    private static final String[] HEALTH_TIPS = {
+            "Drink water through the day; thirst is often mistaken for hunger.",
+            "Fill half your plate with vegetables at lunch and dinner.",
+            "Eat slowly: it takes about 20 minutes for fullness signals to reach your brain.",
+            "Choose whole foods (fruit, nuts, whole grains) over packaged snacks most of the time.",
+            "Get 7-9 hours of sleep. Poor sleep increases cravings and appetite.",
+            "Include protein with every meal to stay full and support muscle recovery.",
+            "Plan tomorrow's meals tonight so you are not deciding when hungry.",
+    };
+
+    static String healthTipFor(LocalDate date) {
+        return HEALTH_TIPS[(int) (date.toEpochDay() % HEALTH_TIPS.length)];
     }
 
     private static String labelFor(int score) {

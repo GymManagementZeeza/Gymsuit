@@ -168,4 +168,30 @@ class EatingHabitScoreServiceTest {
         assertEquals(120.0, response.proteinTargetG());
         assertEquals(100, response.score());
     }
+
+    @Test
+    void perfectDayHasNoImprovementsAndAGeneralTip() {
+        EatingHabitScoreResponse r = EatingHabitScoreService.compute(
+                perfectDay(END), WEIGHT_KG, 2000, END, 7);
+        assertTrue(r.improvements().isEmpty() || r.improvements().size() <= 1);
+        assertTrue(!r.healthTip().isBlank());
+        assertTrue(!r.summary().isBlank());
+    }
+
+    @Test
+    void weakDayGetsProteinAndCalorieAdvice() {
+        List<FoodIntakeRecord> weak = List.of(entry(END, "SNACK", "Biscuits", 600, 5.0, 90.0, 20.0));
+        EatingHabitScoreResponse r = EatingHabitScoreService.compute(weak, WEIGHT_KG, 2000, END, 7);
+        assertTrue(r.improvements().size() <= 3);
+        assertTrue(r.improvements().stream().anyMatch(t -> t.startsWith("Protein")));
+        assertTrue(r.improvements().stream().anyMatch(t -> t.startsWith("Calories")));
+    }
+
+    @Test
+    void noDataGivesPrompt() {
+        EatingHabitScoreResponse r = EatingHabitScoreService.compute(List.of(), null, 2000, END, 7);
+        assertNull(r.score());
+        assertTrue(r.improvements().isEmpty());
+        assertTrue(!r.summary().isBlank());
+    }
 }
