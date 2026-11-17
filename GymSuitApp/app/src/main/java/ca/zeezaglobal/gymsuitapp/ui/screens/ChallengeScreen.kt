@@ -61,7 +61,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -70,6 +69,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -219,7 +219,8 @@ private fun ChallengeListContent(
 
     LaunchedEffect(Unit) { load() }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Apple-style grouped list: light grey page, white cards, one blue accent.
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF2F2F7))) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 20.dp, bottom = 120.dp),
@@ -235,15 +236,23 @@ private fun ChallengeListContent(
                     Column {
                         Text(
                             text = "Challenges",
-                            style = MaterialTheme.typography.headlineSmall
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1C1C1E)
                         )
                         Text(
                             text = "Compete with friends, stay consistent",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF8E8E93)
                         )
                     }
-                    FilledTonalIconButton(onClick = { load() }) {
+                    FilledTonalIconButton(
+                        onClick = { load() },
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF007AFF)
+                        )
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
                             contentDescription = "Refresh"
@@ -256,14 +265,16 @@ private fun ChallengeListContent(
             item {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        containerColor = Color.White
                     ),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "Join with invite code",
-                            style = MaterialTheme.typography.titleSmall
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF1C1C1E)
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Row(
@@ -302,7 +313,7 @@ private fun ChallengeListContent(
                         Text(
                             text = "Challenges are limited to 10 members.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF8E8E93)
                         )
                     }
                 }
@@ -344,8 +355,9 @@ private fun ChallengeListContent(
                 item {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            containerColor = Color.White
                         ),
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -357,19 +369,20 @@ private fun ChallengeListContent(
                             Icon(
                                 imageVector = Icons.Outlined.EmojiEvents,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = Color(0xFF8E8E93),
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "No challenges yet",
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF1C1C1E)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "Create one or join with an invite code to compete with friends.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = Color(0xFF8E8E93),
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -397,8 +410,11 @@ private fun ChallengeListContent(
 
 @Composable
 private fun ChallengeSummaryCard(challenge: ChallengeSummary, onClick: () -> Unit) {
-    ElevatedCard(
+    Card(
         onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -410,6 +426,7 @@ private fun ChallengeSummaryCard(challenge: ChallengeSummary, onClick: () -> Uni
                 Text(
                     text = challenge.name,
                     style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF1C1C1E),
                     modifier = Modifier.weight(1f)
                 )
                 StatusChip(challenge.status)
@@ -418,28 +435,28 @@ private fun ChallengeSummaryCard(challenge: ChallengeSummary, onClick: () -> Uni
             Text(
                 text = "${challenge.metric.label}  •  ${prettyDateRange(challenge.startDate, challenge.endDate)}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFF8E8E93)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Outlined.Group,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = Color(0xFF8E8E93),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${challenge.participantCount} participants",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF8E8E93)
                 )
                 challenge.myRank?.let { rank ->
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
                         text = "Your rank: #$rank",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color(0xFF007AFF)
                     )
                 }
             }
@@ -523,12 +540,19 @@ private fun CreateChallengeContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF2F2F7))
             .verticalScroll(rememberScrollState())
             .padding(top = 20.dp, bottom = 120.dp)
     ) {
         // Header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = onBack) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF007AFF)
+                )
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
@@ -537,7 +561,9 @@ private fun CreateChallengeContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Create challenge",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1C1E),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -547,8 +573,9 @@ private fun CreateChallengeContent(
         // Name & description
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -578,7 +605,7 @@ private fun CreateChallengeContent(
         // Dates & Challenge Type Card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
@@ -610,7 +637,7 @@ private fun CreateChallengeContent(
                     text = "Challenge Type",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color(0xFF1C1C1E)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -645,7 +672,7 @@ private fun CreateChallengeContent(
         Text(
             text = "Challenges are limited to 10 members.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color(0xFF8E8E93),
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
@@ -656,6 +683,10 @@ private fun CreateChallengeContent(
         Button(
             onClick = { create() },
             enabled = !creating,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF007AFF),
+                contentColor = Color.White
+            ),
             modifier = Modifier.fillMaxWidth()
         ) {
             if (creating) {
@@ -683,7 +714,7 @@ private fun DateInputBox(
             text = label,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = Color(0xFF1C1C1E)
         )
         Spacer(modifier = Modifier.height(8.dp))
         Box(
@@ -693,10 +724,10 @@ private fun DateInputBox(
                 .clip(RoundedCornerShape(12.dp))
                 .border(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                    color = Color(0xFFE5E5EA),
                     shape = RoundedCornerShape(12.dp)
                 )
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Color.White)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 14.dp),
             contentAlignment = Alignment.CenterStart
@@ -705,7 +736,7 @@ private fun DateInputBox(
                 text = date?.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
                     ?: "Select date",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (date != null) MaterialTheme.colorScheme.onSurface else Color(0xFF94A3B8)
+                color = if (date != null) Color(0xFF1C1C1E) else Color(0xFF8E8E93)
             )
         }
     }
@@ -718,11 +749,11 @@ private fun ChallengeTypeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor = if (isSelected) Color(0xFF2563EB) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    val borderColor = if (isSelected) Color(0xFF007AFF) else Color(0xFFE5E5EA)
     val borderWidth = if (isSelected) 1.5.dp else 1.dp
-    val backgroundColor = if (isSelected) Color(0xFFEFF6FF) else MaterialTheme.colorScheme.surface
-    val contentColor = if (isSelected) Color(0xFF2563EB) else Color(0xFF475569)
-    val iconColor = if (isSelected) Color(0xFF2563EB) else Color(0xFF64748B)
+    val backgroundColor = if (isSelected) Color(0xFFEAF2FF) else Color.White
+    val contentColor = if (isSelected) Color(0xFF007AFF) else Color(0xFF8E8E93)
+    val iconColor = if (isSelected) Color(0xFF007AFF) else Color(0xFF8E8E93)
 
     Card(
         onClick = onClick,
@@ -1015,12 +1046,19 @@ private fun ChallengeDetailContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF2F2F7))
             .verticalScroll(rememberScrollState())
             .padding(top = 20.dp, bottom = 120.dp)
     ) {
         // Header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = onBack) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF007AFF)
+                )
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
@@ -1029,10 +1067,18 @@ private fun ChallengeDetailContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = detail?.name ?: "Challenge",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1C1E),
                 modifier = Modifier.weight(1f)
             )
-            FilledTonalIconButton(onClick = { detail?.let { syncProgress(it) } }) {
+            FilledTonalIconButton(
+                onClick = { detail?.let { syncProgress(it) } },
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF007AFF)
+                )
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
                     contentDescription = "Sync progress"
@@ -1074,8 +1120,9 @@ private fun ChallengeDetailContent(
         // Status + meta card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -1089,14 +1136,14 @@ private fun ChallengeDetailContent(
                         Icon(
                             imageVector = Icons.Outlined.Group,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            tint = Color(0xFF8E8E93),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${d.participantCount} / 10 participants",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                            color = Color(0xFF8E8E93)
                         )
                     }
                 }
@@ -1104,14 +1151,14 @@ private fun ChallengeDetailContent(
                 Text(
                     text = "${d.metric.label}  •  ${prettyDateRange(d.startDate, d.endDate)}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = Color(0xFF1C1C1E)
                 )
                 if (d.description.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = d.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = Color(0xFF8E8E93)
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1119,12 +1166,12 @@ private fun ChallengeDetailContent(
                     Text(
                         text = "Your rank: #$rank",
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color(0xFF007AFF)
                     )
                 } ?: Text(
                     text = "You're not ranked yet — sync your progress below",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = Color(0xFF8E8E93)
                 )
             }
         }
@@ -1132,7 +1179,7 @@ private fun ChallengeDetailContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Invite code card
-        ElevatedCard(
+        Card(
             onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Challenge invite code", d.inviteCode))
@@ -1143,6 +1190,9 @@ private fun ChallengeDetailContent(
                     copied = false
                 }
             },
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -1156,25 +1206,26 @@ private fun ChallengeDetailContent(
                     Text(
                         text = "Invite code",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF8E8E93)
                     )
                     Text(
                         text = d.inviteCode.ifBlank { "—" },
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1C1C1E),
                         letterSpacing = 3.sp
                     )
                     Text(
                         text = if (copied) "Copied!" else "Tap to copy",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (copied) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (copied) Color(0xFF007AFF)
+                        else Color(0xFF8E8E93)
                     )
                 }
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
                     contentDescription = "Copy invite code",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = Color(0xFF8E8E93)
                 )
             }
         }
@@ -1184,8 +1235,9 @@ private fun ChallengeDetailContent(
         // Invite by email
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -1193,13 +1245,14 @@ private fun ChallengeDetailContent(
                     Icon(
                         imageVector = Icons.Outlined.Mail,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = Color(0xFF8E8E93),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Invite by email",
-                        style = MaterialTheme.typography.titleSmall
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF1C1C1E)
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1233,7 +1286,7 @@ private fun ChallengeDetailContent(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
                         color = if (inviteIsError) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
+                        else Color(0xFF007AFF)
                     )
                 }
             }
@@ -1244,8 +1297,9 @@ private fun ChallengeDetailContent(
         // Progress sync card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -1259,13 +1313,14 @@ private fun ChallengeDetailContent(
                             Icon(
                                 imageVector = Icons.Outlined.Sync,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = Color(0xFF8E8E93),
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Your progress",
-                                style = MaterialTheme.typography.titleSmall
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF1C1C1E)
                             )
                         }
                         Spacer(modifier = Modifier.height(2.dp))
@@ -1276,7 +1331,7 @@ private fun ChallengeDetailContent(
                                 else -> "Not synced yet"
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF8E8E93)
                         )
                     }
                     FilledTonalButton(
@@ -1306,20 +1361,22 @@ private fun ChallengeDetailContent(
         // Progress graph — cumulative lines for every participant
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Progress graph",
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF1C1C1E)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Cumulative ${d.metric.label.lowercase()} — all participants",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF8E8E93)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 val series = dailySeries
@@ -1339,7 +1396,7 @@ private fun ChallengeDetailContent(
                         Text(
                             text = "No daily data yet — sync progress to draw the graph.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF8E8E93)
                         )
                     }
                     else -> {
@@ -1361,8 +1418,9 @@ private fun ChallengeDetailContent(
         // Leaderboard card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -1370,33 +1428,37 @@ private fun ChallengeDetailContent(
                     Icon(
                         imageVector = Icons.Outlined.EmojiEvents,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = Color(0xFF007AFF),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Leaderboard",
-                        style = MaterialTheme.typography.titleSmall
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF1C1C1E)
                     )
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Tap a person to see their daily breakdown",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF8E8E93)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (d.leaderboard.isEmpty()) {
                     Text(
                         text = "No activity recorded yet — sync your progress to appear here.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF8E8E93)
                     )
                 } else {
                     Column {
                         d.leaderboard.forEachIndexed { index, entry ->
                             if (index > 0) {
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                    color = Color(0xFFE5E5EA)
+                                )
                             }
                             LeaderboardRow(
                                 entry = entry,
@@ -1435,25 +1497,21 @@ private fun LeaderboardRow(
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = ListItemDefaults.colors(
-            containerColor = if (isMe) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            containerColor = if (isMe) Color(0xFFEAF2FF)
             else androidx.compose.ui.graphics.Color.Transparent
         ),
         leadingContent = {
             Surface(
                 shape = CircleShape,
-                color = when (entry.rank) {
-                    1 -> MaterialTheme.colorScheme.tertiaryContainer
-                    2 -> MaterialTheme.colorScheme.surfaceContainerHighest
-                    3 -> MaterialTheme.colorScheme.secondaryContainer
-                    else -> MaterialTheme.colorScheme.surfaceContainerHigh
-                },
+                color = Color(0xFFF2F2F7),
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = "${entry.rank}",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1C1C1E)
                     )
                 }
             }
@@ -1462,7 +1520,8 @@ private fun LeaderboardRow(
             Text(
                 text = entry.displayName + if (isMe) " (you)" else "",
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isMe) FontWeight.SemiBold else FontWeight.Normal
+                fontWeight = if (isMe) FontWeight.SemiBold else FontWeight.Normal,
+                color = Color(0xFF1C1C1E)
             )
         },
         trailingContent = {
@@ -1470,7 +1529,7 @@ private fun LeaderboardRow(
                 text = formatMetricValue(metric, entry.value),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
+                color = Color(0xFF1C1C1E)
             )
         }
     )
@@ -1522,11 +1581,18 @@ private fun ParticipantDetailContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF2F2F7))
             .verticalScroll(rememberScrollState())
             .padding(top = 20.dp, bottom = 120.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = onBack) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF007AFF)
+                )
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
@@ -1535,7 +1601,9 @@ private fun ParticipantDetailContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = displayName,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1C1E),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1571,8 +1639,9 @@ private fun ParticipantDetailContent(
         // Summary card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -1584,12 +1653,12 @@ private fun ParticipantDetailContent(
                     Text(
                         text = "Rank #$rank",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = Color(0xFF1C1C1E)
                     )
                     Text(
                         text = metric.label,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = Color(0xFF8E8E93)
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1597,12 +1666,12 @@ private fun ParticipantDetailContent(
                     text = formatMetricValue(metric, total),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = Color(0xFF1C1C1E)
                 )
                 Text(
                     text = "Total since ${prettyDateRange(startDate, endDate)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = Color(0xFF8E8E93)
                 )
             }
         }
@@ -1612,27 +1681,29 @@ private fun ParticipantDetailContent(
         // Daily chart card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Daily ${metric.label.lowercase()}",
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF1C1C1E)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Each day from the challenge start",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF8E8E93)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 if (!hasAnyData) {
                     Text(
                         text = "No synced data yet — days show 0 until this person syncs their progress.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF8E8E93)
                     )
                 } else {
                     DailyBarChart(
@@ -1652,27 +1723,32 @@ private fun ParticipantDetailContent(
         // Day-by-day list
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = Color.White
             ),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Day by day",
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF1C1C1E)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (days.isEmpty()) {
                     Text(
                         text = "No days to show.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF8E8E93)
                     )
                 } else {
                     Column {
                         days.forEachIndexed { index, day ->
                             if (index > 0) {
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                    color = Color(0xFFE5E5EA)
+                                )
                             }
                             Row(
                                 modifier = Modifier
@@ -1684,12 +1760,13 @@ private fun ParticipantDetailContent(
                                 Text(
                                     text = day.format(dayLabelFmt),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = Color(0xFF8E8E93)
                                 )
                                 Text(
                                     text = formatMetricValue(metric, values.getOrElse(index) { 0.0 }),
                                     style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1C1C1E)
                                 )
                             }
                         }
@@ -1707,9 +1784,9 @@ private fun ParticipantDetailContent(
 @Composable
 private fun StatusChip(status: ChallengeStatus) {
     val (containerColor, labelColor) = when (status) {
-        ChallengeStatus.ACTIVE -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        ChallengeStatus.UPCOMING -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        ChallengeStatus.ENDED -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
+        ChallengeStatus.ACTIVE -> Color(0xFFEAF2FF) to Color(0xFF007AFF)
+        ChallengeStatus.UPCOMING -> Color(0xFFF2F2F7) to Color(0xFF8E8E93)
+        ChallengeStatus.ENDED -> Color(0xFFF2F2F7) to Color(0xFF8E8E93)
     }
     Surface(
         shape = RoundedCornerShape(50),

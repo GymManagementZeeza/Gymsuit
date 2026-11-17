@@ -69,7 +69,7 @@ internal fun seriesValueOn(series: ParticipantDailySeries, dayKey: String): Doub
     series.entries.firstOrNull { it.date == dayKey }?.value ?: 0.0
 
 private fun axisLabelPaint() = android.graphics.Paint().apply {
-    color = android.graphics.Color.parseColor("#9CA3AF")
+    color = android.graphics.Color.parseColor("#8E8E93")
     textSize = 30f
     isAntiAlias = true
 }
@@ -118,7 +118,7 @@ internal fun ProgressLineChart(
         listOf(0.0, maxY / 2.0, maxY).forEach { gv ->
             val yy = y(gv)
             drawLine(
-                color = Color(0xFFE5E7EB),
+                color = Color(0xFFE5E5EA),
                 start = Offset(leftPad, yy),
                 end = Offset(leftPad + w, yy),
                 strokeWidth = 2f
@@ -163,14 +163,14 @@ internal fun ProgressLineChart(
                 Text(
                     text = s.displayName,
                     fontSize = 13.sp,
-                    color = Color(0xFF374151),
+                    color = Color(0xFF1C1C1E),
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = formatMetricValue(metric, total),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF111827)
+                    color = Color(0xFF1C1C1E)
                 )
             }
         }
@@ -189,7 +189,7 @@ internal fun DailyBarChart(
     val maxV = (values.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     val paint = remember { axisLabelPaint() }
     val dayLabelFmt = remember { DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()) }
-    val barColor = MaterialTheme.colorScheme.primary
+    val barColor = Color(0xFF007AFF)
 
     Canvas(modifier = modifier) {
         val leftPad = 12f
