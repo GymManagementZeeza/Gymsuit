@@ -323,9 +323,10 @@ fun FoodLogScreen() {
                     }
                 }
             }
-            // Nutritionist's meal plan, shown on today's page only.
+            // Nutritionist's meal plan, shown on today's page only and only
+            // when the plan is dated today (an older plan is not shown).
             mealPlan?.let { plan ->
-                if (date == today) {
+                if (date == today && plan.date == today.toString()) {
                     item(key = "meal-plan-${plan.id}") { MealPlanCard(plan, Modifier.animateItem()) }
                 }
             }

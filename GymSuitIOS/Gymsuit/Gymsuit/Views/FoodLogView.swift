@@ -36,6 +36,12 @@ struct FoodLogView: View {
     private var calendar: Calendar { Calendar.current }
     private var today: Date { calendar.startOfDay(for: Date()) }
     private var isToday: Bool { calendar.isDate(date, inSameDayAs: today) }
+    private static var todayKey: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
     private var dayEntries: [FoodEntry] { store.entries(onDayOf: date) }
     private var totalKcal: Int { dayEntries.reduce(0) { $0 + $1.calories } }
     private var totalProtein: Double { dayEntries.reduce(0.0) { $0 + $1.proteinG } }
@@ -103,8 +109,9 @@ struct FoodLogView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
-                    // Nutritionist's meal plan, shown on today's page only.
-                    if isToday, let mealPlan {
+                    // Nutritionist's meal plan, shown on today's page only and
+                    // only when the plan is dated today (an older plan is not shown).
+                    if isToday, let mealPlan, mealPlan.date == Self.todayKey {
                         MealPlanCardView(plan: mealPlan)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
