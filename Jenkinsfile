@@ -2,7 +2,10 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE_PROJECT_NAME = 'gymmanagement'
+        // Every branch is built (a compile check), but only main is deployed.
+        // Other branches build under their own project name so their images
+        // never replace the ones the live containers come from.
+        COMPOSE_PROJECT_NAME = "${env.BRANCH_NAME == 'main' ? 'gymmanagement' : 'gymmanagement-ci'}"
         DOCKER_BUILDKIT = '1'
         COMPOSE_DOCKER_CLI_BUILD = '1'
         NEXT_PUBLIC_API_BASE_URL = 'https://api.gymsuit.app'
@@ -43,6 +46,7 @@ pipeline {
         }
 
         stage('Deploy') {
+            when { branch 'main' }
             steps {
                 withCredentials([
                     string(credentialsId: 'gymmanagement-db-password', variable: 'SPRING_DATASOURCE_PASSWORD'),

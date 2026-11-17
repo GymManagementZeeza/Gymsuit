@@ -208,6 +208,7 @@ public class TrainerInviteService {
                     null,
                     null,
                     request.waiverAccepted() != null && request.waiverAccepted(),
+                    null, // waiverSignature: only collected on the public QR registration form
                     LocalDate.now());
             memberService.create(gymId, create);
             member = memberRepository.findByGymIdAndEmail(gymId, invite.getEmail())
