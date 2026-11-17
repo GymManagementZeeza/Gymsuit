@@ -39,7 +39,7 @@ struct HeartRateDetailView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -50,7 +50,7 @@ struct HeartRateDetailView: View {
                     Spacer()
                     
                     Text("Heart Rate & HRV")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.app(size: 18, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     
                     Spacer()
@@ -60,7 +60,7 @@ struct HeartRateDetailView: View {
                             changeToDate(Date())
                         }) {
                             Text("Today")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.app(size: 13, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFFDC2626))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -91,7 +91,7 @@ struct HeartRateDetailView: View {
                                 ProgressView()
                                     .scaleEffect(1.2)
                                 Text("Loading heart rate & HRV data…")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.app(size: 14, weight: .medium))
                                     .foregroundColor(AppColors.textSecondary)
                             }
                             .frame(maxWidth: .infinity, minHeight: 280)
@@ -118,13 +118,13 @@ struct HeartRateDetailView: View {
                         } else {
                             VStack(spacing: 12) {
                                 Image(systemName: "heart.slash")
-                                    .font(.system(size: 40))
+                                    .font(.app(size: 40))
                                     .foregroundColor(Color(hex: 0xFF94A3B8))
                                 Text("No heart rate data for this day")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.app(size: 16, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                 Text("Switch to another day using the toggle above to inspect recorded metrics.")
-                                    .font(.system(size: 13))
+                                    .font(.app(size: 13))
                                     .foregroundColor(AppColors.textSecondary)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 24)
@@ -155,7 +155,7 @@ struct HeartRateDetailView: View {
                     changeDay(by: -1)
                 }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.app(size: 14, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                         .frame(width: 36, height: 36)
                         .background(Color.white)
@@ -167,11 +167,11 @@ struct HeartRateDetailView: View {
                 
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.app(size: 13, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFFDC2626))
                     
                     Text(formattedSelectedDateTitle)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                 }
                 
@@ -181,7 +181,7 @@ struct HeartRateDetailView: View {
                     changeDay(by: 1)
                 }) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.app(size: 14, weight: .bold))
                         .foregroundColor(isSelectedDateToday ? Color(hex: 0xFFCBD5E1) : AppColors.textPrimary)
                         .frame(width: 36, height: 36)
                         .background(Color.white)
@@ -203,11 +203,11 @@ struct HeartRateDetailView: View {
                     }) {
                         VStack(spacing: 3) {
                             Text(dayLetter)
-                                .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                                .font(.app(size: 10, weight: isSelected ? .bold : .medium))
                                 .foregroundColor(isSelected ? .white.opacity(0.9) : AppColors.textSecondary)
                             
                             Text(dayNum)
-                                .font(.system(size: 13, weight: isSelected ? .bold : .semibold))
+                                .font(.app(size: 13, weight: isSelected ? .bold : .semibold))
                                 .foregroundColor(isSelected ? .white : AppColors.textPrimary)
                         }
                         .frame(maxWidth: .infinity)
@@ -248,7 +248,7 @@ struct HeartRateDetailView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text("Heart Rate")
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.app(size: 17, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         
                         Circle()
@@ -257,7 +257,7 @@ struct HeartRateDetailView: View {
                     }
                     
                     Text(summary.timeRangeFormatted.isEmpty ? "Daily intraday pulse readings" : summary.timeRangeFormatted)
-                        .font(.system(size: 12))
+                        .font(.app(size: 12))
                         .foregroundColor(AppColors.textSecondary)
                 }
                 
@@ -265,10 +265,10 @@ struct HeartRateDetailView: View {
                 
                 HStack(spacing: 5) {
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 13))
+                        .font(.app(size: 13))
                         .foregroundColor(Color(hex: 0xFFEF4444))
                     Text("\(summary.latestBpm) BPM")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.app(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(Color(hex: 0xFFDC2626))
                 }
                 .padding(.horizontal, 10)
@@ -282,14 +282,14 @@ struct HeartRateDetailView: View {
                 // Highest Badge
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.app(size: 14, weight: .bold))
                         .foregroundColor(Color(hex: 0xFFDC2626))
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Highest")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.app(size: 10, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                         Text("\(maxBpm) BPM")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.app(size: 13, weight: .bold))
                             .foregroundColor(Color(hex: 0xFFDC2626))
                     }
                 }
@@ -302,14 +302,14 @@ struct HeartRateDetailView: View {
                 // Lowest Badge
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.app(size: 14, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF2563EB))
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Lowest")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.app(size: 10, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                         Text("\(minBpm) BPM")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.app(size: 13, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF2563EB))
                     }
                 }
@@ -322,14 +322,14 @@ struct HeartRateDetailView: View {
                 // Average Badge
                 HStack(spacing: 6) {
                     Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.app(size: 14, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF9333EA))
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Average")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.app(size: 10, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                         Text("\(avgBpm) BPM")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.app(size: 13, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF9333EA))
                     }
                 }
@@ -353,7 +353,7 @@ struct HeartRateDetailView: View {
             // Bottom Helper Text
             HStack {
                 Text("Tap or drag along curve to inspect pulse at any hour")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.app(size: 11, weight: .medium))
                     .foregroundColor(AppColors.textTertiary)
                 Spacer()
             }
@@ -371,15 +371,15 @@ struct HeartRateDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Heart Rate Variability")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.app(size: 17, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     Text("Daily autonomic nervous system balance")
-                        .font(.system(size: 13))
+                        .font(.app(size: 13))
                         .foregroundColor(AppColors.textSecondary)
                 }
                 Spacer()
                 Text("\(hrv.latestHrvMs) ms")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.app(size: 28, weight: .bold))
                     .foregroundColor(Color(hex: 0xFFDC2626))
             }
             
@@ -403,7 +403,7 @@ struct HeartRateDetailView: View {
                         }
                         
                         Text(bucket.hourLabel)
-                            .font(.system(size: 11, weight: bucket.isHighlighted ? .bold : .medium))
+                            .font(.app(size: 11, weight: bucket.isHighlighted ? .bold : .medium))
                             .foregroundColor(bucket.isHighlighted ? Color(hex: 0xFFDC2626) : AppColors.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
@@ -422,7 +422,7 @@ struct HeartRateDetailView: View {
     private func pulseSummaryCard(_ summary: HeartRateSummaryData) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Heart Rate Summary")
-                .font(.system(size: 17, weight: .bold))
+                .font(.app(size: 17, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             
             HStack(spacing: 20) {
@@ -561,7 +561,7 @@ private struct HeartRateLineChartCanvas: View {
                     .stroke(Color(hex: 0xFFE2E8F0), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     
                     Text("\(Int(val))")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.app(size: 10, weight: .medium))
                         .foregroundColor(Color(hex: 0xFF94A3B8))
                         .frame(width: 28, alignment: .trailing)
                         .position(x: 14, y: y)
@@ -579,7 +579,7 @@ private struct HeartRateLineChartCanvas: View {
                     Spacer()
                     Text("12 AM")
                 }
-                .font(.system(size: 10, weight: .medium))
+                .font(.app(size: 10, weight: .medium))
                 .foregroundColor(Color(hex: 0xFF94A3B8))
                 .padding(.leading, padLeft)
                 .padding(.trailing, padRight)
@@ -664,9 +664,9 @@ private struct HeartRateLineChartCanvas: View {
                     
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.app(size: 8, weight: .bold))
                         Text("Highest \(maxBpm)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.app(size: 10, weight: .bold))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 7)
@@ -698,9 +698,9 @@ private struct HeartRateLineChartCanvas: View {
                     
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.down")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.app(size: 8, weight: .bold))
                         Text("Lowest \(minBpm)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.app(size: 10, weight: .bold))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 7)
@@ -730,10 +730,10 @@ private struct HeartRateLineChartCanvas: View {
                     // Scrubber popup tooltip
                     VStack(spacing: 2) {
                         Text("\(scrub.bpm) BPM")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.app(size: 12, weight: .bold))
                             .foregroundColor(.white)
                         Text(Self.timeFormatter.string(from: scrub.time))
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.app(size: 9, weight: .medium))
                             .foregroundColor(.white.opacity(0.85))
                     }
                     .padding(.horizontal, 8)
@@ -785,13 +785,13 @@ private struct MetricCard: View {
                 Spacer()
             }
             Text(title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.app(size: 13, weight: .medium))
                 .foregroundColor(AppColors.textSecondary)
             Text(value)
-                .font(.system(size: 22, weight: .bold))
+                .font(.app(size: 22, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             Text(subtitle)
-                .font(.system(size: 11))
+                .font(.app(size: 11))
                 .foregroundColor(AppColors.textTertiary)
         }
         .padding(18)
@@ -810,10 +810,10 @@ private struct PulseItem: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 12))
+                .font(.app(size: 12))
                 .foregroundColor(AppColors.textSecondary)
             Text(bpm)
-                .font(.system(size: 18, weight: .bold))
+                .font(.app(size: 18, weight: .bold))
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

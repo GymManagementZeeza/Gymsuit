@@ -114,10 +114,10 @@ struct WorkoutTargetWeightView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("02")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("ABOUT YOUR BODY")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -143,7 +143,7 @@ struct WorkoutTargetWeightView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -162,10 +162,10 @@ struct WorkoutTargetWeightView: View {
                 Text("target")
                     .foregroundColor(Color(hex: 0xFF0066FF))
             }
-            .font(.system(size: 28, weight: .bold))
+            .font(.app(size: 28, weight: .bold))
 
             Text("weight?")
-                .font(.system(size: 28, weight: .bold))
+                .font(.app(size: 28, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF0F172A))
         }
         .multilineTextAlignment(.center)
@@ -176,7 +176,7 @@ struct WorkoutTargetWeightView: View {
         HStack(spacing: 0) {
             Button(action: { switchUnit(to: .kg) }) {
                 Text("kg")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(selectedUnit == .kg ? .white : Color(hex: 0xFF334155))
                     .frame(width: 60, height: 36)
                     .background(selectedUnit == .kg ? Color(hex: 0xFF0066FF) : Color.clear)
@@ -185,7 +185,7 @@ struct WorkoutTargetWeightView: View {
 
             Button(action: { switchUnit(to: .lbs) }) {
                 Text("lbs")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(selectedUnit == .lbs ? .white : Color(hex: 0xFF334155))
                     .frame(width: 60, height: 36)
                     .background(selectedUnit == .lbs ? Color(hex: 0xFF0066FF) : Color.clear)
@@ -218,20 +218,20 @@ struct WorkoutTargetWeightView: View {
     private var weightDisplayRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(displayedTarget.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(displayedTarget))" : String(format: "%.1f", displayedTarget))
-                .font(.system(size: 52, weight: .bold, design: .rounded))
+                .font(.app(size: 52, weight: .bold, design: .rounded))
                 .foregroundColor(Color(hex: 0xFF0F172A))
 
             Text(selectedUnit.rawValue)
-                .font(.system(size: 17, weight: .bold))
+                .font(.app(size: 17, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF475569))
 
             HStack(spacing: 4) {
                 Image(systemName: isLosingWeight ? "backward.fill" : "forward.fill")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.app(size: 12, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF3B82F6))
 
                 Text(String(format: "%.1f %@", displayedCurrent, selectedUnit.rawValue))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.app(size: 14, weight: .medium))
                     .foregroundColor(Color(hex: 0xFF64748B))
             }
             .padding(.leading, 8)
@@ -290,7 +290,7 @@ struct WorkoutTargetWeightView: View {
                         if isTenNumber {
                             let wholeValue = tick / 10
                             let text = Text("\(wholeValue)")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.app(size: 13, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF94A3B8))
                             context.draw(context.resolve(text), at: CGPoint(x: x, y: startY + lineHeight + 16))
                         }
@@ -373,37 +373,37 @@ struct WorkoutTargetWeightView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Headline
             Text(isLosingWeight ? (percentChange > 18 ? "Challenging goal!" : "Achievable goal!") : "Muscle & Strength goal!")
-                .font(.system(size: 16, weight: .bold))
+                .font(.app(size: 16, weight: .bold))
                 .foregroundColor(Color(hex: 0xFFE11D48))
 
             // Percentage line
             HStack(spacing: 4) {
                 Text(isLosingWeight ? "You will lose" : "You will gain")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.app(size: 14, weight: .semibold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
 
                 Text(String(format: "%.1f%%", percentChange))
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.app(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: 0xFFE11D48))
 
                 Text("of body weight")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.app(size: 14, weight: .semibold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
             }
 
             // Benefits list
             VStack(alignment: .leading, spacing: 4) {
                 Text("You can see more significant health benefits:")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.app(size: 13, weight: .regular))
                     .foregroundColor(Color(hex: 0xFF475569))
                     .padding(.top, 2)
 
                 Text("- Improve cardiovascular health")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.app(size: 13, weight: .regular))
                     .foregroundColor(Color(hex: 0xFF475569))
 
                 Text("- Reduce the risk of cancer")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.app(size: 13, weight: .regular))
                     .foregroundColor(Color(hex: 0xFF475569))
             }
         }
@@ -422,7 +422,7 @@ struct WorkoutTargetWeightView: View {
                 onNext()
             }) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var deleteError: String? = nil
     @State private var isDeletingAccount: Bool = false
     @State private var isDeletingWorkout: Bool = false
+    @State private var remindersOn: Bool = false
 
     @ObservedObject private var authManager = AuthManager.shared
 
@@ -34,7 +35,7 @@ struct SettingsView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -45,7 +46,7 @@ struct SettingsView: View {
                     Spacer()
 
                     Text("Settings")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.app(size: 18, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
 
                     Spacer()
@@ -68,16 +69,16 @@ struct SettingsView: View {
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(displayName)
-                                    .font(.system(size: 18, weight: .bold))
+                                    .font(.app(size: 18, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                 if let session = authManager.currentSession, !session.email.isEmpty {
                                     Text(session.email)
-                                        .font(.system(size: 13))
+                                        .font(.app(size: 13))
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                                 if let gymName = authManager.currentSession?.gymName, !gymName.isEmpty {
                                     Text(gymName)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.app(size: 12, weight: .medium))
                                         .foregroundColor(AppColors.primary)
                                 }
                             }
@@ -91,7 +92,7 @@ struct SettingsView: View {
                         // Preferences Section
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Preferences")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.app(size: 15, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
 
                             Toggle(isOn: $healthSyncEnabled) {
@@ -99,7 +100,7 @@ struct SettingsView: View {
                                     Image(systemName: "heart.fill")
                                         .foregroundColor(AppColors.heartRate)
                                     Text("Apple Health Auto-Sync")
-                                        .font(.system(size: 15, weight: .medium))
+                                        .font(.app(size: 15, weight: .medium))
                                         .foregroundColor(AppColors.textPrimary)
                                 }
                             }
@@ -116,24 +117,59 @@ struct SettingsView: View {
                             }
                         }
 
+                        // Notifications Section — meal reminders (moved here from the meals page)
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Notifications")
+                                .font(.app(size: 15, weight: .semibold))
+                                .foregroundColor(AppColors.textSecondary)
+
+                            Toggle(isOn: Binding(
+                                get: { remindersOn },
+                                set: { handleReminderToggle($0) }
+                            )) {
+                                HStack(spacing: 14) {
+                                    Image(systemName: "bell.fill")
+                                        .font(.app(size: 20))
+                                        .foregroundColor(AppColors.primary)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Meal reminders")
+                                            .font(.app(size: 15, weight: .semibold))
+                                            .foregroundColor(AppColors.textPrimary)
+                                        Text("Morning, noon, evening and night")
+                                            .font(.app(size: 12))
+                                            .foregroundColor(AppColors.textSecondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .shadow(color: Color.black.opacity(0.03), radius: 6, y: 3)
+                        .task {
+                            remindersOn = MealReminders.isEnabled
+                                ? await MealReminders.hasAuthorization()
+                                : false
+                        }
+
                         // Workout Section
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Workout")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.app(size: 15, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
 
                             Button(action: { showingDeleteWorkoutAlert = true }) {
                                 HStack(spacing: 14) {
                                     Image(systemName: "figure.run.circle.fill")
-                                        .font(.system(size: 24))
+                                        .font(.app(size: 24))
                                         .foregroundColor(Color(hex: 0xFFEF4444))
 
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("Delete Workout Data")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.app(size: 15, weight: .semibold))
                                             .foregroundColor(Color(hex: 0xFFEF4444))
                                         Text("Clears fitness goals, body metrics & restarts onboarding")
-                                            .font(.system(size: 12))
+                                            .font(.app(size: 12))
                                             .foregroundColor(AppColors.textSecondary)
                                     }
 
@@ -144,7 +180,7 @@ struct SettingsView: View {
                                             .scaleEffect(0.85)
                                     } else {
                                         Image(systemName: "trash")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.app(size: 15, weight: .semibold))
                                             .foregroundColor(Color(hex: 0xFFEF4444))
                                     }
                                 }
@@ -161,7 +197,7 @@ struct SettingsView: View {
                         // Legal Section
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Legal")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.app(size: 15, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
 
                             if let privacyURL = URL(string: "https://gymsuit.app/privacy") {
@@ -170,11 +206,11 @@ struct SettingsView: View {
                                         Image(systemName: "lock.shield.fill")
                                             .foregroundColor(AppColors.primary)
                                         Text("Privacy Policy")
-                                            .font(.system(size: 15, weight: .medium))
+                                            .font(.app(size: 15, weight: .medium))
                                             .foregroundColor(AppColors.textPrimary)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.app(size: 12, weight: .semibold))
                                             .foregroundColor(AppColors.textSecondary)
                                     }
                                 }
@@ -188,9 +224,9 @@ struct SettingsView: View {
                         Button(action: { showingLogoutAlert = true }) {
                             HStack {
                                 Image(systemName: "arrow.right.square")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.app(size: 16, weight: .semibold))
                                 Text("Log Out")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.app(size: 16, weight: .semibold))
                             }
                             .foregroundColor(AppColors.danger)
                             .frame(maxWidth: .infinity)
@@ -204,9 +240,9 @@ struct SettingsView: View {
                         Button(action: { showingDeleteAccountAlert = true }) {
                             HStack {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.app(size: 16, weight: .semibold))
                                 Text(isDeletingAccount ? "Deleting Account…" : "Delete Account")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.app(size: 16, weight: .semibold))
                             }
                             .foregroundColor(AppColors.danger)
                             .frame(maxWidth: .infinity)
@@ -218,7 +254,7 @@ struct SettingsView: View {
 
                         if let deleteError {
                             Text(deleteError)
-                                .font(.system(size: 13))
+                                .font(.app(size: 13))
                                 .foregroundColor(AppColors.danger)
                                 .multilineTextAlignment(.center)
                         }
@@ -251,6 +287,19 @@ struct SettingsView: View {
             }
         } message: {
             Text("This will permanently delete your workout goals, target weight, body metrics, and workout logs from the cloud database. Workout onboarding will restart immediately.")
+        }
+    }
+
+    private func handleReminderToggle(_ on: Bool) {
+        if on {
+            Task {
+                let granted = await MealReminders.requestAuthorization()
+                remindersOn = granted
+                MealReminders.setEnabled(granted)
+            }
+        } else {
+            remindersOn = false
+            MealReminders.setEnabled(false)
         }
     }
 

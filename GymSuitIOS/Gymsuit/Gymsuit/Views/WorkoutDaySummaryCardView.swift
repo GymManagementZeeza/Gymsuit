@@ -102,7 +102,7 @@ struct WorkoutDaySummaryCardView: View {
                     .offset(x: 3, y: 3)
 
                 Image(systemName: iconName)
-                    .font(.system(size: 22, weight: .regular))
+                    .font(.app(size: 22, weight: .regular))
                     .foregroundColor(Color(hex: 0xFF0F172A))
             }
             .frame(width: 32, height: 32)
@@ -110,12 +110,12 @@ struct WorkoutDaySummaryCardView: View {
 
             // Value
             Text(value)
-                .font(.system(size: 28, weight: .bold))
+                .font(.app(size: 28, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF0F172A))
 
             // Label
             Text(label)
-                .font(.system(size: 15, weight: .medium))
+                .font(.app(size: 15, weight: .medium))
                 .foregroundColor(Color(hex: 0xFF64748B))
         }
         .frame(maxWidth: .infinity)

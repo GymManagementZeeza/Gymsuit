@@ -11,14 +11,14 @@ struct TrainerWorkoutCardView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 10) {
                         Image(systemName: "figure.strengthtraining.traditional")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.app(size: 20, weight: .semibold))
                             .foregroundColor(Color(hex: 0xFF395CBD))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Today's workout")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.app(size: 16, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("From \(suggestion.trainerName)")
-                                .font(.system(size: 12))
+                                .font(.app(size: 12))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         Spacer()
@@ -26,22 +26,22 @@ struct TrainerWorkoutCardView: View {
 
                     if let message = suggestion.message, !message.isEmpty {
                         Text(message)
-                            .font(.system(size: 13))
+                            .font(.app(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                     }
 
                     ForEach(suggestion.exercises) { exercise in
                         HStack {
                             Text(exercise.exerciseName)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.app(size: 14, weight: .medium))
                                 .foregroundColor(AppColors.textPrimary)
                             Spacer()
                             Text("\(exercise.sets) × \(exercise.reps)")
-                                .font(.system(size: 13))
+                                .font(.app(size: 13))
                                 .foregroundColor(AppColors.textSecondary)
                                 .padding(.trailing, 12)
                             Text(weightText(exercise.weightKg))
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.app(size: 13, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFF395CBD))
                         }
                     }

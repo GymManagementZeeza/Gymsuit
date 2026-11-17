@@ -196,6 +196,7 @@ struct ChallengesView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
+            .background(GroupedColors.page.ignoresSafeArea())
             .navigationTitle("Challenges")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -203,8 +204,8 @@ struct ChallengesView: View {
                         showingCreate = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(AppColors.primary)
+                            .font(.app(size: 22))
+                            .foregroundColor(GroupedColors.accent)
                     }
                 }
             }
@@ -239,14 +240,14 @@ struct ChallengesView: View {
     private var joinCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Join with invite code")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
             HStack(spacing: 10) {
                 TextField("Enter code", text: $viewModel.joinCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(AppColors.surface)
+                    .background(GroupedColors.page)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 Button {
                     Task {
@@ -260,42 +261,41 @@ struct ChallengesView: View {
                             .frame(width: 64, height: 20)
                     } else {
                         Text("Join")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.app(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 64, height: 20)
                     }
                 }
                 .padding(12)
-                .background(AppColors.primary)
+                .background(GroupedColors.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .disabled(viewModel.isJoining)
             }
             if let joinError = viewModel.joinError {
                 Text(joinError)
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(AppColors.danger)
             }
             Text("Challenges are limited to 10 members.")
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func emptyState(icon: String, title: String, subtitle: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 44))
-                .foregroundColor(AppColors.primary.opacity(0.4))
+                .font(.app(size: 44))
+                .foregroundColor(GroupedColors.accent.opacity(0.4))
             Text(title)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 17, weight: .bold))
+                .foregroundColor(GroupedColors.label)
             Text(subtitle)
-                .font(.system(size: 14))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 14))
+                .foregroundColor(GroupedColors.secondaryLabel)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
         }
@@ -312,20 +312,20 @@ private struct ChallengeCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: challenge.metric.iconName)
-                    .font(.system(size: 18))
-                    .foregroundColor(AppColors.primary)
+                    .font(.app(size: 18))
+                    .foregroundColor(GroupedColors.accent)
                     .frame(width: 40, height: 40)
-                    .background(AppColors.primaryLight)
+                    .background(GroupedColors.accentTint)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(challenge.name ?? "Challenge")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(AppColors.textPrimary)
+                        .font(.app(size: 16, weight: .bold))
+                        .foregroundColor(GroupedColors.label)
                         .lineLimit(1)
                     Text(challenge.metric.displayName)
-                        .font(.system(size: 13))
-                        .foregroundColor(AppColors.textSecondary)
+                        .font(.app(size: 13))
+                        .foregroundColor(GroupedColors.secondaryLabel)
                 }
 
                 Spacer()
@@ -334,28 +334,27 @@ private struct ChallengeCard: View {
             }
 
             Text(challengeDateRangeText(startDate: challenge.startDate, endDate: challenge.endDate))
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
 
             HStack(spacing: 16) {
                 Label("\(challenge.participantCount ?? 0) joined", systemImage: "person.2.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 13))
+                    .foregroundColor(GroupedColors.secondaryLabel)
                 if let rank = challenge.myRank, rank > 0 {
                     Label("Rank #\(rank)", systemImage: "trophy.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(AppColors.warning)
+                        .font(.app(size: 13, weight: .semibold))
+                        .foregroundColor(GroupedColors.accent)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AppColors.textTertiary)
+                    .font(.app(size: 13, weight: .semibold))
+                    .foregroundColor(GroupedColors.secondaryLabel)
             }
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -364,7 +363,7 @@ private struct StatusPill: View {
 
     var body: some View {
         Text(status.displayName)
-            .font(.system(size: 11, weight: .bold))
+            .font(.app(size: 11, weight: .bold))
             .foregroundColor(pillColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -374,9 +373,9 @@ private struct StatusPill: View {
 
     private var pillColor: Color {
         switch status {
-        case .active: return AppColors.success
-        case .upcoming: return AppColors.primary
-        case .ended: return AppColors.textTertiary
+        case .active: return GroupedColors.accent
+        case .upcoming: return GroupedColors.secondaryLabel
+        case .ended: return GroupedColors.secondaryLabel
         }
     }
 }
@@ -412,8 +411,8 @@ private struct CreateChallengeSheet: View {
                     }
                     .pickerStyle(.segmented)
                     Text("Everyone is ranked by total \(metricType.unitLabel) in the date range.")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppColors.textSecondary)
+                        .font(.app(size: 13))
+                        .foregroundColor(GroupedColors.secondaryLabel)
                 }
 
                 Section("Dates") {
@@ -423,15 +422,15 @@ private struct CreateChallengeSheet: View {
 
                 Section {
                     Text("Challenges are limited to 10 members.")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppColors.textSecondary)
+                        .font(.app(size: 13))
+                        .foregroundColor(GroupedColors.secondaryLabel)
                 }
 
                 if let errorMessage = errorMessage {
                     Section {
                         Text(errorMessage)
                             .foregroundColor(AppColors.danger)
-                            .font(.system(size: 14))
+                            .font(.app(size: 14))
                     }
                 }
 
@@ -691,6 +690,7 @@ private struct ChallengeDetailView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .background(GroupedColors.page.ignoresSafeArea())
         .navigationTitle(viewModel.detail?.name ?? "Challenge")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -722,42 +722,41 @@ private struct ChallengeDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: detail.metric.iconName)
-                    .font(.system(size: 18))
-                    .foregroundColor(AppColors.primary)
+                    .font(.app(size: 18))
+                    .foregroundColor(GroupedColors.accent)
                     .frame(width: 40, height: 40)
-                    .background(AppColors.primaryLight)
+                    .background(GroupedColors.accentTint)
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Most \(detail.metric.unitLabel)")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppColors.textSecondary)
+                        .font(.app(size: 13))
+                        .foregroundColor(GroupedColors.secondaryLabel)
                     Text(challengeDateRangeText(startDate: detail.startDate, endDate: detail.endDate))
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppColors.textPrimary)
+                        .font(.app(size: 14, weight: .medium))
+                        .foregroundColor(GroupedColors.label)
                 }
                 Spacer()
                 StatusPill(status: detail.challengeStatus)
             }
             if let description = detail.description, !description.isEmpty {
                 Text(description)
-                    .font(.system(size: 14))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 14))
+                    .foregroundColor(GroupedColors.secondaryLabel)
             }
             HStack(spacing: 16) {
                 Label("\(detail.participantCount ?? 0) / 10 participants", systemImage: "person.2.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 13))
+                    .foregroundColor(GroupedColors.secondaryLabel)
                 if let rank = detail.myRank, rank > 0 {
                     Label("You rank #\(rank)", systemImage: "trophy.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(AppColors.warning)
+                        .font(.app(size: 13, weight: .semibold))
+                        .foregroundColor(GroupedColors.accent)
                 }
             }
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: Sync
@@ -766,8 +765,8 @@ private struct ChallengeDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("My progress")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(AppColors.textPrimary)
+                    .font(.app(size: 15, weight: .semibold))
+                    .foregroundColor(GroupedColors.label)
                 Spacer()
                 Button {
                     Task { await viewModel.syncProgress(requestAccessIfNeeded: true) }
@@ -780,9 +779,9 @@ private struct ChallengeDetailView: View {
                             Image(systemName: "arrow.triangle.2.circlepath")
                         }
                         Text("Sync now")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.app(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(AppColors.primary)
+                    .foregroundColor(GroupedColors.accent)
                 }
                 .disabled({
                     if case .syncing = viewModel.syncState { return true }
@@ -790,13 +789,12 @@ private struct ChallengeDetailView: View {
                 }())
             }
             syncStatusText
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var syncStatusText: Text {
@@ -822,8 +820,8 @@ private struct ChallengeDetailView: View {
     private func inviteCard(detail: ChallengeDetail) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Invite friends")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
 
             if let code = detail.inviteCode, !code.isEmpty {
                 Button {
@@ -831,17 +829,17 @@ private struct ChallengeDetailView: View {
                 } label: {
                     HStack {
                         Text(code)
-                            .font(.system(size: 22, weight: .bold, design: .monospaced))
-                            .foregroundColor(AppColors.textPrimary)
+                            .font(.app(size: 22, weight: .bold, design: .monospaced))
+                            .foregroundColor(GroupedColors.label)
                         Spacer()
                         Image(systemName: viewModel.codeCopied ? "checkmark.circle.fill" : "doc.on.doc")
-                            .foregroundColor(viewModel.codeCopied ? AppColors.success : AppColors.primary)
+                            .foregroundColor(viewModel.codeCopied ? GroupedColors.accent : GroupedColors.secondaryLabel)
                         Text(viewModel.codeCopied ? "Copied" : "Tap to copy")
-                            .font(.system(size: 13))
-                            .foregroundColor(AppColors.textSecondary)
+                            .font(.app(size: 13))
+                            .foregroundColor(GroupedColors.secondaryLabel)
                     }
                     .padding(12)
-                    .background(AppColors.surface)
+                    .background(GroupedColors.page)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
@@ -853,7 +851,7 @@ private struct ChallengeDetailView: View {
                     .autocorrectionDisabled()
                     .keyboardType(.emailAddress)
                     .padding(12)
-                    .background(AppColors.surface)
+                    .background(GroupedColors.page)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 Button {
                     Task { await viewModel.sendInvite() }
@@ -863,26 +861,25 @@ private struct ChallengeDetailView: View {
                             .frame(width: 52, height: 20)
                     } else {
                         Text("Send")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.app(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 52, height: 20)
                     }
                 }
                 .padding(12)
-                .background(AppColors.primary)
+                .background(GroupedColors.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .disabled(viewModel.isInviting)
             }
             if let inviteMessage = viewModel.inviteMessage {
                 Text(inviteMessage)
-                    .font(.system(size: 13))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 13))
+                    .foregroundColor(GroupedColors.secondaryLabel)
             }
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: Progress graph
@@ -890,18 +887,18 @@ private struct ChallengeDetailView: View {
     private func progressGraphCard(detail: ChallengeDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Progress graph")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
             Text("Cumulative \(detail.metric.unitLabel) — all participants")
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
 
             if let series = viewModel.dailySeries {
                 let days = challengeDayList(startDate: detail.startDate, endDate: detail.endDate)
                 if series.isEmpty || series.allSatisfy({ ($0.entries ?? []).isEmpty }) || days.isEmpty {
                     Text("No daily data yet — sync progress to draw the graph.")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppColors.textSecondary)
+                        .font(.app(size: 14))
+                        .foregroundColor(GroupedColors.secondaryLabel)
                         .padding(.vertical, 8)
                 } else {
                     ParticipantProgressChart(days: days, series: series, metric: detail.metric)
@@ -918,8 +915,7 @@ private struct ChallengeDetailView: View {
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: Leaderboard
@@ -927,19 +923,19 @@ private struct ChallengeDetailView: View {
     private func leaderboardCard(detail: ChallengeDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Leaderboard")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
             Text("Tap a person to see their daily breakdown")
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
 
             let entries = (detail.leaderboard ?? []).sorted {
                 ($0.rank ?? Int.max) < ($1.rank ?? Int.max)
             }
             if entries.isEmpty {
                 Text("No participants yet — invite friends to get the competition going.")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 14))
+                    .foregroundColor(GroupedColors.secondaryLabel)
                     .padding(.vertical, 8)
             } else {
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
@@ -963,41 +959,31 @@ private struct ChallengeDetailView: View {
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func leaderboardRow(entry: LeaderboardEntry, index: Int, metric: ChallengeMetricType) -> some View {
         let rank = entry.rank ?? (index + 1)
         return HStack(spacing: 12) {
             Text("\(rank)")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(rankColor(rank))
+                .font(.app(size: 15, weight: .bold))
+                .foregroundColor(GroupedColors.label)
                 .frame(width: 28, height: 28)
-                .background(rankColor(rank).opacity(0.12))
+                .background(GroupedColors.page)
                 .clipShape(Circle())
 
             Text(entry.displayName ?? "Member")
-                .font(.system(size: 15, weight: rank == 1 ? .semibold : .regular))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: rank == 1 ? .semibold : .regular))
+                .foregroundColor(GroupedColors.label)
                 .lineLimit(1)
 
             Spacer()
 
             Text("\(metric.formatValue(entry.value ?? 0)) \(metric.unitLabel)")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 14, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
         }
         .padding(.vertical, 4)
-    }
-
-    private func rankColor(_ rank: Int) -> Color {
-        switch rank {
-        case 1: return AppColors.warning
-        case 2: return AppColors.textSecondary
-        case 3: return Color(hex: 0xFFB45309)
-        default: return AppColors.textTertiary
-        }
     }
 
     // MARK: Leave
@@ -1012,15 +998,14 @@ private struct ChallengeDetailView: View {
                     ProgressView()
                 } else {
                     Text("Leave challenge")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(AppColors.danger)
                 }
                 Spacer()
             }
             .padding(14)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .disabled(viewModel.isLeaving)
     }
@@ -1115,8 +1100,8 @@ private struct ParticipantProgressChart: View {
                 if let index = value.as(Int.self) {
                     AxisValueLabel {
                         Text(dayLabel(for: index))
-                            .font(.system(size: 10))
-                            .foregroundColor(AppColors.textSecondary)
+                            .font(.app(size: 10))
+                            .foregroundColor(GroupedColors.secondaryLabel)
                     }
                 }
                 AxisGridLine()
@@ -1128,8 +1113,8 @@ private struct ParticipantProgressChart: View {
                 AxisValueLabel {
                     if let v = value.as(Double.self) {
                         Text(metric.formatValue(v))
-                            .font(.system(size: 10))
-                            .foregroundColor(AppColors.textSecondary)
+                            .font(.app(size: 10))
+                            .foregroundColor(GroupedColors.secondaryLabel)
                     }
                 }
             }
@@ -1195,6 +1180,7 @@ private struct ParticipantDetailView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .background(GroupedColors.page.ignoresSafeArea())
         .navigationTitle(route.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -1216,39 +1202,38 @@ private struct ParticipantDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Rank #\(route.rank)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 15, weight: .semibold))
+                    .foregroundColor(GroupedColors.secondaryLabel)
                 Spacer()
                 Text(metric.displayName)
-                    .font(.system(size: 13))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 13))
+                    .foregroundColor(GroupedColors.secondaryLabel)
             }
             Text("\(metric.formatValue(total)) \(metric.unitLabel)")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 28, weight: .bold))
+                .foregroundColor(GroupedColors.label)
             Text("Total since \(challengeDateRangeText(startDate: route.startDate, endDate: route.endDate))")
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var dailyChartCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Daily \(metric.unitLabel)")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
             Text("Each day from the challenge start")
-                .font(.system(size: 13))
-                .foregroundColor(AppColors.textSecondary)
+                .font(.app(size: 13))
+                .foregroundColor(GroupedColors.secondaryLabel)
 
             if !hasAnyData {
                 Text("No synced data yet — days show 0 until this person syncs their progress.")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 14))
+                    .foregroundColor(GroupedColors.secondaryLabel)
                     .padding(.vertical, 8)
             } else {
                 Chart {
@@ -1257,7 +1242,7 @@ private struct ParticipantDetailView: View {
                             x: .value("Day", challengeDisplayDateFormatter.string(from: day)),
                             y: .value(metric.displayName, values[index])
                         )
-                        .foregroundStyle(AppColors.primary)
+                        .foregroundStyle(GroupedColors.accent)
                         .cornerRadius(4)
                     }
                 }
@@ -1274,8 +1259,8 @@ private struct ParticipantDetailView: View {
                         AxisValueLabel {
                             if let v = value.as(Double.self) {
                                 Text(metric.formatValue(v))
-                                    .font(.system(size: 10))
-                                    .foregroundColor(AppColors.textSecondary)
+                                    .font(.app(size: 10))
+                                    .foregroundColor(GroupedColors.secondaryLabel)
                             }
                         }
                     }
@@ -1284,30 +1269,29 @@ private struct ParticipantDetailView: View {
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var dayByDayCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Day by day")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 15, weight: .semibold))
+                .foregroundColor(GroupedColors.label)
             if days.isEmpty {
                 Text("No days to show.")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 14))
+                    .foregroundColor(GroupedColors.secondaryLabel)
                     .padding(.vertical, 8)
             } else {
                 ForEach(Array(days.enumerated()), id: \.offset) { index, day in
                     HStack {
                         Text(dayLabel(day))
-                            .font(.system(size: 14))
-                            .foregroundColor(AppColors.textSecondary)
+                            .font(.app(size: 14))
+                            .foregroundColor(GroupedColors.secondaryLabel)
                         Spacer()
                         Text("\(metric.formatValue(values[index])) \(metric.unitLabel)")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(AppColors.textPrimary)
+                            .font(.app(size: 14, weight: .semibold))
+                            .foregroundColor(GroupedColors.label)
                     }
                     .padding(.vertical, 4)
                     if index < days.count - 1 {
@@ -1318,7 +1302,6 @@ private struct ParticipantDetailView: View {
         }
         .padding(16)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

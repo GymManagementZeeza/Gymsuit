@@ -12,15 +12,15 @@ struct PointsView: View {
                     // Balance hero
                     VStack(spacing: 8) {
                         Image(systemName: "star.circle.fill")
-                            .font(.system(size: 54))
+                            .font(.app(size: 54))
                             .foregroundColor(AppColors.warning)
                         Text("\(pointsStore.balance)")
-                            .font(.system(size: 44, weight: .bold))
+                            .font(.app(size: 44, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .contentTransition(.numericText())
                             .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pointsStore.balance)
                         Text("Total Points")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.app(size: 15, weight: .medium))
                             .foregroundColor(AppColors.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -32,7 +32,7 @@ struct PointsView: View {
                     // How to earn
                     VStack(alignment: .leading, spacing: 12) {
                         Text("How to earn")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.app(size: 15, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         earnRow("+50 pts", "for every workout you log")
                         earnRow("+5 pts", "for every set")
@@ -47,13 +47,13 @@ struct PointsView: View {
                     // History
                     VStack(alignment: .leading, spacing: 8) {
                         Text("History")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.app(size: 15, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .padding(.horizontal, 4)
                             .padding(.bottom, 2)
                         if pointsStore.history.isEmpty {
                             Text("No points yet. Log a workout to start earning!")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.vertical, 20)
@@ -83,10 +83,10 @@ struct PointsView: View {
     private func earnRow(_ points: String, _ label: String) -> some View {
         HStack(spacing: 8) {
             Text(points)
-                .font(.system(size: 14, weight: .bold))
+                .font(.app(size: 14, weight: .bold))
                 .foregroundColor(AppColors.workout)
             Text(label)
-                .font(.system(size: 14))
+                .font(.app(size: 14))
                 .foregroundColor(AppColors.textSecondary)
         }
     }
@@ -94,19 +94,19 @@ struct PointsView: View {
     private func historyRow(_ entry: PointsEntry) -> some View {
         HStack(spacing: 12) {
             Image(systemName: entry.points < 0 ? "arrow.down.circle.fill" : "star.circle.fill")
-                .font(.system(size: 22))
+                .font(.app(size: 22))
                 .foregroundColor(entry.points < 0 ? AppColors.danger : AppColors.workout)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.reason)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.app(size: 14, weight: .medium))
                     .foregroundColor(AppColors.textPrimary)
                 Text(entry.date, style: .date)
-                    .font(.system(size: 12))
+                    .font(.app(size: 12))
                     .foregroundColor(AppColors.textSecondary)
             }
             Spacer()
             Text("\(entry.points > 0 ? "+" : "")\(entry.points) pts")
-                .font(.system(size: 15, weight: .bold))
+                .font(.app(size: 15, weight: .bold))
                 .foregroundColor(entry.points < 0 ? AppColors.danger : AppColors.workout)
         }
         .padding(12)

@@ -26,6 +26,20 @@ struct AppColors {
     static let sleep = Color(hex: 0xFF8B5CF6)
 }
 
+/// Apple-style grouped-list palette: light grey page, white cards, one blue
+/// accent. Same values as the Android Meals and Challenges screens.
+struct GroupedColors {
+    static let page = Color(hex: 0xFFF2F2F7)
+    static let card = Color.white
+    static let label = Color(hex: 0xFF1C1C1E)
+    static let secondaryLabel = Color(hex: 0xFF8E8E93)
+    static let separator = Color(hex: 0xFFE5E5EA)
+    static let accent = Color(hex: 0xFF007AFF)
+    static let accentTint = Color(hex: 0xFFEAF2FF)
+    static let orange = Color(hex: 0xFFFF9500)
+    static let green = Color(hex: 0xFF34C759)
+}
+
 extension Color {
     init(hex: UInt32, alpha: Double = 1.0) {
         let red = Double((hex >> 16) & 0xff) / 255.0

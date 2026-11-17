@@ -39,7 +39,7 @@ struct LoginView: View {
                         
                         Button(action: onBack) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.app(size: 16, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(width: 40, height: 40)
                                 .background(Color.black.opacity(0.35))
@@ -52,10 +52,10 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Welcome Back")
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.app(size: 28, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("Sign in using your email address and one-time verification passcode.")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         
@@ -64,7 +64,7 @@ struct LoginView: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundColor(AppColors.danger)
                                 Text(error)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.app(size: 13, weight: .medium))
                                     .foregroundColor(AppColors.danger)
                             }
                             .padding()
@@ -78,7 +78,7 @@ struct LoginView: View {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(AppColors.success)
                                 Text(info)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.app(size: 13, weight: .medium))
                                     .foregroundColor(AppColors.success)
                             }
                             .padding()
@@ -90,7 +90,7 @@ struct LoginView: View {
                         // Email Input
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Email Address")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.app(size: 13, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
                             
                             HStack {
@@ -119,7 +119,7 @@ struct LoginView: View {
                                             .progressViewStyle(CircularProgressViewStyle(tint: email.isEmpty ? AppColors.textTertiary : .white))
                                     } else {
                                         Text("Send Verification Code")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.app(size: 16, weight: .semibold))
                                     }
                                 }
                                 .foregroundColor(email.isEmpty ? AppColors.textTertiary : .white)
@@ -133,7 +133,7 @@ struct LoginView: View {
                             // OTP input
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("6-Digit Code")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.app(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
                                 
                                 HStack {
@@ -158,7 +158,7 @@ struct LoginView: View {
                                             .progressViewStyle(CircularProgressViewStyle(tint: otp.count < 4 ? AppColors.textTertiary : .white))
                                     } else {
                                         Text("Verify & Continue")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.app(size: 16, weight: .semibold))
                                     }
                                 }
                                 .foregroundColor(otp.count < 4 ? AppColors.textTertiary : .white)
@@ -171,7 +171,7 @@ struct LoginView: View {
                             
                             Button(action: sendOtp) {
                                 Text("Resend Code")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.app(size: 14, weight: .medium))
                                     .foregroundColor(AppColors.primary)
                                     .frame(maxWidth: .infinity)
                             }
@@ -181,11 +181,11 @@ struct LoginView: View {
                         HStack {
                             Spacer()
                             Text("Don't have an account?")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                             Button(action: onNavigateToRegister) {
                                 Text("Register")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.app(size: 14, weight: .bold))
                                     .foregroundColor(AppColors.primary)
                             }
                             Spacer()

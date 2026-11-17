@@ -23,7 +23,7 @@ struct WorkoutBirthYearView: View {
 
                 // Title
                 Text("What's your birth year?")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.app(size: 28, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .multilineTextAlignment(.center)
                     .padding(.top, 14)
@@ -66,10 +66,10 @@ struct WorkoutBirthYearView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("02")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("ABOUT YOUR BODY")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -95,7 +95,7 @@ struct WorkoutBirthYearView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -109,10 +109,10 @@ struct WorkoutBirthYearView: View {
     private var infoCard: some View {
         HStack(alignment: .center, spacing: 14) {
             Text("📋")
-                .font(.system(size: 26))
+                .font(.app(size: 26))
 
             Text("It will help us to adjust the workout that best suits your age group.")
-                .font(.system(size: 14, weight: .regular))
+                .font(.app(size: 14, weight: .regular))
                 .foregroundColor(Color(hex: 0xFF475569))
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -144,7 +144,7 @@ struct WorkoutBirthYearView: View {
                             }
                         }) {
                             Text("\(year)")
-                                .font(.system(
+                                .font(.app(
                                     size: isSelected ? 34 : (distance == 1 ? 26 : 22),
                                     weight: isSelected ? .bold : .medium,
                                     design: .rounded
@@ -188,7 +188,7 @@ struct WorkoutBirthYearView: View {
                 onNext()
             }) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

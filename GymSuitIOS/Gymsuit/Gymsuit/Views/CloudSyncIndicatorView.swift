@@ -29,7 +29,7 @@ public struct CloudSyncIndicatorView: View {
                                 .scaleEffect(0.75)
                             
                             Text("Syncing to cloud…")
-                                .font(.system(size: 12.5, weight: .semibold))
+                                .font(.app(size: 12.5, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFF15803D))
                         }
                         .padding(.horizontal, 14)
@@ -42,11 +42,11 @@ public struct CloudSyncIndicatorView: View {
                     case .success(let message):
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.app(size: 15, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF16A34A))
                             
                             Text(message) // "All data synced"
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.app(size: 13, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFF15803D))
                         }
                         .padding(.horizontal, 16)
@@ -59,11 +59,11 @@ public struct CloudSyncIndicatorView: View {
                     case .error(let message):
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.app(size: 14, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFFDC2626))
                             
                             Text(message)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.app(size: 12, weight: .medium))
                                 .foregroundColor(Color(hex: 0xFFB91C1C))
                         }
                         .padding(.horizontal, 14)

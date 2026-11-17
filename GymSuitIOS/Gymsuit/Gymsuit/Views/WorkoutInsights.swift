@@ -348,7 +348,7 @@ private struct BodyFigureView: View {
             }
             .aspectRatio(0.5, contentMode: .fit)
             Text(front ? "FRONT" : "BACK")
-                .font(.system(size: 11, weight: .bold))
+                .font(.app(size: 11, weight: .bold))
                 .foregroundColor(AppColors.textSecondary)
         }
     }
@@ -382,7 +382,7 @@ struct MuscleLegendView: View {
                 .fill(color)
                 .frame(width: 12, height: 12)
             Text(label)
-                .font(.system(size: 12))
+                .font(.app(size: 12))
                 .foregroundColor(AppColors.textSecondary)
         }
     }
@@ -403,12 +403,12 @@ struct MusclesTrainedCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Muscles trained")
-                .font(.system(size: 17, weight: .bold))
+                .font(.app(size: 17, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             if store.loggedWorkouts.isEmpty {
                 BodySilhouetteView(primary: [], secondary: [])
                 Text("Complete a workout to see which muscles you trained")
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(AppColors.textSecondary)
             } else {
                 let cal = Calendar.current
@@ -418,18 +418,18 @@ struct MusclesTrainedCard: View {
                 }
                 let hits = MuscleMap.hits(workouts: dayWorkouts, exercises: store.exercises)
                 Text("Latest workout day · \(Self.dayFormatter.string(from: latestDay)) · \(dayWorkouts.count) exercise\(dayWorkouts.count == 1 ? "" : "s")")
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(AppColors.textSecondary)
                 BodySilhouetteView(primary: hits.primary, secondary: hits.secondary)
                 MuscleLegendView()
                 if !hits.primary.isEmpty {
                     Text("Primary: " + hits.primary.map(\.label).sorted().joined(separator: ", "))
-                        .font(.system(size: 13))
+                        .font(.app(size: 13))
                         .foregroundColor(AppColors.textPrimary)
                 }
                 if !hits.secondary.isEmpty {
                     Text("Secondary: " + hits.secondary.map(\.label).sorted().joined(separator: ", "))
-                        .font(.system(size: 13))
+                        .font(.app(size: 13))
                         .foregroundColor(AppColors.textSecondary)
                 }
             }
@@ -558,7 +558,7 @@ struct WorkoutRadarChartView: View {
                 let labelPos = vertex(index, 1.18)
                 context.draw(
                     Text(metric.shortLabel)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.app(size: 11, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF475569)),
                     at: labelPos
                 )
@@ -584,7 +584,7 @@ struct WorkoutDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("\(workout.date, style: .date) · \(workout.durationMinutes) min · \(workout.sets.count) sets · \(workout.totalReps) reps")
-                        .font(.system(size: 14))
+                        .font(.app(size: 14))
                         .foregroundColor(AppColors.textSecondary)
 
                     radarCard
@@ -611,14 +611,14 @@ struct WorkoutDetailView: View {
     private var radarCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Performance radar")
-                .font(.system(size: 16, weight: .bold))
+                .font(.app(size: 16, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             Text("Each axis is scored against your personal best")
-                .font(.system(size: 13))
+                .font(.app(size: 13))
                 .foregroundColor(AppColors.textSecondary)
             WorkoutRadarChartView(metrics: metrics)
             Text(metrics.map { "\($0.label): \($0.valueLabel)" }.joined(separator: "  ·  "))
-                .font(.system(size: 13))
+                .font(.app(size: 13))
                 .foregroundColor(AppColors.textSecondary)
         }
         .padding(16)
@@ -632,7 +632,7 @@ struct WorkoutDetailView: View {
         let hits = MuscleMap.hits(workouts: [workout], exercises: exercises)
         return VStack(alignment: .leading, spacing: 10) {
             Text("Muscles hit")
-                .font(.system(size: 16, weight: .bold))
+                .font(.app(size: 16, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             BodySilhouetteView(primary: hits.primary, secondary: hits.secondary)
             MuscleLegendView()
@@ -648,22 +648,22 @@ struct WorkoutDetailView: View {
         let otherUnit = WeightUnits.other(unit)
         return VStack(alignment: .leading, spacing: 8) {
             Text("Sets")
-                .font(.system(size: 16, weight: .bold))
+                .font(.app(size: 16, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             ForEach(workout.sets.indices, id: \.self) { index in
                 let set = workout.sets[index]
                 HStack {
                     Text("Set \(index + 1)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 1) {
                         Text("\(set.reps) reps × \(WeightUnits.label(kg: set.weightKg, unit: unit))")
-                            .font(.system(size: 14))
+                            .font(.app(size: 14))
                             .foregroundColor(AppColors.textPrimary)
                         if set.weightKg > 0 {
                             Text("≈ \(WeightUnits.label(kg: set.weightKg, unit: otherUnit))")
-                                .font(.system(size: 12))
+                                .font(.app(size: 12))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                     }

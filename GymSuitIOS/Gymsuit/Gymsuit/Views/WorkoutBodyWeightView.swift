@@ -50,7 +50,7 @@ struct WorkoutBodyWeightView: View {
                     VStack(spacing: 24) {
                         // Title
                         Text("What's your current\nweight?")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.app(size: 28, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF0F172A))
                             .multilineTextAlignment(.center)
                             .padding(.top, 14)
@@ -62,11 +62,11 @@ struct WorkoutBodyWeightView: View {
                         // Big Weight Display (e.g. 164.3 lbs)
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(String(format: "%.1f", displayedWeight))
-                                .font(.system(size: 52, weight: .bold, design: .rounded))
+                                .font(.app(size: 52, weight: .bold, design: .rounded))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
 
                             Text(selectedUnit.rawValue)
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.app(size: 17, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF475569))
                         }
                         .padding(.top, 8)
@@ -114,10 +114,10 @@ struct WorkoutBodyWeightView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("02")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("ABOUT YOUR BODY")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -143,7 +143,7 @@ struct WorkoutBodyWeightView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -158,7 +158,7 @@ struct WorkoutBodyWeightView: View {
         HStack(spacing: 0) {
             Button(action: { switchUnit(to: .kg) }) {
                 Text("kg")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(selectedUnit == .kg ? .white : Color(hex: 0xFF334155))
                     .frame(width: 60, height: 36)
                     .background(selectedUnit == .kg ? Color(hex: 0xFF0066FF) : Color.clear)
@@ -167,7 +167,7 @@ struct WorkoutBodyWeightView: View {
 
             Button(action: { switchUnit(to: .lbs) }) {
                 Text("lbs")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(selectedUnit == .lbs ? .white : Color(hex: 0xFF334155))
                     .frame(width: 60, height: 36)
                     .background(selectedUnit == .lbs ? Color(hex: 0xFF0066FF) : Color.clear)
@@ -233,7 +233,7 @@ struct WorkoutBodyWeightView: View {
                         if isWholeNumber {
                             let wholeValue = tick / 10
                             let text = Text("\(wholeValue)")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.app(size: 13, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF94A3B8))
                             context.draw(context.resolve(text), at: CGPoint(x: x, y: startY + lineHeight + 16))
                         }
@@ -330,26 +330,26 @@ struct WorkoutBodyWeightView: View {
             // Header: Your BMI (Overweight) ℹ️
             HStack(spacing: 5) {
                 Text("Your BMI")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.app(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
 
                 Text("(\(info.status))")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.app(size: 15, weight: .bold))
                     .foregroundColor(info.color)
 
                 Image(systemName: "info.circle.fill")
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(Color(hex: 0xFFCBD5E1))
             }
 
             // BMI value + message
             HStack(alignment: .top, spacing: 14) {
                 Text(String(format: "%.1f", currentBMI))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.app(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(info.color)
 
                 Text(info.message)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.app(size: 13, weight: .regular))
                     .foregroundColor(Color(hex: 0xFF475569))
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -370,7 +370,7 @@ struct WorkoutBodyWeightView: View {
                 onNext()
             }) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

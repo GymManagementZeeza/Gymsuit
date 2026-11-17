@@ -94,10 +94,10 @@ struct WorkoutProjectionGraphView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("03")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("FITNESS ASSESSMENT")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -123,7 +123,7 @@ struct WorkoutProjectionGraphView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -137,11 +137,11 @@ struct WorkoutProjectionGraphView: View {
     private var titleSection: some View {
         VStack(spacing: 6) {
             Text("A more precise outlook is here!")
-                .font(.system(size: 17, weight: .medium))
+                .font(.app(size: 17, weight: .medium))
                 .foregroundColor(Color(hex: 0xFF475569))
 
             Text("You'll reach")
-                .font(.system(size: 17, weight: .medium))
+                .font(.app(size: 17, weight: .medium))
                 .foregroundColor(Color(hex: 0xFF475569))
 
             HStack(spacing: 6) {
@@ -151,7 +151,7 @@ struct WorkoutProjectionGraphView: View {
                 Text(Self.monthDayFormatter.string(from: targetDate))
                     .foregroundColor(Color(hex: 0xFF0066FF))
             }
-            .font(.system(size: 32, weight: .bold))
+            .font(.app(size: 32, weight: .bold))
         }
         .multilineTextAlignment(.center)
     }
@@ -273,7 +273,7 @@ struct WorkoutProjectionGraphView: View {
                     Image(systemName: "chevron.left")
                     Image(systemName: "chevron.left")
                 }
-                .font(.system(size: 13, weight: .bold))
+                .font(.app(size: 13, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF38BDF8))
                 .position(x: (targetX + baselineX) / 2 - 4, y: targetY + (isGaining ? -22 : 22))
 
@@ -311,17 +311,17 @@ struct WorkoutProjectionGraphView: View {
 
                 // X-Axis Labels
                 Text("Today")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.app(size: 13, weight: .medium))
                     .foregroundColor(Color(hex: 0xFF64748B))
                     .position(x: startX, y: h - 14)
 
                 Text(Self.monthDayFormatter.string(from: targetDate))
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.app(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .position(x: targetX, y: h - 14)
 
                 Text(Self.monthDayFormatter.string(from: standardDate))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.app(size: 13, weight: .medium))
                     .foregroundColor(Color(hex: 0xFF64748B))
                     .position(x: baselineX, y: h - 14)
             }
@@ -332,7 +332,7 @@ struct WorkoutProjectionGraphView: View {
     private func tooltipBubble(days: Int) -> some View {
         VStack(spacing: 0) {
             Text("\(days) Days")
-                .font(.system(size: 14, weight: .bold))
+                .font(.app(size: 14, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -351,14 +351,14 @@ struct WorkoutProjectionGraphView: View {
     private var summarySection: some View {
         VStack(spacing: 8) {
             Text("\(daysEarly) days early!")
-                .font(.system(size: 24, weight: .bold))
+                .font(.app(size: 24, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF0F172A))
 
             Text(isGaining
                 ? "You have great potential to build lean muscle\nand hit your target ahead of schedule!"
                 : "You have great potential to achieve your\ngoals ahead of schedule!"
             )
-            .font(.system(size: 15, weight: .regular))
+            .font(.app(size: 15, weight: .regular))
             .foregroundColor(Color(hex: 0xFF64748B))
             .multilineTextAlignment(.center)
             .lineSpacing(3)
@@ -373,7 +373,7 @@ struct WorkoutProjectionGraphView: View {
                 onFinish()
             }) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

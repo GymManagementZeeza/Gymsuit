@@ -58,10 +58,10 @@ struct DashboardView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(greetingText)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.app(size: 13, weight: .medium))
                             .foregroundColor(AppColors.textSecondary)
                         Text(authManager.currentSession?.firstName.isEmpty == false ? authManager.currentSession!.firstName : "Athlete")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.app(size: 22, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -83,7 +83,7 @@ struct DashboardView: View {
                             }
                         }) {
                             Image(systemName: syncManager.isSyncing ? "arrow.triangle.2.circlepath" : "icloud.and.arrow.up")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.app(size: 15, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFF16A34A))
                                 .frame(width: 38, height: 38)
                                 .background(Color(hex: 0xFFF0FDF4))
@@ -126,10 +126,10 @@ struct DashboardView: View {
                                     }) {
                                         VStack(spacing: 6) {
                                             Text(day.dayName)
-                                                .font(.system(size: 11, weight: .medium))
+                                                .font(.app(size: 11, weight: .medium))
                                                 .foregroundColor(isSelected ? .white : AppColors.textSecondary)
                                             Text(day.dayNumber)
-                                                .font(.system(size: 16, weight: .bold))
+                                                .font(.app(size: 16, weight: .bold))
                                                 .foregroundColor(isSelected ? .white : AppColors.textPrimary)
                                         }
                                         .frame(width: 48, height: 68)
@@ -326,7 +326,7 @@ struct DashboardView: View {
                     Image(systemName: "sparkles")
                         .foregroundColor(AppColors.purple)
                     Text("AI WELLNESS COACH")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.app(size: 11, weight: .bold))
                         .foregroundColor(AppColors.purple)
                 }
                 .padding(.horizontal, 10)
@@ -338,7 +338,7 @@ struct DashboardView: View {
                 
                 Button(action: { viewModel.retryCurrentDate() }) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.app(size: 13, weight: .semibold))
                         .foregroundColor(AppColors.textSecondary)
                 }
             }
@@ -348,20 +348,20 @@ struct DashboardView: View {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text("Analyzing your biometrics and daily activity...")
-                        .font(.system(size: 14))
+                        .font(.app(size: 14))
                         .foregroundColor(AppColors.textSecondary)
                 }
                 .padding(.vertical, 8)
                 
             case .success(let text):
                 Text(text)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.app(size: 14, weight: .regular))
                     .foregroundColor(AppColors.textPrimary)
                     .lineSpacing(4)
                 
             case .error(let err):
                 Text(err)
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(AppColors.textSecondary)
             }
         }
@@ -389,11 +389,11 @@ struct DashboardView: View {
                 }) {
                     VStack(spacing: 4) {
                         Image(systemName: tab.iconName)
-                            .font(.system(size: selectedTab == tab ? 20 : 18, weight: selectedTab == tab ? .bold : .medium))
+                            .font(.app(size: selectedTab == tab ? 20 : 18, weight: selectedTab == tab ? .bold : .medium))
                             .foregroundColor(selectedTab == tab ? AppColors.primary : AppColors.textTertiary)
                         
                         Text(tab.rawValue)
-                            .font(.system(size: 10, weight: selectedTab == tab ? .bold : .medium))
+                            .font(.app(size: 10, weight: selectedTab == tab ? .bold : .medium))
                             .foregroundColor(selectedTab == tab ? AppColors.primary : AppColors.textTertiary)
                     }
                     .frame(height: 48)
@@ -520,21 +520,21 @@ private struct HomeWeightCard: View {
                                 .fill(Color(hex: 0xFF2563EB).opacity(0.12))
                                 .frame(width: 38, height: 38)
                             Image(systemName: "scalemass.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.app(size: 16, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFF2563EB))
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 5) {
                                 Text("Body Weight")
-                                    .font(.system(size: 15, weight: .bold))
+                                    .font(.app(size: 15, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.app(size: 11, weight: .bold))
                                     .foregroundColor(AppColors.textTertiary)
                             }
                             Text("Tap to view statistics & graph")
-                                .font(.system(size: 11))
+                                .font(.app(size: 11))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                     }
@@ -545,9 +545,9 @@ private struct HomeWeightCard: View {
                     Button(action: onLogWeight) {
                         HStack(spacing: 5) {
                             Image(systemName: "plus")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.app(size: 11, weight: .bold))
                             Text("Log Weight")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.app(size: 12, weight: .bold))
                         }
                         .foregroundColor(Color(hex: 0xFF2563EB))
                         .padding(.horizontal, 12)
@@ -566,10 +566,10 @@ private struct HomeWeightCard: View {
                 HStack(alignment: .lastTextBaseline) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(String(format: "%.1f", displayCurrentWeight))
-                            .font(.system(size: 30, weight: .bold))
+                            .font(.app(size: 30, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         Text(unitLabel)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.app(size: 14, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                     }
 
@@ -579,24 +579,24 @@ private struct HomeWeightCard: View {
                         VStack(alignment: .trailing, spacing: 3) {
                             HStack(spacing: 4) {
                                 Text("Target:")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.app(size: 12, weight: .medium))
                                     .foregroundColor(AppColors.textSecondary)
                                 Text(String(format: "%.1f %@", displayTargetWeight, unitLabel))
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.app(size: 13, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                             }
 
                             if abs(diffKg) < 0.1 {
                                 Text("Goal reached! 🎉")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.app(size: 11, weight: .semibold))
                                     .foregroundColor(Color(hex: 0xFF10B981))
                             } else if diffKg > 0 {
                                 Text(String(format: "-%.1f %@ to goal", diffDisplay, unitLabel))
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.app(size: 11, weight: .semibold))
                                     .foregroundColor(Color(hex: 0xFF2563EB))
                             } else {
                                 Text(String(format: "+%.1f %@ to goal", diffDisplay, unitLabel))
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.app(size: 11, weight: .semibold))
                                     .foregroundColor(Color(hex: 0xFF10B981))
                             }
                         }
@@ -660,14 +660,14 @@ private struct WorkoutCardWidget: View {
                 HStack {
                     HStack(spacing: 6) {
                         Image(systemName: "dumbbell.fill")
-                            .font(.system(size: 16))
+                            .font(.app(size: 16))
                         Text("Workout")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.app(size: 13, weight: .bold))
                     }
                     .foregroundColor(darkGreen)
                     Spacer()
                     Text(monthName)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.app(size: 11, weight: .bold))
                         .foregroundColor(darkGreen)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
@@ -678,10 +678,10 @@ private struct WorkoutCardWidget: View {
                 // Big count: completed days this month
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text("\(workoutsThisMonth)")
-                        .font(.system(size: 26, weight: .heavy))
+                        .font(.app(size: 26, weight: .heavy))
                         .foregroundColor(deepGreen)
                     Text("/\(monthDays.count) days")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(darkGreen.opacity(0.75))
                 }
                 .padding(.top, 10)
@@ -793,33 +793,33 @@ private struct MetricDashboardCard: View {
                         .fill(tint.opacity(0.12))
                         .frame(width: 36, height: 36)
                     Image(systemName: icon)
-                        .font(.system(size: 16))
+                        .font(.app(size: 16))
                         .foregroundColor(tint)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.app(size: 12, weight: .bold))
                     .foregroundColor(AppColors.textTertiary)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(value)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.app(size: 22, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     if !unit.isEmpty {
                         Text(unit)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.app(size: 13, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                     }
                 }
                 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.app(size: 14, weight: .medium))
                     .foregroundColor(AppColors.textPrimary)
                 
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.app(size: 11))
                     .foregroundColor(AppColors.textSecondary)
                     .lineLimit(1)
             }

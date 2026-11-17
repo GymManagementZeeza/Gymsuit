@@ -102,16 +102,16 @@ struct WorkoutSessionPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Workout in progress")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.app(size: 13, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
 
                 timerCard
 
                 Text("Body parts")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.app(size: 20, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                 Text("Tap a part to log an exercise. 3 exercises per part completes the part.")
-                    .font(.system(size: 14))
+                    .font(.app(size: 14))
                     .foregroundColor(AppColors.textSecondary)
 
                 ForEach(session.parts, id: \.self) { part in
@@ -133,11 +133,11 @@ struct WorkoutSessionPage: View {
     private var timerCard: some View {
         VStack(spacing: 14) {
             Text(session.running ? "ELAPSED" : "PAUSED")
-                .font(.system(size: 12, weight: .bold))
+                .font(.app(size: 12, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF94A3B8))
                 .tracking(2)
             Text(formatWorkoutClock(session.elapsedSeconds))
-                .font(.system(size: 54, weight: .bold))
+                .font(.app(size: 54, weight: .bold))
                 .foregroundColor(.white)
                 .monospacedDigit()
             BarProgress(
@@ -150,9 +150,9 @@ struct WorkoutSessionPage: View {
                 Button(action: { session.running.toggle() }) {
                     HStack(spacing: 6) {
                         Image(systemName: session.running ? "pause.fill" : "play.fill")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.app(size: 15, weight: .bold))
                         Text(session.running ? "Pause" : "Resume")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.app(size: 15, weight: .bold))
                     }
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .frame(maxWidth: .infinity)
@@ -162,7 +162,7 @@ struct WorkoutSessionPage: View {
                 }
                 Button(action: { confirmFinish = true }) {
                     Text("Finish")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -184,15 +184,15 @@ struct WorkoutSessionPage: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(part.displayName)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         Text("\(session.exercisesDone(part: part))/\(WorkoutSessionState.exercisesPerPartTarget) exercises • \(session.setsDone(part: part)) sets")
-                            .font(.system(size: 13))
+                            .font(.app(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                     }
                     Spacer()
                     Image(systemName: isDone ? "checkmark" : "chevron.right")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(isDone ? AppColors.success : AppColors.textTertiary)
                 }
                 BarProgress(
@@ -231,14 +231,14 @@ struct BodyPartWorkoutPickerPage: View {
             HStack(spacing: 12) {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.app(size: 17, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                         .frame(width: 36, height: 36)
                         .background(Color.white)
                         .clipShape(Circle())
                 }
                 Text("\(part.displayName) exercises")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.app(size: 22, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                 Spacer()
             }
@@ -248,7 +248,7 @@ struct BodyPartWorkoutPickerPage: View {
             if exercises.isEmpty {
                 Spacer()
                 Text(store.exercises.isEmpty ? "Exercise catalog failed to load." : "No exercises found for this body part.")
-                    .font(.system(size: 14))
+                    .font(.app(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                 Spacer()
@@ -285,17 +285,17 @@ struct BodyPartWorkoutPickerPage: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.app(size: 15, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                     .lineLimit(2)
                 Text("\(exercise.primaryMuscleLabel) • \(exercise.equipment.capitalized)")
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(AppColors.textSecondary)
                     .lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.app(size: 14, weight: .semibold))
                 .foregroundColor(AppColors.textTertiary)
         }
         .padding(12)
@@ -355,7 +355,7 @@ struct SetBySetLogPage: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 } else {
                     Text("No GIF available")
-                        .font(.system(size: 14))
+                        .font(.app(size: 14))
                         .foregroundColor(AppColors.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 200)
                         .background(Color.gray.opacity(0.08))
@@ -404,7 +404,7 @@ struct SetBySetLogPage: View {
         HStack(spacing: 12) {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.app(size: 17, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
                     .frame(width: 36, height: 36)
                     .background(Color.white)
@@ -412,15 +412,15 @@ struct SetBySetLogPage: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(displayName)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.app(size: 22, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                 Text("Set \(min(completed.count + 1, totalSets)) of \(totalSets)")
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(AppColors.textSecondary)
             }
             Spacer()
             Text(formatWorkoutClock(totalSeconds))
-                .font(.system(size: 18, weight: .bold))
+                .font(.app(size: 18, weight: .bold))
                 .foregroundColor(AppColors.primary)
                 .monospacedDigit()
         }
@@ -430,11 +430,11 @@ struct SetBySetLogPage: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Sets")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                 Spacer()
                 Text("\(completed.count)/\(totalSets)")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.app(size: 14, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
             }
             BarProgress(
@@ -453,7 +453,7 @@ struct SetBySetLogPage: View {
     private var unitToggleRow: some View {
         HStack {
             Text("Weight unit")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.app(size: 14, weight: .semibold))
                 .foregroundColor(AppColors.textPrimary)
             Spacer()
             WeightUnitToggle(unit: weightUnitBinding)
@@ -469,10 +469,10 @@ struct SetBySetLogPage: View {
     private var workingCard: some View {
         VStack(spacing: 14) {
             Text("Set \(completed.count + 1) of \(totalSets)")
-                .font(.system(size: 13, weight: .bold))
+                .font(.app(size: 13, weight: .bold))
                 .foregroundColor(AppColors.primary)
             Text(formatWorkoutClock(setSeconds))
-                .font(.system(size: 40, weight: .bold))
+                .font(.app(size: 40, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
                 .monospacedDigit()
             HStack(spacing: 12) {
@@ -481,15 +481,15 @@ struct SetBySetLogPage: View {
             }
             if let entered = Double(weightText), entered > 0 {
                 Text("≈ \(WeightUnits.format(WeightUnits.kgToDisplay(WeightUnits.displayToKg(entered, unit: weightUnit), unit: otherUnit))) \(otherUnit.symbol)")
-                    .font(.system(size: 12))
+                    .font(.app(size: 12))
                     .foregroundColor(AppColors.textSecondary)
             }
             Button(action: completeCurrentSet) {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                     Text("Done")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.app(size: 16, weight: .bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -507,11 +507,11 @@ struct SetBySetLogPage: View {
     private func numberField(title: String, text: Binding<String>, allowDecimal: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.app(size: 13, weight: .semibold))
                 .foregroundColor(AppColors.textSecondary)
             TextField(title, text: text)
                 .keyboardType(.decimalPad)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.app(size: 18, weight: .semibold))
                 .foregroundColor(AppColors.textPrimary)
                 .padding(12)
                 .background(AppColors.surface)
@@ -534,11 +534,11 @@ struct SetBySetLogPage: View {
     private var restingCard: some View {
         VStack(spacing: 12) {
             Text("REST")
-                .font(.system(size: 12, weight: .bold))
+                .font(.app(size: 12, weight: .bold))
                 .foregroundColor(AppColors.textSecondary)
                 .tracking(2)
             Text(formatWorkoutClock(restLeft))
-                .font(.system(size: 52, weight: .bold))
+                .font(.app(size: 52, weight: .bold))
                 .foregroundColor(AppColors.primary)
                 .monospacedDigit()
             BarProgress(
@@ -553,7 +553,7 @@ struct SetBySetLogPage: View {
                     restLeft += 15
                 }) {
                     Text("+15s")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(AppColors.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -565,7 +565,7 @@ struct SetBySetLogPage: View {
                     setSeconds = 0
                 }) {
                     Text("Skip")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -585,27 +585,27 @@ struct SetBySetLogPage: View {
     private var completedSetsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Completed sets")
-                .font(.system(size: 14, weight: .bold))
+                .font(.app(size: 14, weight: .bold))
                 .foregroundColor(AppColors.textSecondary)
             ForEach(completed.indices, id: \.self) { index in
                 HStack {
                     Text("Set \(index + 1)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 1) {
                         Text("\(completed[index].reps) reps × \(WeightUnits.format(WeightUnits.kgToDisplay(completed[index].weightKg, unit: weightUnit))) \(weightUnit.symbol)")
-                            .font(.system(size: 14))
+                            .font(.app(size: 14))
                             .foregroundColor(AppColors.textSecondary)
                         if completed[index].weightKg > 0 {
                             Text("≈ \(WeightUnits.label(kg: completed[index].weightKg, unit: otherUnit))")
-                                .font(.system(size: 12))
+                                .font(.app(size: 12))
                                 .foregroundColor(AppColors.textTertiary)
                         }
                     }
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(AppColors.success)
-                        .font(.system(size: 16))
+                        .font(.app(size: 16))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
@@ -624,7 +624,7 @@ struct SetBySetLogPage: View {
             if !allDone {
                 Button(action: finish) {
                     Text("Finish early")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -632,7 +632,7 @@ struct SetBySetLogPage: View {
                 }
                 Button(action: { totalSets += 1 }) {
                     Text("Add a set")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -642,7 +642,7 @@ struct SetBySetLogPage: View {
             } else {
                 Button(action: finish) {
                     Text("Save exercise")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -655,7 +655,7 @@ struct SetBySetLogPage: View {
                     setSeconds = 0
                 }) {
                     Text("Add a set")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)

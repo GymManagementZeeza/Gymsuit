@@ -21,7 +21,7 @@ struct WorkoutGoalSelectionView: View {
                     VStack(spacing: 18) {
                         // Title
                         Text("What's your main goal?")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.app(size: 28, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF0F172A))
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, 16)
@@ -51,10 +51,10 @@ struct WorkoutGoalSelectionView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("01")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("GOAL & FOCUS")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -80,7 +80,7 @@ struct WorkoutGoalSelectionView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -122,7 +122,7 @@ struct WorkoutGoalSelectionView: View {
                     // Left-side Goal Title
                     HStack {
                         Text(goal.title)
-                            .font(.system(size: 23, weight: .bold))
+                            .font(.app(size: 23, weight: .bold))
                             .foregroundColor(isSelected ? .white : Color(hex: 0xFF0F172A))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -142,14 +142,14 @@ struct WorkoutGoalSelectionView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text(goal.emoji)
-                            .font(.system(size: 16))
+                            .font(.app(size: 16))
                         Text(goal.bannerTitle)
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.app(size: 15, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF0F172A))
                     }
 
                     Text(goal.bannerDescription)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.app(size: 13, weight: .regular))
                         .foregroundColor(Color(hex: 0xFF475569))
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -182,7 +182,7 @@ struct WorkoutGoalSelectionView: View {
         VStack(spacing: 0) {
             Button(action: onNext) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

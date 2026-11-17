@@ -23,7 +23,7 @@ struct WorkoutFrequencyView: View {
 
                 // Title
                 Text("How often would you like\nto work out?")
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.app(size: 26, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .multilineTextAlignment(.center)
                     .padding(.top, 14)
@@ -37,7 +37,7 @@ struct WorkoutFrequencyView: View {
 
                 // Dynamic descriptive text below calendar
                 Text(frequencyDescription)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.app(size: 16, weight: .regular))
                     .foregroundColor(Color(hex: 0xFF64748B))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
@@ -76,10 +76,10 @@ struct WorkoutFrequencyView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("03")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("FITNESS ASSESSMENT")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -105,7 +105,7 @@ struct WorkoutFrequencyView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -145,7 +145,7 @@ struct WorkoutFrequencyView: View {
 
                 // Big Centered Day Count
                 Text("\(selectedDays)")
-                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .font(.app(size: 72, weight: .bold, design: .rounded))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.top, 30)
@@ -206,7 +206,7 @@ struct WorkoutFrequencyView: View {
         VStack(spacing: 14) {
             // Title: "2 times/week"
             Text("\(selectedDays) times/week")
-                .font(.system(size: 16, weight: .bold))
+                .font(.app(size: 16, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF0F172A))
 
             // Dot Track
@@ -275,13 +275,13 @@ struct WorkoutFrequencyView: View {
             // Less / More Labels
             HStack {
                 Text("Less")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.app(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
 
                 Spacer()
 
                 Text("More")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.app(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
             }
         }
@@ -295,7 +295,7 @@ struct WorkoutFrequencyView: View {
                 onNext()
             }) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

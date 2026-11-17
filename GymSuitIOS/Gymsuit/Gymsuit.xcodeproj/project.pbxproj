@@ -59,6 +59,16 @@
 		DA8E07BF306B7C910056A8B8 /* Gymsuit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gymsuit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F0A1B2C3D4E5F60718293A4B /* Exceptions for "GymsuitWidgets" folder in "GymsuitWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E2ADACD3512C74F5C4029945 /* GymsuitWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DA860E2230894D910074CF6F /* GymsuitKit Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -67,6 +77,9 @@
 		};
 		BC092D05AB45130897656A1B /* GymsuitWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F0A1B2C3D4E5F60718293A4B /* Exceptions for "GymsuitWidgets" folder in "GymsuitWidgets" target */,
+			);
 			path = GymsuitWidgets;
 			sourceTree = "<group>";
 		};
@@ -577,7 +590,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2G2B87NX43;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GymsuitWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = GymSuit;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -606,7 +619,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2G2B87NX43;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GymsuitWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = GymSuit;
 				LD_RUNPATH_SEARCH_PATHS = (

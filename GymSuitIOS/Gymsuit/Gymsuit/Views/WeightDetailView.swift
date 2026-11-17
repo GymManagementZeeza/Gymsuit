@@ -103,9 +103,9 @@ struct WeightDetailView: View {
                         Button(action: { isShowingRecordSheet = true }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.app(size: 16, weight: .semibold))
                                 Text("Record Weight")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.app(size: 16, weight: .bold))
                             }
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -143,7 +143,7 @@ struct WeightDetailView: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                     .frame(width: 44, height: 44)
                     .background(Color.white)
@@ -154,14 +154,14 @@ struct WeightDetailView: View {
             Spacer()
 
             Text("Weight Statistics")
-                .font(.system(size: 18, weight: .bold))
+                .font(.app(size: 18, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
 
             Spacer()
 
             Button(action: { isShowingRecordSheet = true }) {
                 Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .foregroundColor(AppColors.primary)
                     .frame(width: 44, height: 44)
                     .background(Color.white)
@@ -185,12 +185,12 @@ struct WeightDetailView: View {
                             .fill(AppColors.primary.opacity(0.12))
                             .frame(width: 38, height: 38)
                         Image(systemName: "scalemass.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.app(size: 16, weight: .semibold))
                             .foregroundColor(AppColors.primary)
                     }
 
                     Text("CURRENT WEIGHT")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.app(size: 12, weight: .bold))
                         .foregroundColor(AppColors.primary)
                 }
 
@@ -198,7 +198,7 @@ struct WeightDetailView: View {
 
                 // Goal badge
                 Text(isGaining ? "Build Muscle" : "Weight Loss")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.app(size: 12, weight: .semibold))
                     .foregroundColor(Color(hex: 0xFF059669))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -208,10 +208,10 @@ struct WeightDetailView: View {
 
             HStack(alignment: .lastTextBaseline, spacing: 6) {
                 Text(String(format: "%.1f", displayCurrentWeight))
-                    .font(.system(size: 42, weight: .bold))
+                    .font(.app(size: 42, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                 Text(unitLabel)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.app(size: 18, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
 
                 Spacer()
@@ -219,16 +219,16 @@ struct WeightDetailView: View {
                 if targetWeightKg > 0 {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("Target: \(String(format: "%.1f", displayTargetWeight)) \(unitLabel)")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.app(size: 14, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
 
                         if abs(currentWeightKg - targetWeightKg) < 0.1 {
                             Text("Goal reached! 🎉")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.app(size: 12, weight: .semibold))
                                 .foregroundColor(Color(hex: 0xFF10B981))
                         } else {
                             Text(isGaining ? "+\(String(format: "%.1f", diffDisplay)) \(unitLabel) to go" : "-\(String(format: "%.1f", diffDisplay)) \(unitLabel) to go")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.app(size: 12, weight: .semibold))
                                 .foregroundColor(AppColors.primary)
                         }
                     }
@@ -258,10 +258,10 @@ struct WeightDetailView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Goal Projection")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.app(size: 15, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("Projected reach on \(Self.monthDayFormatter.string(from: targetDate))")
-                                .font(.system(size: 12))
+                                .font(.app(size: 12))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         Spacer()
@@ -283,10 +283,10 @@ struct WeightDetailView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Weight History (30 Days)")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.app(size: 15, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("\(historySamples.count) logs recorded")
-                                .font(.system(size: 12))
+                                .font(.app(size: 12))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         Spacer()
@@ -302,13 +302,13 @@ struct WeightDetailView: View {
                     } else if historySamples.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "chart.line.uptrend.xyaxis")
-                                .font(.system(size: 32))
+                                .font(.app(size: 32))
                                 .foregroundColor(AppColors.textTertiary)
                             Text("No weight records in HealthKit yet")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.app(size: 13, weight: .medium))
                                 .foregroundColor(AppColors.textSecondary)
                             Text("Tap 'Record Weight' to add your first entry")
-                                .font(.system(size: 11))
+                                .font(.app(size: 11))
                                 .foregroundColor(AppColors.textTertiary)
                         }
                         .frame(maxWidth: .infinity)
@@ -376,7 +376,7 @@ struct WeightDetailView: View {
                         .fill(tint.opacity(0.12))
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(.app(size: 14))
                         .foregroundColor(tint)
                 }
                 Spacer()
@@ -384,13 +384,13 @@ struct WeightDetailView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.app(size: 18, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.app(size: 12, weight: .medium))
                     .foregroundColor(AppColors.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 10))
+                    .font(.app(size: 10))
                     .foregroundColor(AppColors.textSecondary)
             }
         }
@@ -539,7 +539,7 @@ private struct WeightProjectionCanvas: View {
                 .position(startPoint)
 
                 Text(String(format: "%.1f %@", displayCurrent, unit))
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.app(size: 11, weight: .bold))
                     .foregroundColor(AppColors.primary)
                     .position(x: startPoint.x, y: startPoint.y + (isGaining ? 16 : -16))
 
@@ -555,7 +555,7 @@ private struct WeightProjectionCanvas: View {
                 .position(endPoint)
 
                 Text(String(format: "%.1f %@", displayTarget, unit))
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.app(size: 11, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF10B981))
                     .position(x: endPoint.x - 8, y: endPoint.y + (isGaining ? -16 : 16))
             }
@@ -604,7 +604,7 @@ private struct WeightHistoryCanvas: View {
                     let gridVal = maxVal - frac * range
                     HStack {
                         Text(String(format: "%.0f", gridVal))
-                            .font(.system(size: 9))
+                            .font(.app(size: 9))
                             .foregroundColor(AppColors.textTertiary)
                             .frame(width: 24, alignment: .trailing)
                         Rectangle()

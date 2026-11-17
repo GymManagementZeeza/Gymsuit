@@ -49,7 +49,7 @@ struct WorkoutBodyHeightView: View {
 
                 // Title
                 Text("What's your height?")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.app(size: 28, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .multilineTextAlignment(.center)
                     .padding(.top, 14)
@@ -89,10 +89,10 @@ struct WorkoutBodyHeightView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Text("02")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0066FF))
                     Text("ABOUT YOUR BODY")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF1E293B))
                         .tracking(0.6)
                 }
@@ -129,7 +129,7 @@ struct WorkoutBodyHeightView: View {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "arrow.backward")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.app(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -148,7 +148,7 @@ struct WorkoutBodyHeightView: View {
                 }
             }) {
                 Text("cm")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(selectedUnit == .cm ? .white : Color(hex: 0xFF334155))
                     .frame(width: 60, height: 36)
                     .background(selectedUnit == .cm ? Color(hex: 0xFF0066FF) : Color.clear)
@@ -161,7 +161,7 @@ struct WorkoutBodyHeightView: View {
                 }
             }) {
                 Text("ft")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(selectedUnit == .ft ? .white : Color(hex: 0xFF334155))
                     .frame(width: 60, height: 36)
                     .background(selectedUnit == .ft ? Color(hex: 0xFF0066FF) : Color.clear)
@@ -203,27 +203,27 @@ struct WorkoutBodyHeightView: View {
                     if selectedUnit == .ft {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("\(feetPart)")
-                                .font(.system(size: 56, weight: .bold, design: .rounded))
+                                .font(.app(size: 56, weight: .bold, design: .rounded))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
                             Text("ft")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.app(size: 17, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
                                 .padding(.trailing, 8)
 
                             Text("\(inchesPart)")
-                                .font(.system(size: 56, weight: .bold, design: .rounded))
+                                .font(.app(size: 56, weight: .bold, design: .rounded))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
                             Text("in")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.app(size: 17, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
                         }
                     } else {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("\(Int(heightCm.rounded()))")
-                                .font(.system(size: 56, weight: .bold, design: .rounded))
+                                .font(.app(size: 56, weight: .bold, design: .rounded))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
                             Text("cm")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.app(size: 17, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF0F172A))
                         }
                     }
@@ -321,7 +321,7 @@ struct WorkoutBodyHeightView: View {
                         if isFoot {
                             let feetNum = inch / 12
                             let text = Text("\(feetNum)")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.app(size: 14, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF94A3B8))
                             context.draw(context.resolve(text), at: CGPoint(x: startX - 14, y: y))
                         }
@@ -351,7 +351,7 @@ struct WorkoutBodyHeightView: View {
 
                         if isMajor {
                             let text = Text("\(cm)")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.app(size: 13, weight: .bold))
                                 .foregroundColor(Color(hex: 0xFF94A3B8))
                             context.draw(context.resolve(text), at: CGPoint(x: startX - 16, y: y))
                         }
@@ -386,7 +386,7 @@ struct WorkoutBodyHeightView: View {
         VStack(spacing: 0) {
             Button(action: onNext) {
                 Text("NEXT")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .tracking(1.0)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

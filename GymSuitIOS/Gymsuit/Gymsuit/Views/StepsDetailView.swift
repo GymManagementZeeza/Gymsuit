@@ -56,7 +56,7 @@ struct StepsDetailView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -67,7 +67,7 @@ struct StepsDetailView: View {
                     Spacer()
 
                     Text("Step Activity")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.app(size: 18, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
 
                     Spacer()
@@ -77,7 +77,7 @@ struct StepsDetailView: View {
                         showGoalDialog = true
                     }) {
                         Image(systemName: "pencil")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.primary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -96,7 +96,7 @@ struct StepsDetailView: View {
                                 ProgressView()
                                     .scaleEffect(1.2)
                                 Text("Loading 7-day step history…")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.app(size: 14, weight: .medium))
                                     .foregroundColor(AppColors.textSecondary)
                             }
                             .frame(maxWidth: .infinity, minHeight: 250)
@@ -152,16 +152,16 @@ struct StepsDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.isToday ? "Today's Steps" : formattedDateString(item.date))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textSecondary)
 
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(item.steps.formatted())")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(.app(size: 36, weight: .bold, design: .rounded))
                             .foregroundColor(AppColors.textPrimary)
 
                         Text("steps")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.app(size: 16, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                     }
                 }
@@ -171,9 +171,9 @@ struct StepsDetailView: View {
                 // Goal Pill
                 HStack(spacing: 5) {
                     Image(systemName: isGoalMet ? "checkmark.circle.fill" : "target")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.app(size: 13, weight: .bold))
                     Text("\(Int(progress * 100))% of goal")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.app(size: 12, weight: .bold))
                 }
                 .foregroundColor(isGoalMet ? Color(hex: 0xFF10B981) : Color(hex: 0xFF3B82F6))
                 .padding(.horizontal, 12)
@@ -208,11 +208,11 @@ struct StepsDetailView: View {
 
             HStack {
                 Text("0")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.app(size: 11, weight: .medium))
                     .foregroundColor(AppColors.textTertiary)
                 Spacer()
                 Text("Goal: \(dailyGoal.formatted())")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.app(size: 11, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
             }
         }
@@ -228,11 +228,11 @@ struct StepsDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("7-Day Activity")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.app(size: 16, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
 
                     Text("Tap a day to inspect details")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.app(size: 12, weight: .medium))
                         .foregroundColor(AppColors.textSecondary)
                 }
 
@@ -240,10 +240,10 @@ struct StepsDetailView: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("Daily Avg")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.app(size: 11, weight: .medium))
                         .foregroundColor(AppColors.textSecondary)
                     Text("\(averageDailySteps.formatted())")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.app(size: 15, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF2563EB))
                 }
             }
@@ -256,7 +256,7 @@ struct StepsDetailView: View {
                         .fill(Color(hex: 0xFFE2E8F0))
                         .frame(height: 1)
                     Text("Goal \(dailyGoal / 1000)k")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.app(size: 10, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF94A3B8))
                 }
 
@@ -275,7 +275,7 @@ struct StepsDetailView: View {
                                 // Step count tag above bar if selected
                                 if isSelected {
                                     Text(item.steps >= 1000 ? "\(item.steps / 1000)k" : "\(item.steps)")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.app(size: 10, weight: .bold))
                                         .foregroundColor(Color(hex: 0xFF2563EB))
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
@@ -317,11 +317,11 @@ struct StepsDetailView: View {
                                 // Day label (Mon, Tue, etc.)
                                 VStack(spacing: 2) {
                                     Text(item.dayName)
-                                        .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                                        .font(.app(size: 12, weight: isSelected ? .bold : .medium))
                                         .foregroundColor(isSelected ? Color(hex: 0xFF1D4ED8) : AppColors.textSecondary)
 
                                     Text(item.dayNumber)
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .font(.app(size: 10, weight: .semibold))
                                         .foregroundColor(isSelected ? Color(hex: 0xFF1D4ED8) : AppColors.textTertiary)
                                 }
                             }
@@ -376,7 +376,7 @@ struct StepsDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.app(size: 13, weight: .bold))
                     .foregroundColor(tint)
                 Spacer()
             }
@@ -384,15 +384,15 @@ struct StepsDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(value)
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.app(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.textPrimary)
                     Text(unit)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.app(size: 11, weight: .medium))
                         .foregroundColor(AppColors.textSecondary)
                 }
 
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.app(size: 11, weight: .medium))
                     .foregroundColor(AppColors.textSecondary)
             }
         }
@@ -407,7 +407,7 @@ struct StepsDetailView: View {
     private var dailyBreakdownListCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Day by Day History")
-                .font(.system(size: 16, weight: .bold))
+                .font(.app(size: 16, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
 
             VStack(spacing: 10) {
@@ -422,11 +422,11 @@ struct StepsDetailView: View {
                             // Date label
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.isToday ? "Today" : item.dayName)
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.app(size: 14, weight: .bold))
                                     .foregroundColor(isSelected ? Color(hex: 0xFF2563EB) : AppColors.textPrimary)
 
                                 Text(formattedDateShort(item.date))
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.app(size: 11, weight: .medium))
                                     .foregroundColor(AppColors.textSecondary)
                             }
                             .frame(width: 80, alignment: .leading)
@@ -435,16 +435,16 @@ struct StepsDetailView: View {
 
                             // Steps count
                             Text("\(item.steps.formatted())")
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .font(.app(size: 16, weight: .bold, design: .rounded))
                                 .foregroundColor(AppColors.textPrimary)
 
                             Text("steps")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.app(size: 12, weight: .medium))
                                 .foregroundColor(AppColors.textSecondary)
 
                             // Status Icon
                             Image(systemName: isGoalMet ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.app(size: 16, weight: .bold))
                                 .foregroundColor(isGoalMet ? Color(hex: 0xFF10B981) : Color(hex: 0xFFCBD5E1))
                         }
                         .padding(.vertical, 10)

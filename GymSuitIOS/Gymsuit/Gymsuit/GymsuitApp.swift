@@ -38,6 +38,7 @@ struct GymsuitApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        AppFont.register()
         BackgroundHealthSync.register()
         BackgroundHealthSync.schedule()
     }
@@ -45,6 +46,8 @@ struct GymsuitApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                // Default for any Text without its own font.
+                .font(.app(size: 17))
                 .preferredColorScheme(.light)
         }
         .onChange(of: scenePhase) { _, newPhase in

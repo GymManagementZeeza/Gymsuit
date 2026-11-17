@@ -21,17 +21,17 @@ struct HealthPermissionView: View {
                         .frame(width: 120, height: 120)
                     
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 54))
+                        .font(.app(size: 54))
                         .foregroundColor(AppColors.primary)
                 }
                 
                 VStack(spacing: 12) {
                     Text("Sync Apple Health")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.app(size: 28, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     
                     Text("Connect with Apple Health to automatically sync your steps, heart rate, calories burned, and sleep sessions in real-time.")
-                        .font(.system(size: 15))
+                        .font(.app(size: 15))
                         .foregroundColor(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -55,7 +55,7 @@ struct HealthPermissionView: View {
                                 ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
                                 Text("Connect Apple Health")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.app(size: 16, weight: .semibold))
                             }
                         }
                         .foregroundColor(.white)
@@ -68,7 +68,7 @@ struct HealthPermissionView: View {
                     
                     Button(action: onSkip) {
                         Text("Maybe Later")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.app(size: 15, weight: .medium))
                             .foregroundColor(AppColors.textSecondary)
                     }
                     .padding(.top, 4)
@@ -104,16 +104,16 @@ private struct FeatureRow: View {
                     .fill(tint.opacity(0.12))
                     .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.app(size: 18))
                     .foregroundColor(tint)
             }
             
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(.app(size: 12))
                     .foregroundColor(AppColors.textSecondary)
             }
             Spacer()

@@ -31,19 +31,19 @@ struct MealPlanCardView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "menucard.fill")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.app(size: 20, weight: .semibold))
                         .foregroundColor(AppColors.success)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your meal plan · \(dayLabel)")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         Text("From \(plan.nutritionistName)")
-                            .font(.system(size: 12))
+                            .font(.app(size: 12))
                             .foregroundColor(AppColors.textSecondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.app(size: 13, weight: .semibold))
                         .foregroundColor(AppColors.textSecondary)
                         .rotationEffect(.degrees(expanded ? 180 : 0))
                 }
@@ -57,18 +57,18 @@ struct MealPlanCardView: View {
                     ForEach(meals) { meal in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: meal.symbol)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.app(size: 14, weight: .semibold))
                                 .foregroundColor(AppColors.success)
                                 .frame(width: 32, height: 32)
                                 .background(AppColors.success.opacity(0.12))
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(meal.id.uppercased())
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.app(size: 10, weight: .bold))
                                     .tracking(0.8)
                                     .foregroundColor(AppColors.textSecondary)
                                 Text(meal.text)
-                                    .font(.system(size: 14))
+                                    .font(.app(size: 14))
                                     .foregroundColor(AppColors.textPrimary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -76,7 +76,7 @@ struct MealPlanCardView: View {
                     }
                     if let note = plan.note, !note.isEmpty {
                         Text(note)
-                            .font(.system(size: 13))
+                            .font(.app(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                             .padding(.leading, 10)
                             .overlay(alignment: .leading) {

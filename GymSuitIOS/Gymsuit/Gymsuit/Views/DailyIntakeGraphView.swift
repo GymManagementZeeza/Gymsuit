@@ -142,11 +142,11 @@ private struct DailyIntakeCard: View {
                 // Text values
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(Int(current))/\(Int(target))g")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.app(size: 20, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF111827))
 
                     Text(title)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.app(size: 13, weight: .regular))
                         .foregroundColor(Color(hex: 0xFF9CA3AF))
                 }
 
@@ -163,7 +163,7 @@ private struct DailyIntakeCard: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .rotationEffect(.degrees(90))
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF9CA3AF))
                         .frame(width: 32, height: 32)
                         .contentShape(Rectangle())

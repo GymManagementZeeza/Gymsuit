@@ -21,7 +21,7 @@ struct CaloriesDetailView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -32,7 +32,7 @@ struct CaloriesDetailView: View {
                     Spacer()
                     
                     Text("Calorie Burn")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.app(size: 18, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     
                     Spacer()
@@ -42,7 +42,7 @@ struct CaloriesDetailView: View {
                         showGoalDialog = true
                     }) {
                         Image(systemName: "pencil")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.primary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -80,17 +80,17 @@ struct CaloriesDetailView: View {
                                     
                                     VStack(spacing: 4) {
                                         Text("\(Int(data.totalCaloriesKcal))")
-                                            .font(.system(size: 34, weight: .bold))
+                                            .font(.app(size: 34, weight: .bold))
                                             .foregroundColor(AppColors.textPrimary)
                                         Text("/ \(Int(data.targetKcal)) kcal")
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.app(size: 14, weight: .medium))
                                             .foregroundColor(AppColors.textSecondary)
                                     }
                                 }
                                 .padding(.top, 10)
                                 
                                 Text("Burned \(Int((data.totalCaloriesKcal / max(1, data.targetKcal)) * 100))% of your daily target")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.app(size: 14, weight: .medium))
                                     .foregroundColor(AppColors.textSecondary)
                             }
                             .padding(24)
@@ -102,7 +102,7 @@ struct CaloriesDetailView: View {
                             // Activity Breakdown List
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Activity Breakdown")
-                                    .font(.system(size: 17, weight: .bold))
+                                    .font(.app(size: 17, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                 
                                 VStack(spacing: 12) {
@@ -114,10 +114,10 @@ struct CaloriesDetailView: View {
                                             
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(act.name)
-                                                    .font(.system(size: 15, weight: .semibold))
+                                                    .font(.app(size: 15, weight: .semibold))
                                                     .foregroundColor(AppColors.textPrimary)
                                                 Text(act.durationOrCount)
-                                                    .font(.system(size: 12))
+                                                    .font(.app(size: 12))
                                                     .foregroundColor(AppColors.textSecondary)
                                             }
                                             
@@ -125,10 +125,10 @@ struct CaloriesDetailView: View {
                                             
                                             VStack(alignment: .trailing, spacing: 2) {
                                                 Text("\(Int(act.caloriesKcal)) kcal")
-                                                    .font(.system(size: 15, weight: .bold))
+                                                    .font(.app(size: 15, weight: .bold))
                                                     .foregroundColor(AppColors.textPrimary)
                                                 Text("\(act.percentage)%")
-                                                    .font(.system(size: 12))
+                                                    .font(.app(size: 12))
                                                     .foregroundColor(AppColors.textSecondary)
                                             }
                                         }

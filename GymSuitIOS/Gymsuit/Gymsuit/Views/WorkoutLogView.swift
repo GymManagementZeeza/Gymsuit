@@ -45,10 +45,10 @@ struct WorkoutLogView: View {
                     // Exercise info
                     VStack(alignment: .leading, spacing: 8) {
                         Text(exercise.name)
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.app(size: 22, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                         Text("\(exercise.primaryMuscleLabel) • \(exercise.equipment.capitalized)")
-                            .font(.system(size: 13))
+                            .font(.app(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                         if let gifURL = exercise.gifURL {
                             GIFView(url: gifURL)
@@ -56,7 +56,7 @@ struct WorkoutLogView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         } else {
                             Text("No GIF available")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                                 .frame(maxWidth: .infinity, minHeight: 220)
                                 .background(Color.gray.opacity(0.08))
@@ -64,16 +64,16 @@ struct WorkoutLogView: View {
                         }
                         if !exercise.instructions.isEmpty {
                             Text("How to perform")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.app(size: 15, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                                 .padding(.top, 4)
                             ForEach(Array(exercise.instructions.enumerated()), id: \.offset) { index, step in
                                 HStack(alignment: .top, spacing: 8) {
                                     Text("\(index + 1).")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.app(size: 14, weight: .semibold))
                                         .foregroundColor(AppColors.workout)
                                     Text(step)
-                                        .font(.system(size: 14))
+                                        .font(.app(size: 14))
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                             }
@@ -88,25 +88,25 @@ struct WorkoutLogView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Sets")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.app(size: 16, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Spacer()
                             WeightUnitToggle(unit: weightUnitBinding)
                             Button(action: addSet) {
                                 Label("Add set", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.app(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.workout)
                             }
                         }
                         ForEach(sets.indices, id: \.self) { index in
                             HStack(spacing: 10) {
                                 Text("Set \(index + 1)")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.app(size: 14, weight: .semibold))
                                     .foregroundColor(AppColors.textPrimary)
                                     .frame(width: 52, alignment: .leading)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Reps")
-                                        .font(.system(size: 11))
+                                        .font(.app(size: 11))
                                         .foregroundColor(AppColors.textTertiary)
                                     TextField("0", text: $repsText[index])
                                         .keyboardType(.numberPad)
@@ -118,7 +118,7 @@ struct WorkoutLogView: View {
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Weight (\(weightUnit.symbol))")
-                                        .font(.system(size: 11))
+                                        .font(.app(size: 11))
                                         .foregroundColor(AppColors.textTertiary)
                                     TextField("0", text: $weightText[index])
                                         .keyboardType(.decimalPad)
@@ -129,7 +129,7 @@ struct WorkoutLogView: View {
                                         }
                                     if let entered = Double(weightText[index]), entered > 0 {
                                         Text("≈ \(WeightUnits.format(WeightUnits.kgToDisplay(WeightUnits.displayToKg(entered, unit: weightUnit), unit: otherUnit))) \(otherUnit.symbol)")
-                                            .font(.system(size: 10))
+                                            .font(.app(size: 10))
                                             .foregroundColor(AppColors.textTertiary)
                                     }
                                 }
@@ -154,17 +154,17 @@ struct WorkoutLogView: View {
                     VStack(spacing: 12) {
                         HStack {
                             Text("Duration")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.app(size: 14, weight: .semibold))
                                 .foregroundColor(AppColors.textPrimary)
                             Spacer()
                             Stepper("\(durationMinutes) min", value: $durationMinutes, in: 1...300)
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                         }
                         DatePicker("Date", selection: $logDate, in: ...Date(), displayedComponents: [.date, .hourAndMinute])
-                            .font(.system(size: 14))
+                            .font(.app(size: 14))
                         TextField("Notes (optional)", text: $notes)
                             .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 14))
+                            .font(.app(size: 14))
                     }
                     .padding(16)
                     .background(Color.white)
@@ -172,7 +172,7 @@ struct WorkoutLogView: View {
 
                     if let saveMessage {
                         Text(saveMessage)
-                            .font(.system(size: 13))
+                            .font(.app(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                             .frame(maxWidth: .infinity)
                     }
@@ -181,7 +181,7 @@ struct WorkoutLogView: View {
                         HStack {
                             if isSaving { ProgressView().tint(.white) }
                             Text(isSaving ? "Saving..." : "Log Workout")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.app(size: 16, weight: .bold))
                         }
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)

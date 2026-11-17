@@ -75,10 +75,10 @@ public struct ExerciseGifAsyncView: View {
             } else {
                 VStack(spacing: 6) {
                     Image(systemName: "figure.strengthtraining.traditional")
-                        .font(.system(size: 30))
+                        .font(.app(size: 30))
                         .foregroundColor(Color(hex: 0xFF94A3B8))
                     Text("Exercise Demo")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.app(size: 11, weight: .medium))
                         .foregroundColor(Color(hex: 0xFF94A3B8))
                 }
             }
@@ -214,7 +214,7 @@ public struct WorkoutBodyFocusSectionView: View {
         VStack(alignment: .leading, spacing: 14) {
             // Section Header matching uploaded image
             Text("Body Focus")
-                .font(.system(size: 22, weight: .bold))
+                .font(.app(size: 22, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF0F172A))
                 .padding(.horizontal, 4)
 
@@ -230,7 +230,7 @@ public struct WorkoutBodyFocusSectionView: View {
                             }
                         }) {
                             Text(option)
-                                .font(.system(size: 15, weight: isSelected ? .bold : .medium))
+                                .font(.app(size: 15, weight: isSelected ? .bold : .medium))
                                 .foregroundColor(isSelected ? Color(hex: 0xFF0062FF) : Color(hex: 0xFF94A3B8))
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 10)
@@ -291,14 +291,14 @@ public struct WorkoutBodyFocusSectionView: View {
             // Exercise Title and Target Details
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name.capitalized)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.app(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(height: 38, alignment: .topLeading)
 
                 Text("\(exercise.muscleGroup) • \(exercise.equipment.capitalized)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.app(size: 11, weight: .medium))
                     .foregroundColor(Color(hex: 0xFF64748B))
                     .lineLimit(1)
             }

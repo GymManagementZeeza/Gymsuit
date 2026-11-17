@@ -114,7 +114,7 @@ struct WorkoutStreakCardView: View {
                         VStack(spacing: 12) {
                             // Day of week letter (S, M, T, W, T, F, S)
                             Text(dayHeaders[index])
-                                .font(.system(size: 15, weight: isSelected ? .bold : .medium))
+                                .font(.app(size: 15, weight: isSelected ? .bold : .medium))
                                 .foregroundColor(isSelected ? Color(hex: 0xFF0062FF) : Color(hex: 0xFF8E8E93))
 
                             // Day number / Active indicator
@@ -132,7 +132,7 @@ struct WorkoutStreakCardView: View {
                                         .frame(width: 36, height: 36)
 
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 16, weight: .bold))
+                                        .font(.app(size: 16, weight: .bold))
                                         .foregroundColor(.white)
                                 } else if isToday {
                                     // Today with no workout done yet -> outlined ring indicating today
@@ -141,7 +141,7 @@ struct WorkoutStreakCardView: View {
                                         .frame(width: 36, height: 36)
 
                                     Text("\(dayNumber)")
-                                        .font(.system(size: 18, weight: .bold))
+                                        .font(.app(size: 18, weight: .bold))
                                         .foregroundColor(Color(hex: 0xFF0062FF))
                                 } else if isSelected {
                                     // Selected past/future day without workout
@@ -150,12 +150,12 @@ struct WorkoutStreakCardView: View {
                                         .frame(width: 36, height: 36)
 
                                     Text("\(dayNumber)")
-                                        .font(.system(size: 18, weight: .bold))
+                                        .font(.app(size: 18, weight: .bold))
                                         .foregroundColor(Color(hex: 0xFF0062FF))
                                 } else {
                                     // Past or future day with no workout
                                     Text("\(dayNumber)")
-                                        .font(.system(size: 18, weight: isPast ? .bold : .semibold))
+                                        .font(.app(size: 18, weight: isPast ? .bold : .semibold))
                                         .foregroundColor(isPast ? Color(hex: 0xFF0F172A) : Color(hex: 0xFF94A3B8))
                                         .frame(width: 36, height: 36)
                                 }
@@ -179,16 +179,16 @@ struct WorkoutStreakCardView: View {
                 // Day Streak
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Day Streak")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.app(size: 15, weight: .medium))
                         .foregroundColor(Color(hex: 0xFF64748B))
 
                     HStack(spacing: 8) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 20))
+                            .font(.app(size: 20))
                             .foregroundColor(currentStreak > 0 ? Color(hex: 0xFFEF4444) : Color(hex: 0xFFCBD5E1))
 
                         Text("\(currentStreak)")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.app(size: 22, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF0F172A))
                     }
                 }
@@ -198,11 +198,11 @@ struct WorkoutStreakCardView: View {
                 // Personal Best
                 VStack(alignment: .trailing, spacing: 6) {
                     Text("Personal Best")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.app(size: 15, weight: .medium))
                         .foregroundColor(Color(hex: 0xFF64748B))
 
                     Text("\(personalBest) \(personalBest == 1 ? "day" : "days")")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.app(size: 20, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
                 }
             }

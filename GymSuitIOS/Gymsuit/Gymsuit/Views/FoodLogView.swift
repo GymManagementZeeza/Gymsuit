@@ -27,7 +27,6 @@ struct FoodLogView: View {
     @State private var scanCandidates: [DishCandidate] = []
     @State private var scanError: String?
 
-    @State private var remindersOn = false
     @State private var showAiSheet = false
     @State private var mealPlan: MealPlan?
 
@@ -91,17 +90,15 @@ struct FoodLogView: View {
     private var mainContent: some View {
         VStack(spacing: 0) {
             dateHeader
-            remindersRow
-                .padding(.top, 4)
 
             if let scanError {
                 HStack(alignment: .top) {
                     Text(scanError)
-                        .font(.system(size: 14))
+                        .font(.app(size: 14))
                         .foregroundColor(AppColors.textPrimary)
                     Spacer()
                     Button("Dismiss") { self.scanError = nil }
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -130,8 +127,12 @@ struct FoodLogView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 20)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: dayEntries.map(\.id))
+                .animation(.easeInOut(duration: 0.25), value: date)
             }
         }
+        // Apple-style grouped list: light grey page, white cards, one blue accent.
+        .background(GroupedColors.page.ignoresSafeArea())
         .sheet(item: $activeSheet, onDismiss: handleSheetDismiss) { sheet in
             switch sheet {
             case .chooser(let meal):
@@ -222,11 +223,7 @@ struct FoodLogView: View {
             }
         }
         .task {
-            if MealReminders.isEnabled {
-                remindersOn = await MealReminders.hasAuthorization()
-            } else {
-                remindersOn = false
-            }
+            // The on/off switch now lives in Settings; just re-arm here.
             MealReminders.restore()
         }
         .task {
@@ -242,28 +239,15 @@ struct FoodLogView: View {
     private var dateHeader: some View {
         HStack {
             Text(isToday ? "Today" : dateLabel)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(AppColors.textPrimary)
+                .font(.app(size: 28, weight: .bold))
+                .foregroundColor(GroupedColors.label)
+                .contentTransition(.opacity)
             Spacer()
-            Button {
+            dayButton("chevron.left") {
                 date = calendar.date(byAdding: .day, value: -1, to: date) ?? date
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppColors.primary)
-                    .frame(width: 38, height: 38)
-                    .background(AppColors.primaryLight)
-                    .clipShape(Circle())
             }
-            Button {
+            dayButton("chevron.right") {
                 date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppColors.primary)
-                    .frame(width: 38, height: 38)
-                    .background(AppColors.primaryLight)
-                    .clipShape(Circle())
             }
             .disabled(isToday)
             .opacity(isToday ? 0.4 : 1)
@@ -272,40 +256,14 @@ struct FoodLogView: View {
         .padding(.vertical, 8)
     }
 
-    private var remindersRow: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Meal reminders")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(AppColors.textPrimary)
-                Text("Morning, noon, evening and night")
-                    .font(.system(size: 12))
-                    .foregroundColor(AppColors.textSecondary)
-            }
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { remindersOn },
-                set: { handleReminderToggle($0) }
-            ))
-            .labelsHidden()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 20)
-    }
-
-    private func handleReminderToggle(_ on: Bool) {
-        if on {
-            Task {
-                let granted = await MealReminders.requestAuthorization()
-                remindersOn = granted
-                MealReminders.setEnabled(granted)
-            }
-        } else {
-            remindersOn = false
-            MealReminders.setEnabled(false)
+    private func dayButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.app(size: 14, weight: .semibold))
+                .foregroundColor(GroupedColors.accent)
+                .frame(width: 38, height: 38)
+                .background(GroupedColors.card)
+                .clipShape(Circle())
         }
     }
 
@@ -315,102 +273,141 @@ struct FoodLogView: View {
         let protein = dayEntries.reduce(0.0) { $0 + $1.proteinG }
         let carbs = dayEntries.reduce(0.0) { $0 + $1.carbsG }
         let fat = dayEntries.reduce(0.0) { $0 + $1.fatG }
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Calories eaten")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppColors.textSecondary)
+        let remaining = dailyTarget - totalKcal
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "flame.fill")
+                    .font(.app(size: 18, weight: .semibold))
+                    .foregroundColor(GroupedColors.accent)
+                    .frame(width: 44, height: 44)
+                    .background(GroupedColors.accentTint)
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Calories eaten")
+                        .font(.app(size: 14, weight: .semibold))
+                        .foregroundColor(GroupedColors.label)
+                    Text(remaining >= 0 ? "\(remaining) kcal left today" : "\(-remaining) kcal over target")
+                        .font(.app(size: 13))
+                        .foregroundColor(GroupedColors.secondaryLabel)
+                        .contentTransition(.numericText())
+                }
+            }
             HStack(alignment: .lastTextBaseline, spacing: 6) {
                 Text("\(totalKcal)")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundColor(AppColors.textPrimary)
+                    .font(.app(size: 34, weight: .bold))
+                    .foregroundColor(GroupedColors.label)
+                    .contentTransition(.numericText())
                 Text("/ \(dailyTarget) kcal")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(.app(size: 16, weight: .medium))
+                    .foregroundColor(GroupedColors.secondaryLabel)
             }
-            ProgressView(value: Double(min(totalKcal, dailyTarget)), total: Double(dailyTarget))
-                .tint(AppColors.calories)
-                .animation(.easeInOut, value: totalKcal)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GroupedColors.separator)
+                    Capsule().fill(GroupedColors.accent)
+                        .frame(width: geo.size.width * CGFloat(min(Double(totalKcal) / Double(dailyTarget), 1)))
+                }
+            }
+            .frame(height: 6)
+            .animation(.easeInOut, value: totalKcal)
             MacroBar(protein: protein, carbs: carbs, fat: fat)
                 .padding(.top, 4)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .shadow(color: Color.black.opacity(0.04), radius: 6, y: 3)
+        .background(GroupedColors.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func mealCard(_ meal: MealType) -> some View {
         let items = dayEntries.filter { $0.meal == meal }
         return VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 12) {
+                Image(systemName: meal.symbol)
+                    .font(.app(size: 17, weight: .semibold))
+                    .foregroundColor(GroupedColors.accent)
+                    .frame(width: 44, height: 44)
+                    .background(GroupedColors.page)
+                    .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(meal.label)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(AppColors.textPrimary)
+                        .font(.app(size: 16, weight: .semibold))
+                        .foregroundColor(GroupedColors.label)
                     Text("\(items.reduce(0) { $0 + $1.calories }) kcal")
-                        .font(.system(size: 12))
-                        .foregroundColor(AppColors.textSecondary)
+                        .font(.app(size: 13))
+                        .foregroundColor(GroupedColors.secondaryLabel)
+                        .contentTransition(.numericText())
                 }
                 Spacer()
                 Button {
                     activeSheet = .chooser(meal)
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(AppColors.primary)
-                        .frame(width: 34, height: 34)
-                        .background(AppColors.primaryLight)
+                        .font(.app(size: 15, weight: .semibold))
+                        .foregroundColor(GroupedColors.accent)
+                        .frame(width: 38, height: 38)
+                        .background(GroupedColors.page)
                         .clipShape(Circle())
                 }
+                .accessibilityLabel("Add to \(meal.label)")
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
+            .padding(.leading, 16)
+            .padding(.trailing, 12)
+            .padding(.vertical, 12)
 
             if items.isEmpty {
-                Text("Nothing logged")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                HStack(spacing: 8) {
+                    Image(systemName: meal.symbol)
+                        .font(.app(size: 14))
+                    Text("Nothing logged yet — tap + to add")
+                        .font(.app(size: 14))
+                }
+                .foregroundColor(GroupedColors.secondaryLabel)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+                .transition(.opacity)
             } else {
                 ForEach(items) { entry in
-                    Divider().padding(.horizontal, 16)
+                    Rectangle()
+                        .fill(GroupedColors.separator)
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 16)
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.name)
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(AppColors.textPrimary)
+                                .font(.app(size: 15, weight: .medium))
+                                .foregroundColor(GroupedColors.label)
                             if entry.proteinG + entry.carbsG + entry.fatG > 0 {
                                 Text("P \(Int(entry.proteinG)) • C \(Int(entry.carbsG)) • F \(Int(entry.fatG)) g")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(AppColors.textSecondary)
+                                    .font(.app(size: 12))
+                                    .foregroundColor(GroupedColors.secondaryLabel)
                             }
                         }
                         Spacer()
                         Text("\(entry.calories) kcal")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(AppColors.textPrimary)
+                            .font(.app(size: 14, weight: .semibold))
+                            .foregroundColor(GroupedColors.label)
                         Button {
                             store.delete(id: entry.id)
                             // Also remove the backend row so the trainer view stops showing it.
                             Task { await HealthSyncManager.shared.deleteFoodEntry(id: entry.id) }
                         } label: {
                             Image(systemName: "trash")
-                                .font(.system(size: 14))
-                                .foregroundColor(AppColors.danger)
+                                .font(.app(size: 14))
+                                .foregroundColor(GroupedColors.secondaryLabel)
+                                .frame(width: 32, height: 32)
                         }
+                        .accessibilityLabel("Delete \(entry.name)")
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .shadow(color: Color.black.opacity(0.03), radius: 6, y: 3)
+        .background(GroupedColors.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Scan flow
@@ -567,9 +564,9 @@ private struct MacroBar: View {
     private var fKcal: Double { fat * 9 }
     private var total: Double { pKcal + cKcal + fKcal }
 
-    private let proteinColor = AppColors.primary
-    private let carbsColor = AppColors.warning
-    private let fatColor = AppColors.purple
+    private let proteinColor = GroupedColors.accent
+    private let carbsColor = GroupedColors.orange
+    private let fatColor = GroupedColors.green
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -585,7 +582,7 @@ private struct MacroBar: View {
                         Capsule().fill(fatColor)
                             .frame(maxWidth: .infinity)
                     } else {
-                        Capsule().fill(AppColors.divider)
+                        Capsule().fill(GroupedColors.separator)
                     }
                 }
             }
@@ -605,10 +602,10 @@ private struct MacroBar: View {
             Circle().fill(color).frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 0) {
                 Text("\(label) \(Int(grams)) g")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.app(size: 12, weight: .medium))
                     .foregroundColor(AppColors.textPrimary)
                 Text("\(Int((fraction * 100).rounded()))%")
-                    .font(.system(size: 11))
+                    .font(.app(size: 11))
                     .foregroundColor(AppColors.textSecondary)
             }
         }
@@ -626,7 +623,7 @@ private struct ScanningOverlay: View {
                     .tint(.white)
                     .scaleEffect(1.4)
                 Text("Analyzing your photo…")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .foregroundColor(.white)
             }
             .padding(28)
@@ -664,7 +661,7 @@ private struct AddMethodSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Add to \(meal.label)")
-                .font(.system(size: 20, weight: .bold))
+                .font(.app(size: 20, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -688,16 +685,16 @@ private struct AddMethodSheet: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 17))
+                    .font(.app(size: 17))
                     .foregroundColor(AppColors.primary)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.app(size: 16, weight: .medium))
                         .foregroundColor(AppColors.textPrimary)
                     if let subtitle {
                         Text(subtitle)
-                            .font(.system(size: 13))
+                            .font(.app(size: 13))
                             .foregroundColor(AppColors.textSecondary)
                     }
                 }
@@ -750,11 +747,11 @@ private struct ScanResultSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("Scan result")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.app(size: 22, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     Spacer()
                     Button("Cancel", action: onCancel)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.app(size: 15, weight: .medium))
                         .foregroundColor(AppColors.textSecondary)
                 }
 
@@ -770,7 +767,7 @@ private struct ScanResultSheet: View {
 
                 if let candidate {
                     Text("Best matches")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -787,7 +784,7 @@ private struct ScanResultSheet: View {
                     }
 
                     Text("Log to meal")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -802,7 +799,7 @@ private struct ScanResultSheet: View {
 
                     if let nutrition = candidate.nutrition {
                         Text("Portion (\(nutrition.serving) = 1x)")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.app(size: 14, weight: .semibold))
                             .foregroundColor(AppColors.textPrimary)
 
                         HStack(spacing: 8) {
@@ -820,10 +817,10 @@ private struct ScanResultSheet: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("\(totalKcal) kcal")
-                                .font(.system(size: 26, weight: .bold))
+                                .font(.app(size: 26, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("Protein \(Int(totalP)) g • Carbs \(Int(totalC)) g • Fat \(Int(totalF)) g")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         .padding(16)
@@ -844,9 +841,9 @@ private struct ScanResultSheet: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 15, weight: .bold))
+                                        .font(.app(size: 15, weight: .bold))
                                     Text("Log to \(meal.label)")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.app(size: 16, weight: .semibold))
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -867,7 +864,7 @@ private struct ScanResultSheet: View {
                                 )
                             } label: {
                                 Text("Edit details first")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.app(size: 14, weight: .medium))
                                     .foregroundColor(AppColors.textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 4)
@@ -875,7 +872,7 @@ private struct ScanResultSheet: View {
                         }
                     } else {
                         Text("No nutrition data for \(candidate.displayName) yet — enter it to log.")
-                            .font(.system(size: 14))
+                            .font(.app(size: 14))
                             .foregroundColor(AppColors.textSecondary)
                         Button {
                             onEditDetails(
@@ -884,7 +881,7 @@ private struct ScanResultSheet: View {
                             )
                         } label: {
                             Text("Enter details")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.app(size: 16, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
@@ -893,13 +890,13 @@ private struct ScanResultSheet: View {
                     }
                 } else {
                     Text("Couldn't recognise this food. You can still add it manually.")
-                        .font(.system(size: 14))
+                        .font(.app(size: 14))
                         .foregroundColor(AppColors.textSecondary)
                     Button {
                         onEditDetails(FoodPrefill(name: "", kcal: 0, proteinG: 0, carbsG: 0, fatG: 0), meal)
                     } label: {
                         Text("Add manually")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.app(size: 16, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }
@@ -965,7 +962,7 @@ private struct AddFoodSheet: View {
                     Image(systemName: "fork.knife")
                         .foregroundColor(AppColors.primary)
                     Text("Add food")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.app(size: 22, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                 }
 
@@ -992,10 +989,10 @@ private struct AddFoodSheet: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.app(size: 15, weight: .medium))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("\(item.serving) • \(item.kcal) kcal")
-                                .font(.system(size: 12))
+                                .font(.app(size: 12))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1005,7 +1002,7 @@ private struct AddFoodSheet: View {
 
                 if let base {
                     Text("Portion (\(base.serving) = 1x)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.app(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
                     HStack(spacing: 8) {
                         ForEach([0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { value in
@@ -1047,7 +1044,7 @@ private struct AddFoodSheet: View {
                             base == nil && prefill == nil // typed in by hand, not picked or scanned
                         )
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.app(size: 15, weight: .semibold))
                     .disabled(!canSave)
                 }
             }
@@ -1106,7 +1103,7 @@ private struct FoodChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.app(size: 13, weight: .semibold))
                 .foregroundColor(selected ? .white : AppColors.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)

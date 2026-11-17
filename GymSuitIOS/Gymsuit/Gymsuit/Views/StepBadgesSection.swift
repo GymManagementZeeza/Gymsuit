@@ -18,10 +18,10 @@ struct StepBadgesSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Daily Badges")
-                .font(.system(size: 18, weight: .bold))
+                .font(.app(size: 18, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             Text("Earn them again every day")
-                .font(.system(size: 13))
+                .font(.app(size: 13))
                 .foregroundColor(AppColors.textSecondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -65,18 +65,18 @@ private struct BadgeCardView: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: earned ? "medal.fill" : "lock.fill")
-                .font(.system(size: 44))
+                .font(.app(size: 44))
                 .foregroundColor(earned ? Color(hex: 0xFFFFB300) : AppColors.textTertiary)
             Text(name)
-                .font(.system(size: 14, weight: .bold))
+                .font(.app(size: 14, weight: .bold))
                 .foregroundColor(earned ? AppColors.textPrimary : AppColors.textTertiary)
                 .multilineTextAlignment(.center)
             Text(stepsLine)
-                .font(.system(size: 12))
+                .font(.app(size: 12))
                 .foregroundColor(AppColors.textSecondary)
             if let badge, !badge.formattedDate.isEmpty {
                 Text(badge.formattedDate)
-                    .font(.system(size: 11))
+                    .font(.app(size: 11))
                     .foregroundColor(AppColors.textTertiary)
             }
         }
@@ -142,33 +142,33 @@ private struct BadgeCelebrationView: View {
 
             VStack(spacing: 0) {
                 Image(systemName: "medal.fill")
-                    .font(.system(size: 88))
+                    .font(.app(size: 88))
                     .foregroundColor(Color(hex: 0xFFFFB300))
                     .scaleEffect(appeared ? 1 : 0.4)
 
                 Text("Badge Unlocked!")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.app(size: 24, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                     .padding(.top, 12)
 
                 Text(badge.badgeName)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.app(size: 18, weight: .semibold))
                     .foregroundColor(Color(hex: 0xFFD97706))
                     .padding(.top, 4)
 
                 Text(badge.isCalories ? "\(badge.threshold.formatted()) kcal burned in a day" : "\(badge.threshold.formatted()) steps in a day")
-                    .font(.system(size: 14))
+                    .font(.app(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .padding(.top, 8)
 
                 Text(badge.isCalories ? "You burned \(badge.stepsAchieved.formatted()) kcal" : "You walked \(badge.stepsAchieved.formatted()) steps")
-                    .font(.system(size: 14))
+                    .font(.app(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .padding(.top, 2)
 
                 Button(action: { dismiss() }) {
                     Text("Keep it up")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.app(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 12)

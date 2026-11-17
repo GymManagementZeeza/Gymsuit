@@ -169,3 +169,16 @@ public func dishDisplayName(_ dish: String) -> String {
         .map { word in word.prefix(1).uppercased() + String(word.dropFirst()) }
         .joined(separator: " ")
 }
+
+// MARK: - Meal icons (SF Symbols; mirrors the Android per-meal icons)
+
+extension MealType {
+    var symbol: String {
+        switch self {
+        case .breakfast: return "cup.and.saucer.fill"
+        case .lunch: return "takeoutbag.and.cup.and.straw.fill"
+        case .dinner: return "fork.knife"
+        case .snack: return "carrot.fill"
+        }
+    }
+}

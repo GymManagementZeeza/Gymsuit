@@ -18,7 +18,7 @@ struct SleepDetailView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.app(size: 16, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
                             .frame(width: 44, height: 44)
                             .background(Color.white)
@@ -29,7 +29,7 @@ struct SleepDetailView: View {
                     Spacer()
                     
                     Text("Sleep Analysis")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.app(size: 18, weight: .bold))
                         .foregroundColor(AppColors.textPrimary)
                     
                     Spacer()
@@ -53,7 +53,7 @@ struct SleepDetailView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack {
                                     Text(insight.badgeText.uppercased())
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.app(size: 11, weight: .bold))
                                         .foregroundColor(AppColors.sleep)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 4)
@@ -65,11 +65,11 @@ struct SleepDetailView: View {
                                 }
                                 
                                 Text(insight.headline)
-                                    .font(.system(size: 20, weight: .bold))
+                                    .font(.app(size: 20, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                 
                                 Text(insight.description)
-                                    .font(.system(size: 14))
+                                    .font(.app(size: 14))
                                     .foregroundColor(AppColors.textSecondary)
                                     .lineSpacing(4)
                             }
@@ -82,19 +82,19 @@ struct SleepDetailView: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Total Sleep")
-                                        .font(.system(size: 14))
+                                        .font(.app(size: 14))
                                         .foregroundColor(AppColors.textSecondary)
                                     Text("\(sleep.totalSleepMinutes / 60)h \(sleep.totalSleepMinutes % 60)m")
-                                        .font(.system(size: 32, weight: .bold))
+                                        .font(.app(size: 32, weight: .bold))
                                         .foregroundColor(AppColors.textPrimary)
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 4) {
                                     Text("Schedule")
-                                        .font(.system(size: 14))
+                                        .font(.app(size: 14))
                                         .foregroundColor(AppColors.textSecondary)
                                     Text("\(sleep.startTimeFormatted) – \(sleep.endTimeFormatted)")
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .font(.app(size: 15, weight: .semibold))
                                         .foregroundColor(AppColors.textPrimary)
                                 }
                             }
@@ -105,7 +105,7 @@ struct SleepDetailView: View {
                             // Hypnogram / Sleep Stages Timeline
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Sleep Stages")
-                                    .font(.system(size: 17, weight: .bold))
+                                    .font(.app(size: 17, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                 
                                 // Color Stage Bar
@@ -129,7 +129,7 @@ struct SleepDetailView: View {
                                     Spacer()
                                     Text(sleep.endTimeFormatted)
                                 }
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.app(size: 12, weight: .medium))
                                 .foregroundColor(AppColors.textTertiary)
                                 
                                 Divider()
@@ -151,7 +151,7 @@ struct SleepDetailView: View {
                                 .padding(.top, 60)
                         } else {
                             Text("No sleep data for this day yet.")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                                 .padding(.top, 60)
                         }
@@ -189,14 +189,14 @@ private struct SleepMetricRow: View {
                 .fill(color)
                 .frame(width: 10, height: 10)
             Text(label)
-                .font(.system(size: 14, weight: .medium))
+                .font(.app(size: 14, weight: .medium))
                 .foregroundColor(AppColors.textPrimary)
             Spacer()
             Text("\(minutes / 60)h \(minutes % 60)m")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.app(size: 14, weight: .semibold))
                 .foregroundColor(AppColors.textPrimary)
             Text("(\(pct)%)")
-                .font(.system(size: 13))
+                .font(.app(size: 13))
                 .foregroundColor(AppColors.textSecondary)
                 .frame(width: 45, alignment: .trailing)
         }

@@ -42,7 +42,7 @@ struct RegisterView: View {
                         
                         Button(action: onBack) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.app(size: 16, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(width: 40, height: 40)
                                 .background(Color.black.opacity(0.35))
@@ -55,16 +55,16 @@ struct RegisterView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Create Account")
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.app(size: 28, weight: .bold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text("Join GymSuit to track biometrics, workouts, and AI health summaries.")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         
                         if let error = errorMessage {
                             Text(error)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.app(size: 13, weight: .medium))
                                 .foregroundColor(AppColors.danger)
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -74,7 +74,7 @@ struct RegisterView: View {
                         
                         if let info = infoMessage {
                             Text(info)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.app(size: 13, weight: .medium))
                                 .foregroundColor(AppColors.success)
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -86,7 +86,7 @@ struct RegisterView: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("First Name")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.app(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
                                 TextField("", text: $firstName, prompt: Text("Alex").foregroundColor(AppColors.textTertiary))
                                     .foregroundColor(AppColors.textPrimary)
@@ -99,7 +99,7 @@ struct RegisterView: View {
                             
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Last Name")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.app(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
                                 TextField("", text: $lastName, prompt: Text("Smith").foregroundColor(AppColors.textTertiary))
                                     .foregroundColor(AppColors.textPrimary)
@@ -114,7 +114,7 @@ struct RegisterView: View {
                         // Email
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Email Address")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.app(size: 13, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
                             TextField("", text: $email, prompt: Text("alex@example.com").foregroundColor(AppColors.textTertiary))
                                 .foregroundColor(AppColors.textPrimary)
@@ -130,7 +130,7 @@ struct RegisterView: View {
                         // Phone
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Phone Number")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.app(size: 13, weight: .semibold))
                                 .foregroundColor(AppColors.textSecondary)
                             TextField("", text: $phone, prompt: Text("+1 234 567 8900").foregroundColor(AppColors.textTertiary))
                                 .foregroundColor(AppColors.textPrimary)
@@ -149,7 +149,7 @@ struct RegisterView: View {
                                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: isFormValid ? .white : AppColors.textTertiary))
                                     } else {
                                         Text("Continue & Get Code")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.app(size: 16, weight: .semibold))
                                     }
                                 }
                                 .foregroundColor(isFormValid ? .white : AppColors.textTertiary)
@@ -162,7 +162,7 @@ struct RegisterView: View {
                         } else {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("6-Digit Code")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.app(size: 13, weight: .semibold))
                                     .foregroundColor(AppColors.textSecondary)
                                 TextField("", text: $otp, prompt: Text("123456").foregroundColor(AppColors.textTertiary))
                                     .foregroundColor(AppColors.textPrimary)
@@ -180,7 +180,7 @@ struct RegisterView: View {
                                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: otp.count < 4 ? AppColors.textTertiary : .white))
                                     } else {
                                         Text("Complete Registration")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.app(size: 16, weight: .semibold))
                                     }
                                 }
                                 .foregroundColor(otp.count < 4 ? AppColors.textTertiary : .white)
@@ -195,11 +195,11 @@ struct RegisterView: View {
                         HStack {
                             Spacer()
                             Text("Already have an account?")
-                                .font(.system(size: 14))
+                                .font(.app(size: 14))
                                 .foregroundColor(AppColors.textSecondary)
                             Button(action: onNavigateToLogin) {
                                 Text("Sign In")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.app(size: 14, weight: .bold))
                                     .foregroundColor(AppColors.primary)
                             }
                             Spacer()

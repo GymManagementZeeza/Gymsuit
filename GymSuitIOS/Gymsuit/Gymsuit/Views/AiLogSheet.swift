@@ -20,10 +20,10 @@ struct AiLogSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(size: 22, weight: .bold))
+                .font(.app(size: 22, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
             Text(prompt)
-                .font(.system(size: 14))
+                .font(.app(size: 14))
                 .foregroundColor(AppColors.textSecondary)
 
             ZStack(alignment: .topLeading) {
@@ -42,7 +42,7 @@ struct AiLogSheet: View {
                     .accessibilityLabel(fieldLabel)
                 if text.isEmpty {
                     Text(placeholder)
-                        .font(.system(size: 15))
+                        .font(.app(size: 15))
                         .foregroundColor(AppColors.textSecondary.opacity(0.7))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 16)
@@ -52,7 +52,7 @@ struct AiLogSheet: View {
 
             if let error {
                 Text(error)
-                    .font(.system(size: 13))
+                    .font(.app(size: 13))
                     .foregroundColor(.red)
             }
 
@@ -75,7 +75,7 @@ struct AiLogSheet: View {
                         Text(buttonTitle)
                     }
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.app(size: 16, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
@@ -103,7 +103,7 @@ struct AiLogButton: View {
                 Image(systemName: "sparkles")
                 Text("Log with AI")
             }
-            .font(.system(size: 15, weight: .semibold))
+            .font(.app(size: 15, weight: .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 18)
             .frame(height: 52)

@@ -190,7 +190,7 @@ struct WorkoutsView: View {
                         if let onBackToHome {
                             Button(action: onBackToHome) {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.app(size: 16, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                     .frame(width: 44, height: 44)
                                     .background(Color.white)

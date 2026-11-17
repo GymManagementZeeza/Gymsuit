@@ -11,10 +11,10 @@ struct PointsPill: View {
         Button(action: { showPoints = true }) {
             HStack(spacing: 6) {
                 Image(systemName: "star.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.app(size: 18))
                     .foregroundColor(AppColors.warning)
                 Text("\(pointsStore.balance)")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.app(size: 15, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)

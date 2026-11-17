@@ -57,7 +57,7 @@ struct OnboardingView: View {
                     Spacer()
                     Button(action: onSkip) {
                         Text("Skip")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.app(size: 15, weight: .semibold))
                             .foregroundColor(AppColors.textSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -88,7 +88,7 @@ struct OnboardingView: View {
                                 )
                                 
                                 Text(item.tag)
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.app(size: 12, weight: .bold))
                                     .textCase(.uppercase)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 6)
@@ -102,12 +102,12 @@ struct OnboardingView: View {
                             
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(item.headline)
-                                    .font(.system(size: 24, weight: .bold))
+                                    .font(.app(size: 24, weight: .bold))
                                     .foregroundColor(AppColors.textPrimary)
                                     .multilineTextAlignment(.leading)
                                 
                                 Text(item.description)
-                                    .font(.system(size: 15))
+                                    .font(.app(size: 15))
                                     .foregroundColor(AppColors.textSecondary)
                                     .lineSpacing(4)
                                     .multilineTextAlignment(.leading)
@@ -145,9 +145,9 @@ struct OnboardingView: View {
                     }) {
                         HStack(spacing: 8) {
                             Text(currentIndex == items.count - 1 ? "Get Started" : "Continue")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.app(size: 16, weight: .semibold))
                             Image(systemName: "arrow.right")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.app(size: 14, weight: .bold))
                         }
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)

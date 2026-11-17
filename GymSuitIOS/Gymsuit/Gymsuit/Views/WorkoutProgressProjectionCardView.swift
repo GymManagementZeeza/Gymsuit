@@ -64,20 +64,20 @@ public struct WorkoutProgressProjectionCardView: View {
             // MARK: - Header Title
             VStack(spacing: 6) {
                 Text("Based on your body data, you'll reach")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.app(size: 15, weight: .medium))
                     .foregroundColor(Color(hex: 0xFF64748B))
 
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(String(format: "%.1f kg", effectiveTargetWeightKg))
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.app(size: 28, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0F172A))
 
                     Text("on")
-                        .font(.system(size: 24, weight: .regular))
+                        .font(.app(size: 24, weight: .regular))
                         .foregroundColor(Color(hex: 0xFF0F172A))
 
                     Text(Self.monthDayFormatter.string(from: effectiveTargetDate))
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.app(size: 28, weight: .bold))
                         .foregroundColor(Color(hex: 0xFF0062FF))
                 }
             }
@@ -94,11 +94,11 @@ public struct WorkoutProgressProjectionCardView: View {
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "scalemass.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0062FF))
 
                     Text("Record Weight")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.app(size: 15, weight: .semibold))
                         .foregroundColor(Color(hex: 0xFF0062FF))
                 }
                 .frame(maxWidth: .infinity)
@@ -237,7 +237,7 @@ public struct WorkoutProgressProjectionCardView: View {
 
                 // 4. Start Point Label & Dot (Today)
                 Text(String(format: "%.1f kg", effectiveCurrentWeightKg))
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.app(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .position(x: startX, y: startY - 18)
 
@@ -267,12 +267,12 @@ public struct WorkoutProgressProjectionCardView: View {
 
                 // 7. X-Axis Labels
                 Text("Today")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.app(size: 14, weight: .medium))
                     .foregroundColor(Color(hex: 0xFF64748B))
                     .position(x: startX, y: h - 8)
 
                 Text(Self.monthDayFormatter.string(from: effectiveTargetDate))
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.app(size: 16, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF0F172A))
                     .position(x: targetX, y: h - 8)
             }
@@ -332,11 +332,11 @@ struct TargetTooltipBubble: View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(String(format: "%.1f", weightKg))
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.app(size: 18, weight: .bold))
                     .foregroundColor(.white)
 
                 Text("kg")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.app(size: 13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.92))
             }
             .padding(.horizontal, 14)
@@ -413,16 +413,16 @@ struct RecordWeightSheet: View {
                 VStack(spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(String(format: "%.1f", displayValue))
-                            .font(.system(size: 54, weight: .bold))
+                            .font(.app(size: 54, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF0F172A))
 
                         Text(selectedUnit)
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.app(size: 24, weight: .bold))
                             .foregroundColor(Color(hex: 0xFF64748B))
                     }
 
                     Text("Current Recorded Weight")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.app(size: 14, weight: .medium))
                         .foregroundColor(Color(hex: 0xFF94A3B8))
                 }
 
@@ -446,7 +446,7 @@ struct RecordWeightSheet: View {
                                 .padding(.trailing, 6)
                         }
                         Text("Save Weight")
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.app(size: 17, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .frame(maxWidth: .infinity)
@@ -486,7 +486,7 @@ struct RecordWeightSheet: View {
             }
         }) {
             Text(label)
-                .font(.system(size: 15, weight: .bold))
+                .font(.app(size: 15, weight: .bold))
                 .foregroundColor(Color(hex: 0xFF0062FF))
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
