@@ -79,6 +79,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.BreakfastDining
 import androidx.compose.material.icons.filled.Cookie
 import androidx.compose.material.icons.filled.DinnerDining
@@ -268,18 +269,22 @@ fun FoodLogScreen() {
 
     var showAiSheet by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Apple-style grouped list: light grey page, white cards, one blue accent.
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF2F2F7))) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1C1E),
                 modifier = Modifier.weight(1f)
             )
             FilledTonalIconButton(
                 onClick = { date = date.minusDays(1) },
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF007AFF)
                 )
             ) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Previous day")
@@ -288,7 +293,8 @@ fun FoodLogScreen() {
                 onClick = { date = date.plusDays(1) },
                 enabled = date < today,
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF007AFF)
                 )
             ) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Next day")
@@ -296,8 +302,8 @@ fun FoodLogScreen() {
         }
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3D6)),
-            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -306,13 +312,13 @@ fun FoodLogScreen() {
             ) {
                 Box(
                     modifier = Modifier.size(44.dp).clip(CircleShape)
-                        .background(Color(0xFFFFE3A3)),
+                        .background(Color(0xFFF2F2F7)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.Notifications,
                         contentDescription = null,
-                        tint = Color(0xFF92400E)
+                        tint = Color(0xFF007AFF)
                     )
                 }
                 Spacer(Modifier.width(12.dp))
@@ -320,12 +326,12 @@ fun FoodLogScreen() {
                     Text(
                         "Meal reminders",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF7C4A03)
+                        color = Color(0xFF1C1C1E)
                     )
                     Text(
                         "Morning, noon, evening and night",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF7C4A03).copy(alpha = 0.75f)
+                        color = Color(0xFF8E8E93)
                     )
                 }
                 Switch(
@@ -381,21 +387,21 @@ fun FoodLogScreen() {
             item(key = "calories-eaten") {
                 val remainingKcal = DAILY_CALORIE_TARGET - totalKcal
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().animateItem()
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier.size(44.dp).clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(Color(0xFFEAF2FF)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     Icons.Filled.Whatshot,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary
+                                    tint = Color(0xFF007AFF)
                                 )
                             }
                             Spacer(Modifier.width(12.dp))
@@ -403,13 +409,13 @@ fun FoodLogScreen() {
                                 Text(
                                     "Calories eaten",
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = Color(0xFF1C1C1E)
                                 )
                                 Text(
                                     if (remainingKcal >= 0) "$remainingKcal kcal left today"
                                     else "${-remainingKcal} kcal over target",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                                    color = Color(0xFF8E8E93)
                                 )
                             }
                         }
@@ -417,20 +423,20 @@ fun FoodLogScreen() {
                             Text(
                                 "$totalKcal",
                                 style = MaterialTheme.typography.displaySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = Color(0xFF1C1C1E)
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 "/ $DAILY_CALORIE_TARGET kcal",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                                color = Color(0xFF8E8E93),
                                 modifier = Modifier.padding(bottom = 6.dp)
                             )
                         }
                         LinearProgressIndicator(
                             progress = { progress },
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.18f),
+                            color = Color(0xFF007AFF),
+                            trackColor = Color(0xFFE5E5EA),
                             modifier = Modifier.fillMaxWidth()
                         )
                         MacroBar(
@@ -448,7 +454,7 @@ fun FoodLogScreen() {
                 val style = mealStyle(meal)
                 Card(
                     colors = CardDefaults.cardColors(containerColor = style.container),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().animateItem()
                 ) {
                     Column(modifier = Modifier.padding(vertical = 8.dp).animateContentSize()) {
@@ -472,18 +478,18 @@ fun FoodLogScreen() {
                                 Text(
                                     meal.label,
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = style.accent
+                                    color = Color(0xFF1C1C1E)
                                 )
                                 Text(
                                     "${mealEntries.sumOf { it.calories }} kcal",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = style.accent.copy(alpha = 0.75f)
+                                    color = Color(0xFF8E8E93)
                                 )
                             }
                             FilledTonalIconButton(
                                 onClick = { chooserMeal = meal },
                                 colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.White,
+                                    containerColor = Color(0xFFF2F2F7),
                                     contentColor = style.accent
                                 )
                             ) {
@@ -499,7 +505,7 @@ fun FoodLogScreen() {
                                 Column {
                                     HorizontalDivider(
                                         modifier = Modifier.padding(horizontal = 16.dp),
-                                        color = style.accent.copy(alpha = 0.12f)
+                                        color = Color(0xFFE5E5EA)
                                     )
                                     Row(
                                         modifier = Modifier.fillMaxWidth()
@@ -510,23 +516,21 @@ fun FoodLogScreen() {
                                             Text(
                                                 entry.name,
                                                 style = MaterialTheme.typography.titleSmall,
-                                                color = Color(0xFF1C1B1F)
+                                                color = Color(0xFF1C1C1E)
                                             )
                                             if (entry.proteinG + entry.carbsG + entry.fatG > 0) {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                    modifier = Modifier.padding(top = 6.dp)
-                                                ) {
-                                                    MacroPill("P", entry.proteinG.toInt(), Color(0xFF2563EB))
-                                                    MacroPill("C", entry.carbsG.toInt(), Color(0xFFD97706))
-                                                    MacroPill("F", entry.fatG.toInt(), Color(0xFFE11D48))
-                                                }
+                                                Text(
+                                                    "P ${entry.proteinG.toInt()} • C ${entry.carbsG.toInt()} • F ${entry.fatG.toInt()} g",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color(0xFF8E8E93),
+                                                    modifier = Modifier.padding(top = 2.dp)
+                                                )
                                             }
                                         }
                                         Text(
                                             "${entry.calories} kcal",
                                             style = MaterialTheme.typography.labelLarge,
-                                            color = style.accent
+                                            color = Color(0xFF1C1C1E)
                                         )
                                         IconButton(onClick = {
                                             entries = store.delete(entry.id)
@@ -536,7 +540,7 @@ fun FoodLogScreen() {
                                             Icon(
                                                 Icons.Outlined.Delete,
                                                 contentDescription = "Delete ${entry.name}",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                tint = Color(0xFF8E8E93)
                                             )
                                         }
                                     }
@@ -551,14 +555,14 @@ fun FoodLogScreen() {
                                 Icon(
                                     style.icon,
                                     contentDescription = null,
-                                    tint = style.accent.copy(alpha = 0.5f),
+                                    tint = Color(0xFF8E8E93),
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Nothing logged yet — tap + to add",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = style.accent.copy(alpha = 0.6f)
+                                    color = Color(0xFF8E8E93)
                                 )
                             }
                         }
@@ -1034,7 +1038,7 @@ private fun ScoreStatCard(
     }
 }
 
-/** Per-meal accent colours for the food log: a pale tinted card, a deeper chip and text colour, and the meal's icon. */
+/** Apple-style: white cards on a light grey page, one blue accent for every meal; only the icon differs per meal. */
 private data class MealStyle(
     val container: Color,
     val chip: Color,
@@ -1044,45 +1048,29 @@ private data class MealStyle(
 
 private fun mealStyle(meal: MealType): MealStyle = when (meal) {
     MealType.BREAKFAST -> MealStyle(
-        container = Color(0xFFFFF3D6),
-        chip = Color(0xFFFFE3A3),
-        accent = Color(0xFF92400E),
+        container = Color.White,
+        chip = Color(0xFFF2F2F7),
+        accent = Color(0xFF007AFF),
         icon = Icons.Filled.BreakfastDining
     )
     MealType.LUNCH -> MealStyle(
-        container = Color(0xFFFFE8D9),
-        chip = Color(0xFFFFC9A8),
-        accent = Color(0xFF9A3412),
+        container = Color.White,
+        chip = Color(0xFFF2F2F7),
+        accent = Color(0xFF007AFF),
         icon = Icons.Filled.LunchDining
     )
     MealType.DINNER -> MealStyle(
-        container = Color(0xFFE4E9FF),
-        chip = Color(0xFFC7D2FE),
-        accent = Color(0xFF3730A3),
+        container = Color.White,
+        chip = Color(0xFFF2F2F7),
+        accent = Color(0xFF007AFF),
         icon = Icons.Filled.DinnerDining
     )
     MealType.SNACK -> MealStyle(
-        container = Color(0xFFDFF3E4),
-        chip = Color(0xFFB7E4C7),
-        accent = Color(0xFF166534),
+        container = Color.White,
+        chip = Color(0xFFF2F2F7),
+        accent = Color(0xFF007AFF),
         icon = Icons.Filled.Cookie
     )
-}
-
-/** Small coloured macro pill, e.g. "P 25": protein blue, carbs amber, fat rose. */
-@Composable
-private fun MacroPill(label: String, grams: Int, color: Color) {
-    Surface(
-        color = color.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Text(
-            "$label $grams",
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-        )
-    }
 }
 
 /**
@@ -1095,10 +1083,10 @@ private fun MacroPill(label: String, grams: Int, color: Color) {
  */
 @Composable
 private fun MacroBar(proteinG: Int, carbsG: Int, fatG: Int, modifier: Modifier = Modifier) {
-    val proteinColor = MaterialTheme.colorScheme.primary
-    val carbsColor = MaterialTheme.colorScheme.tertiary
-    val fatColor = MaterialTheme.colorScheme.secondary
-    val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val proteinColor = Color(0xFF007AFF)
+    val carbsColor = Color(0xFFFF9500)
+    val fatColor = Color(0xFF34C759)
+    val trackColor = Color(0xFFE5E5EA)
 
     val pKcal = proteinG * 4f
     val cKcal = carbsG * 4f
@@ -1161,12 +1149,12 @@ private fun MacroLegendItem(label: String, grams: Int, fraction: Float, color: C
             Text(
                 "$label $grams g",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
+                color = Color(0xFF1C1C1E)
             )
             Text(
                 "${(fraction * 100).roundToInt()}%",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFF8E8E93)
             )
         }
     }
