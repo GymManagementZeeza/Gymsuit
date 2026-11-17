@@ -77,6 +77,12 @@ const en = {
     openSettings: "Open Settings",
     whatsappMessage: (memberName: string, invoiceNo: string, planName: string, amount: string, gymName: string) =>
       `Hi ${memberName}, here's your invoice ${invoiceNo} from ${gymName}: ${planName} — ${amount}. Scan the UPI QR code in the attached PDF to pay. Thank you!`,
+    receiptTitle: "Payment receipt",
+    paid: "PAID",
+    paidOn: "Paid on",
+    paymentMethod: "Payment method",
+    receiptWhatsappMessage: (memberName: string, invoiceNo: string, planName: string, amount: string, gymName: string, paidDate: string, method: string) =>
+      `Hi ${memberName}, here's your payment receipt ${invoiceNo} from ${gymName}: ${planName} — ${amount}, paid on ${paidDate} via ${method}. Thank you!`,
   },
   dashboard: {
     greetingMorning: "Good morning",
@@ -284,6 +290,12 @@ const ml: DeepPartial<Dictionary> = {
     generating: "തയ്യാറാക്കുന്നു…",
     noUpiId: "പേയ്‌മെന്റ് QR കോഡോടുകൂടിയ ഇൻവോയ്സുകൾ ഉണ്ടാക്കാൻ സെറ്റിംഗ്സിൽ നിങ്ങളുടെ UPI ID ചേർക്കുക.",
     openSettings: "സെറ്റിംഗ്സ് തുറക്കുക",
+    receiptTitle: "പേയ്മെന്റ് രസീത്",
+    paid: "അടച്ചു",
+    paidOn: "അടച്ച തീയതി",
+    paymentMethod: "പേയ്മെന്റ് രീതി",
+    receiptWhatsappMessage: (memberName: string, invoiceNo: string, planName: string, amount: string, gymName: string, paidDate: string, method: string) =>
+      `ഹായ് ${memberName}, ${gymName} നിന്നുള്ള നിങ്ങളുടെ പേയ്മെന്റ് രസീത് ${invoiceNo}: ${planName} — ${amount}, ${paidDate} ന് ${method} വഴി അടച്ചു. നന്ദി!`,
   },
   dashboard: {
     greetingMorning: "ശുഭപ്രഭാതം",

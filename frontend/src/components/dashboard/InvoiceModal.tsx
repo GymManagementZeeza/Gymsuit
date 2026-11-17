@@ -12,6 +12,7 @@ import type { Member } from "@/lib/members";
 import type { MemberSubscription } from "@/lib/memberSubscriptions";
 import type { Gym } from "@/lib/gyms";
 import { notifyMember, whatsAppLink } from "@/lib/notifications";
+import { paymentMethodLabel, type MemberPayment } from "@/lib/memberPayments";
 
 /** Strip anything the PDF's WinAnsi fonts can't render (e.g. ₹, Malayalam script). */
 function pdfSafe(text: string): string {
@@ -23,22 +24,40 @@ type InvoiceModalProps = {
   member: Member;
   subscription: MemberSubscription;
   gym: Gym;
+  /** When set, the modal is a receipt for this completed payment instead of a bill to pay. */
+  payment?: MemberPayment;
   onClose: () => void;
 };
 
-export default function InvoiceModal({ gymId, member, subscription, gym, onClose }: InvoiceModalProps) {
+export default function InvoiceModal({ gymId, member, subscription, gym, payment, onClose }: InvoiceModalProps) {
   const { t } = useLanguage();
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const invoiceNo = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${member.id}`;
-  const dateStr = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  const amountLabel = `${subscription.planCurrency} ${subscription.planPrice.toFixed(2)}`;
+  const isReceipt = !!payment;
+  const paidAtRaw = payment?.paidAt ?? payment?.createdAt ?? null;
+  const paidDateStr = paidAtRaw
+    ? new Date(paidAtRaw).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "";
+  const invoiceNo = payment
+    ? `INV-${(payment.paidAt ?? payment.createdAt).slice(0, 10).replace(/-/g, "")}-${payment.id}`
+    : `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${member.id}`;
+  const dateStr = isReceipt
+    ? paidDateStr
+    : new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const amountLabel = payment
+    ? `${payment.currency} ${payment.amount.toFixed(2)}`
+    : `${subscription.planCurrency} ${subscription.planPrice.toFixed(2)}`;
+  const methodLabel = payment ? paymentMethodLabel(payment.paymentMethod) : "";
   const memberName = `${member.firstName} ${member.lastName}`.trim();
+  const periodLabel =
+    payment?.periodStart && payment?.periodEnd ? `${payment.periodStart} to ${payment.periodEnd}` : null;
+  /** The modal's actions are usable once the QR is ready — receipts need no QR. */
+  const canAct = !busy && (isReceipt || !!qrDataUrl);
 
   useEffect(() => {
-    if (!gym.upiId) return;
+    if (!gym.upiId || isReceipt) return;
     let cancelled = false;
     const note = `${subscription.planName} — ${memberName} (${invoiceNo})`;
     const upiUri = `upi://pay?pa=${encodeURIComponent(gym.upiId)}&pn=${encodeURIComponent(gym.name)}&am=${subscription.planPrice.toFixed(2)}&cu=${subscription.planCurrency}&tn=${encodeURIComponent(note)}`;
@@ -55,7 +74,7 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gym.upiId]);
 
-  async function buildPdf(qrPng: string): Promise<Uint8Array> {
+  async function buildPdf(qrPng: string | null): Promise<Uint8Array> {
     const doc = await PDFDocument.create();
     const page = doc.addPage([595.28, 841.89]); // A4
     const { width, height } = page.getSize();
@@ -63,6 +82,7 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
     const bold = await doc.embedFont(StandardFonts.HelveticaBold);
     const ink = rgb(0.14, 0.14, 0.12);
     const gray = rgb(0.45, 0.45, 0.42);
+    const green = rgb(0.1, 0.55, 0.25);
     const line = rgb(0.9, 0.9, 0.87);
     const margin = 48;
     let y = height - margin;
@@ -83,6 +103,10 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
     page.drawText(invLine, { x: right(invLine, 10), y, size: 10, font, color: gray });
     y -= 14;
     page.drawText(dateStr, { x: right(dateStr, 10), y, size: 10, font, color: gray });
+    if (isReceipt) {
+      y -= 16;
+      page.drawText(t.invoice.paid, { x: right(t.invoice.paid, 13, bold), y, size: 13, font: bold, color: green });
+    }
 
     y -= 26;
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: line });
@@ -93,6 +117,12 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
     page.drawText(pdfSafe(memberName), { x: margin, y, size: 12, font: bold, color: ink });
     y -= 15;
     page.drawText(pdfSafe(member.phone), { x: margin, y, size: 10, font, color: gray });
+    if (isReceipt) {
+      y -= 15;
+      page.drawText(pdfSafe(`${t.invoice.paidOn} ${dateStr}`), { x: margin, y, size: 10, font, color: gray });
+      y -= 15;
+      page.drawText(pdfSafe(`${t.invoice.paymentMethod}: ${methodLabel}`), { x: margin, y, size: 10, font, color: gray });
+    }
 
     y -= 34;
     page.drawText("Description", { x: margin, y, size: 10, font: bold, color: gray });
@@ -102,7 +132,9 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: line });
 
     y -= 20;
-    const desc = pdfSafe(`${subscription.planName} — Membership renewal`);
+    const desc = pdfSafe(
+      periodLabel ? `${subscription.planName} — ${periodLabel}` : `${subscription.planName} — ${t.invoice.membershipRenewal}`
+    );
     page.drawText(desc, { x: margin, y, size: 11, font, color: ink });
     page.drawText(pdfSafe(amountLabel), { x: right(pdfSafe(amountLabel), 11, font), y, size: 11, font, color: ink });
 
@@ -114,34 +146,38 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
     y -= 10;
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: line });
 
-    // UPI QR code
-    const qrBytes = Uint8Array.from(atob(qrPng.split(",")[1]), (c) => c.charCodeAt(0));
-    const qrImage = await doc.embedPng(qrBytes);
-    const qrSize = 170;
-    y -= qrSize + 24;
-    page.drawImage(qrImage, { x: (width - qrSize) / 2, y, width: qrSize, height: qrSize });
-    y -= 20;
-    const upiLine = `UPI ID: ${gym.upiId}`;
-    page.drawText(pdfSafe(upiLine), { x: centered(pdfSafe(upiLine), 11, bold), y, size: 11, font: bold, color: ink });
-    y -= 16;
-    const scanLine = "Scan with any UPI app to pay";
-    page.drawText(scanLine, { x: centered(scanLine, 10), y, size: 10, font, color: gray });
+    // UPI QR code — only on bills to pay, never on a receipt for a completed payment.
+    if (qrPng) {
+      const qrBytes = Uint8Array.from(atob(qrPng.split(",")[1]), (c) => c.charCodeAt(0));
+      const qrImage = await doc.embedPng(qrBytes);
+      const qrSize = 170;
+      y -= qrSize + 24;
+      page.drawImage(qrImage, { x: (width - qrSize) / 2, y, width: qrSize, height: qrSize });
+      y -= 20;
+      const upiLine = `UPI ID: ${gym.upiId}`;
+      page.drawText(pdfSafe(upiLine), { x: centered(pdfSafe(upiLine), 11, bold), y, size: 11, font: bold, color: ink });
+      y -= 16;
+      const scanLine = "Scan with any UPI app to pay";
+      page.drawText(scanLine, { x: centered(scanLine, 10), y, size: 10, font, color: gray });
+    }
 
     const thanks = pdfSafe(`Thank you for training with ${gym.name}!`);
     page.drawText(thanks, { x: centered(thanks, 10, bold), y: 64, size: 10, font: bold, color: ink });
-    const genLine = `Generated on ${dateStr}`;
+    const genLine = `Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
     page.drawText(genLine, { x: centered(genLine, 9), y: 48, size: 9, font, color: gray });
 
     return doc.save();
   }
 
   async function handleShare() {
-    if (!qrDataUrl || busy) return;
+    if (!canAct) return;
     setBusy(true);
     try {
-      const pdfBytes = await buildPdf(qrDataUrl);
+      const pdfBytes = await buildPdf(isReceipt ? null : qrDataUrl);
       const file = new File([pdfBytes.slice().buffer], `${invoiceNo}.pdf`, { type: "application/pdf" });
-      const message = t.invoice.whatsappMessage(member.firstName, invoiceNo, subscription.planName, amountLabel, gym.name);
+      const message = isReceipt
+        ? t.invoice.receiptWhatsappMessage(member.firstName, invoiceNo, subscription.planName, amountLabel, gym.name, dateStr, methodLabel)
+        : t.invoice.whatsappMessage(member.firstName, invoiceNo, subscription.planName, amountLabel, gym.name);
       let delivered = false;
       if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: invoiceNo, text: message });
@@ -163,7 +199,7 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
         delivered = true;
       }
       if (delivered) {
-        await notifyMember(gymId, member.id, "CUSTOM", "WHATSAPP", `Invoice ${invoiceNo} (${amountLabel}) sent via WhatsApp.`).catch(() => {});
+        await notifyMember(gymId, member.id, "CUSTOM", "WHATSAPP", isReceipt ? `Receipt ${invoiceNo} (${amountLabel}) sent via WhatsApp.` : `Invoice ${invoiceNo} (${amountLabel}) sent via WhatsApp.`).catch(() => {});
       }
       onClose();
     } catch (err) {
@@ -177,10 +213,10 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
   }
 
   async function handleDownload() {
-    if (!qrDataUrl || busy) return;
+    if (!canAct) return;
     setBusy(true);
     try {
-      const pdfBytes = await buildPdf(qrDataUrl);
+      const pdfBytes = await buildPdf(isReceipt ? null : qrDataUrl);
       const blob = new Blob([pdfBytes.slice().buffer], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -204,11 +240,11 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={t.invoice.title}
+        aria-label={isReceipt ? t.invoice.receiptTitle : t.invoice.title}
       >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-black tracking-tight text-stone-900">{t.invoice.title}</h2>
+            <h2 className="text-lg font-black tracking-tight text-stone-900">{isReceipt ? t.invoice.receiptTitle : t.invoice.title}</h2>
             <p className="mt-0.5 text-sm font-medium text-stone-500">{memberName}</p>
           </div>
           <button
@@ -221,7 +257,7 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
           </button>
         </div>
 
-        {!gym.upiId ? (
+        {!isReceipt && !gym.upiId ? (
           <div className="mt-5 rounded-2xl bg-amber-50 p-4">
             <div className="flex items-start gap-3">
               <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
@@ -243,46 +279,60 @@ export default function InvoiceModal({ gymId, member, subscription, gym, onClose
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-stone-400">{t.invoice.invoiceTitle}</p>
                 <p className="mono text-xs font-semibold text-stone-500">{invoiceNo}</p>
               </div>
+              {isReceipt && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black tracking-wide text-emerald-700">
+                    {t.invoice.paid}
+                  </span>
+                  <p className="text-xs font-semibold text-stone-500">
+                    {t.invoice.paidOn} {dateStr} · {methodLabel}
+                  </p>
+                </div>
+              )}
               <div className="mt-3 flex items-baseline justify-between border-t border-stone-200/70 pt-3">
                 <div>
                   <p className="text-sm font-bold text-stone-900">{subscription.planName}</p>
-                  <p className="mt-0.5 text-xs text-stone-500">{t.invoice.membershipRenewal}</p>
+                  <p className="mt-0.5 text-xs text-stone-500">
+                    {periodLabel ?? t.invoice.membershipRenewal}
+                  </p>
                 </div>
                 <p className="text-base font-black text-stone-900">{amountLabel}</p>
               </div>
-              <div className="mt-4 flex flex-col items-center rounded-2xl bg-white p-4">
-                {qrError ? (
-                  <p className="text-sm font-semibold text-red-600">{qrError}</p>
-                ) : qrDataUrl ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- generated data URL, not a static asset */}
-                    <img src={qrDataUrl} alt={t.invoice.scanToPay} className="size-44 object-contain" />
-                    <p className="mono mt-2 text-xs font-bold text-stone-700">
-                      {t.invoice.upiIdLabel}: {gym.upiId}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-stone-500">{t.invoice.scanToPay}</p>
-                  </>
-                ) : (
-                  <p className="py-10 text-sm font-semibold text-stone-400">{t.invoice.generating}</p>
-                )}
-              </div>
+              {!isReceipt && (
+                <div className="mt-4 flex flex-col items-center rounded-2xl bg-white p-4">
+                  {qrError ? (
+                    <p className="text-sm font-semibold text-red-600">{qrError}</p>
+                  ) : qrDataUrl ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- generated data URL, not a static asset */}
+                      <img src={qrDataUrl} alt={t.invoice.scanToPay} className="size-44 object-contain" />
+                      <p className="mono mt-2 text-xs font-bold text-stone-700">
+                        {t.invoice.upiIdLabel}: {gym.upiId}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-stone-500">{t.invoice.scanToPay}</p>
+                    </>
+                  ) : (
+                    <p className="py-10 text-sm font-semibold text-stone-400">{t.invoice.generating}</p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {qrError && <p className="mt-3 text-sm font-semibold text-red-600">{qrError}</p>}
+            {qrError && !isReceipt && <p className="mt-3 text-sm font-semibold text-red-600">{qrError}</p>}
 
             <div className="mt-5 flex flex-col gap-2">
               <FlexButton
                 variant="lime"
-                onClick={qrDataUrl && !busy ? handleShare : undefined}
-                className={`w-full justify-center ${!qrDataUrl || busy ? "pointer-events-none opacity-50" : ""}`}
+                onClick={canAct ? handleShare : undefined}
+                className={`w-full justify-center ${!canAct ? "pointer-events-none opacity-50" : ""}`}
               >
                 <MessageCircle className="size-4" />
                 {busy ? t.invoice.generating : t.invoice.sendViaWhatsApp}
               </FlexButton>
               <FlexButton
                 variant="ghost"
-                onClick={qrDataUrl && !busy ? handleDownload : undefined}
-                className={`w-full justify-center ${!qrDataUrl || busy ? "pointer-events-none opacity-50" : ""}`}
+                onClick={canAct ? handleDownload : undefined}
+                className={`w-full justify-center ${!canAct ? "pointer-events-none opacity-50" : ""}`}
               >
                 <Download className="size-4" />
                 {t.invoice.downloadPdf}

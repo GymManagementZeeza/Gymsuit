@@ -22,6 +22,7 @@ import ErrorBanner from "@/components/dashboard/ErrorBanner";
 import { useSession } from "@/hooks/useSession";
 import { listMembers, type Member } from "@/lib/members";
 import { listCurrentSubscriptions, listPendingSubscriptions, type MemberSubscription } from "@/lib/memberSubscriptions";
+import { listGymPayments, type MemberPayment } from "@/lib/memberPayments";
 import { listMembershipPlans, type MembershipPlan } from "@/lib/membershipPlans";
 import { getGym, type Gym } from "@/lib/gyms";
 import { getCurrentUser, type CurrentUser } from "@/lib/users";
@@ -138,17 +139,31 @@ function invoiceableSubscription(
   return undefined;
 }
 
+/** The latest completed payment per member, for the post-payment receipt. */
+function latestPaidPayments(payments: MemberPayment[]): Record<number, MemberPayment> {
+  const byMember: Record<number, MemberPayment> = {};
+  for (const p of payments) {
+    if (p.status !== "SUCCEEDED") continue;
+    const key = p.paidAt ?? p.createdAt;
+    const prev = byMember[p.memberId];
+    if (!prev || key > (prev.paidAt ?? prev.createdAt)) byMember[p.memberId] = p;
+  }
+  return byMember;
+}
+
 function MemberMobileCard({
   member,
   index,
   subscription,
   pending,
+  latestPaid,
   hasNoActivePlan,
   trainers,
   assigningTrainerFor,
   onAssignTrainer,
   onTakePayment,
   onInvoice,
+  onReceipt,
   onPlan,
   onEdit,
   onNotify,
@@ -157,17 +172,20 @@ function MemberMobileCard({
   index: number;
   subscription?: MemberSubscription;
   pending?: MemberSubscription;
+  latestPaid?: MemberPayment;
   hasNoActivePlan: boolean;
   trainers: Trainer[];
   assigningTrainerFor: number | null;
   onAssignTrainer: (trainerId: number | null) => void;
   onTakePayment: () => void;
   onInvoice: (subscription: MemberSubscription) => void;
+  onReceipt: (payment: MemberPayment) => void;
   onPlan: () => void;
   onEdit: () => void;
   onNotify: () => void;
 }) {
   const invoiceSub = invoiceableSubscription(subscription, pending);
+  const receiptSub = subscription ?? pending;
   return (
     <div
       className={`overflow-hidden rounded-2xl bg-white shadow-[0_2px_16px_rgba(20,20,16,0.06)] ${
@@ -268,6 +286,7 @@ function MemberMobileCard({
           <div className="flex flex-wrap items-center gap-2 pt-3">
             {pending && <RowAction onClick={onTakePayment}>Take payment</RowAction>}
             {invoiceSub && <RowAction onClick={() => onInvoice(invoiceSub)}>Invoice</RowAction>}
+            {latestPaid && receiptSub && <RowAction onClick={() => onReceipt(latestPaid)}>Receipt</RowAction>}
             <RowAction onClick={onPlan}>Plan</RowAction>
             <RowAction onClick={onEdit}>Edit</RowAction>
             <button
@@ -321,6 +340,7 @@ function MembersPanel() {
   const [members, setMembers] = useState<Member[]>([]);
   const [subscriptionsByMember, setSubscriptionsByMember] = useState<Record<number, MemberSubscription>>({});
   const [pendingByMember, setPendingByMember] = useState<Record<number, MemberSubscription>>({});
+  const [latestPaidByMember, setLatestPaidByMember] = useState<Record<number, MemberPayment>>({});
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [selectedPlanFilter, setSelectedPlanFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
@@ -334,6 +354,7 @@ function MembersPanel() {
   const [planModalMember, setPlanModalMember] = useState<Member | null>(null);
   const [takePaymentMember, setTakePaymentMember] = useState<Member | null>(null);
   const [invoiceTarget, setInvoiceTarget] = useState<{ member: Member; subscription: MemberSubscription } | null>(null);
+  const [receiptTarget, setReceiptTarget] = useState<{ member: Member; subscription: MemberSubscription; payment: MemberPayment } | null>(null);
   const [notifyMemberTarget, setNotifyMemberTarget] = useState<Member | null>(null);
   const [assigningTrainerFor, setAssigningTrainerFor] = useState<number | null>(null);
 
@@ -352,14 +373,15 @@ function MembersPanel() {
 
   const refreshSubscriptions = () => {
     if (!gymId) return;
-    Promise.all([listCurrentSubscriptions(gymId), listPendingSubscriptions(gymId)])
-      .then(([active, pending]) => {
+    Promise.all([listCurrentSubscriptions(gymId), listPendingSubscriptions(gymId), listGymPayments(gymId)])
+      .then(([active, pending, payments]) => {
         const byMember: Record<number, MemberSubscription> = {};
         for (const sub of active) byMember[sub.memberId] = sub;
         setSubscriptionsByMember(byMember);
         const pendingMap: Record<number, MemberSubscription> = {};
         for (const sub of pending) pendingMap[sub.memberId] = sub;
         setPendingByMember(pendingMap);
+        setLatestPaidByMember(latestPaidPayments(payments));
       })
       .catch(() => {});
   };
@@ -371,11 +393,12 @@ function MembersPanel() {
       listMembers(gymId),
       listCurrentSubscriptions(gymId),
       listPendingSubscriptions(gymId),
+      listGymPayments(gymId),
       getGym(gymId),
       listTrainers(gymId),
       listMembershipPlans(gymId),
     ])
-      .then(([memberData, active, pending, gymData, trainerData, planData]) => {
+      .then(([memberData, active, pending, payments, gymData, trainerData, planData]) => {
         if (cancelled) return;
         setMembers(memberData);
         const byMember: Record<number, MemberSubscription> = {};
@@ -384,6 +407,7 @@ function MembersPanel() {
         const pendingMap: Record<number, MemberSubscription> = {};
         for (const sub of pending) pendingMap[sub.memberId] = sub;
         setPendingByMember(pendingMap);
+        setLatestPaidByMember(latestPaidPayments(payments));
         setGym(gymData);
         setTrainers(trainerData);
         setPlans(planData);
@@ -529,6 +553,8 @@ function MembersPanel() {
                 const pending = pendingByMember[member.id];
                 const hasNoActivePlan = !subscription;
                 const invoiceSub = invoiceableSubscription(subscription, pending);
+                const receiptSub = subscription ?? pending;
+                const latestPaid = latestPaidByMember[member.id];
                 return (
                 <tr className={`transition ${hasNoActivePlan ? "bg-[#ffe3e3]/40 hover:bg-[#ffe3e3]/70" : "hover:bg-stone-50"}`} key={member.id}>
                   <td className="px-5 py-4">
@@ -658,6 +684,11 @@ function MembersPanel() {
                           Invoice
                         </RowAction>
                       )}
+                      {latestPaid && receiptSub && (
+                        <RowAction onClick={() => setReceiptTarget({ member, subscription: receiptSub, payment: latestPaid })}>
+                          Receipt
+                        </RowAction>
+                      )}
                       <RowAction onClick={() => setPlanModalMember(member)}>Plan</RowAction>
                       <RowAction onClick={() => setModalState(member)}>Edit</RowAction>
                       <button
@@ -684,6 +715,7 @@ function MembersPanel() {
             const subscription = subscriptionsByMember[member.id];
             const pending = pendingByMember[member.id];
             const hasNoActivePlan = !subscription;
+            const receiptSub = subscription ?? pending;
             return (
               <MemberMobileCard
                 key={member.id}
@@ -691,12 +723,16 @@ function MembersPanel() {
                 index={index}
                 subscription={subscription}
                 pending={pending}
+                latestPaid={latestPaidByMember[member.id]}
                 hasNoActivePlan={hasNoActivePlan}
                 trainers={trainers}
                 assigningTrainerFor={assigningTrainerFor}
                 onAssignTrainer={(trainerId) => handleAssignTrainer(member.id, trainerId)}
                 onTakePayment={() => setTakePaymentMember(member)}
                 onInvoice={(sub) => setInvoiceTarget({ member, subscription: sub })}
+                onReceipt={(payment) => {
+                  if (receiptSub) setReceiptTarget({ member, subscription: receiptSub, payment });
+                }}
                 onPlan={() => setPlanModalMember(member)}
                 onEdit={() => setModalState(member)}
                 onNotify={() => setNotifyMemberTarget(member)}
@@ -780,6 +816,17 @@ function MembersPanel() {
           subscription={invoiceTarget.subscription}
           gym={gym}
           onClose={() => setInvoiceTarget(null)}
+        />
+      )}
+
+      {receiptTarget && gymId && gym && (
+        <InvoiceModal
+          gymId={gymId}
+          member={receiptTarget.member}
+          subscription={receiptTarget.subscription}
+          gym={gym}
+          payment={receiptTarget.payment}
+          onClose={() => setReceiptTarget(null)}
         />
       )}
 
