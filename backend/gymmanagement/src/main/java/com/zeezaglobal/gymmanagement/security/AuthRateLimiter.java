@@ -36,7 +36,9 @@ public class AuthRateLimiter {
     public enum Action {
         LOGIN(10, 60, Duration.ofMinutes(15)),
         OTP_SEND(5, 30, Duration.ofHours(1)),
-        OTP_VERIFY(5, 60, Duration.ofMinutes(10));
+        OTP_VERIFY(5, 60, Duration.ofMinutes(10)),
+        /** Public self-registration from a gym's QR link: many people can share one gym Wi-Fi address. */
+        PUBLIC_REGISTER(5, 30, Duration.ofHours(1));
 
         private final int emailLimit;
         // Higher than the email limit: a gym's members can all share one Wi-Fi address.

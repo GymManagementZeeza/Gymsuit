@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { FlexButton, FlexCard, FlexIconBadge, FlexPageHeader, FlexPill } from "@/components/dashboard/ui";
 import GymProfileModal from "@/components/dashboard/GymProfileModal";
+import RegistrationQrModal from "@/components/dashboard/RegistrationQrModal";
 import UpiIdModal from "@/components/UpiIdModal";
 import JoiningFeeModal from "@/components/dashboard/JoiningFeeModal";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
@@ -11,7 +12,7 @@ import { useSession } from "@/hooks/useSession";
 import { getGym, type Gym } from "@/lib/gyms";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { LOCALES, type Dictionary, type Locale } from "@/lib/i18n/dictionaries";
-import { BellRing, Building2, Check, CreditCard, Image as ImageIcon, Languages, LockKeyhole, Save, UsersRound, Wallet } from "lucide-react";
+import { BellRing, Building2, Check, CreditCard, Image as ImageIcon, Languages, LockKeyhole, QrCode, Save, UsersRound, Wallet } from "lucide-react";
 
 function gymProfileSummary(gym: Gym, t: Dictionary) {
   const parts = [gym.addressLine, gym.city, gym.phone, gym.email].filter(Boolean);
@@ -65,6 +66,7 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState(false);
   const [editingUpi, setEditingUpi] = useState(false);
   const [editingFee, setEditingFee] = useState(false);
+  const [registrationQrOpen, setRegistrationQrOpen] = useState(false);
 
   useEffect(() => {
     if (!gymId) return;
@@ -187,6 +189,21 @@ export default function SettingsPage() {
 
             <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center">
               <FlexIconBadge>
+                <QrCode className="size-5" />
+              </FlexIconBadge>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-bold text-stone-900">{t.settings.registrationQr}</p>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-stone-500">{t.settings.registrationQrText}</p>
+              </div>
+              <button onClick={() => setRegistrationQrOpen(true)} disabled={!gym} className={ghostButtonClass}>
+                {t.settings.viewQr}
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center">
+              <FlexIconBadge>
                 <Languages className="size-5" />
               </FlexIconBadge>
               <div className="min-w-0 flex-1">
@@ -277,6 +294,10 @@ export default function SettingsPage() {
             setEditingFee(false);
           }}
         />
+      )}
+
+      {registrationQrOpen && gymId && gym && (
+        <RegistrationQrModal gymId={gymId} gymName={gym.name} onClose={() => setRegistrationQrOpen(false)} />
       )}
     </div>
   );

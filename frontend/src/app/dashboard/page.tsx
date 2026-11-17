@@ -12,10 +12,12 @@ import { listCheckInsSince } from "@/lib/checkins";
 import { listGymPayments } from "@/lib/memberPayments";
 import { listCurrentSubscriptions, type MemberSubscription } from "@/lib/memberSubscriptions";
 import { BUILD_INFO } from "@/generated/build-info";
+import RegistrationQrModal from "@/components/dashboard/RegistrationQrModal";
 import {
   AlertTriangle,
   IndianRupee,
   MessageCircle,
+  QrCode,
   UsersRound,
   Zap,
 } from "lucide-react";
@@ -95,6 +97,7 @@ export default function DashboardOverview() {
   const { t, locale, setLocale } = useLanguage();
   const [gymName, setGymName] = useState<string | null>(null);
   const [gymCity, setGymCity] = useState<string | null>(null);
+  const [registrationQrOpen, setRegistrationQrOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [subscriptionsByMember, setSubscriptionsByMember] = useState<Record<number, MemberSubscription>>({});
   const [dataLoading, setDataLoading] = useState(true);
@@ -215,6 +218,15 @@ export default function DashboardOverview() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRegistrationQrOpen(true)}
+            className="grid size-10 place-items-center rounded-full bg-white text-stone-700 shadow-[0_2px_16px_rgba(20,20,16,0.06)] transition hover:bg-stone-50"
+            aria-label="Member registration QR code"
+            title="Member registration QR code"
+          >
+            <QrCode className="size-5" />
+          </button>
           <button
             type="button"
             onClick={() => setLocale(locale === "en" ? "ml" : "en")}
@@ -372,6 +384,10 @@ export default function DashboardOverview() {
         </p>
         <p className="mt-1 text-[11px] text-stone-400">Made for Kerala gyms</p>
       </footer>
+
+      {registrationQrOpen && session?.gymId && gymName && (
+        <RegistrationQrModal gymId={session.gymId} gymName={gymName} onClose={() => setRegistrationQrOpen(false)} />
+      )}
     </div>
   );
 }

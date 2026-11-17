@@ -306,6 +306,10 @@ public class MemberService {
         member.setEmergencyContactPhone(request.emergencyContactPhone());
         member.setEmergencyContactRelationship(request.emergencyContactRelationship());
         member.setWaiverAccepted(request.waiverAccepted());
+        if (request.waiverSignature() != null && !request.waiverSignature().isBlank()) {
+            member.setWaiverSignature(request.waiverSignature());
+            member.setWaiverSignedAt(LocalDateTime.now());
+        }
         member.setJoinDate(request.joinDate());
     }
 }

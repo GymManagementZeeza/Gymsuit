@@ -22,6 +22,7 @@ public record MemberRequest(
         String emergencyContactPhone,
         String emergencyContactRelationship,
         @NotNull Boolean waiverAccepted,
+        String waiverSignature,
         @NotNull LocalDate joinDate
 ) {
 }

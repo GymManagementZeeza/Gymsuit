@@ -84,6 +84,12 @@ public class Member {
     @Column(nullable = false)
     private boolean waiverAccepted;
 
+    /** Base64 PNG data URL of the member's drawn waiver signature, when they signed on the form. */
+    @Column(columnDefinition = "TEXT")
+    private String waiverSignature;
+
+    private LocalDateTime waiverSignedAt;
+
     @Column(nullable = false)
     private LocalDate joinDate;
 

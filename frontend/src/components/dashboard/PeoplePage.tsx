@@ -16,6 +16,7 @@ import { ExpandableRow, DetailRow } from "@/components/dashboard/ExpandableRow";
 import ChangePlanModal from "@/components/dashboard/ChangePlanModal";
 import TakePaymentModal from "@/components/dashboard/TakePaymentModal";
 import InvoiceModal from "@/components/dashboard/InvoiceModal";
+import RegistrationQrModal from "@/components/dashboard/RegistrationQrModal";
 import NotifyModal from "@/components/dashboard/NotifyModal";
 import PaymentCountdownBar from "@/components/dashboard/PaymentCountdownBar";
 import ErrorBanner from "@/components/dashboard/ErrorBanner";
@@ -33,7 +34,7 @@ import TeamManagerModal from "@/components/dashboard/TeamManagerModal";
 import TrainerFormModal from "@/components/dashboard/TrainerFormModal";
 import TrainerPayModal from "@/components/dashboard/TrainerPayModal";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
-import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, ShieldCheck, Award, UserRoundPlus, BellRing, WalletCards, AlertTriangle, Phone, Mail, MessageCircle, ChevronLeft, ChevronRight, QrCode } from "lucide-react";
 
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
@@ -355,6 +356,7 @@ function MembersPanel() {
   const [takePaymentMember, setTakePaymentMember] = useState<Member | null>(null);
   const [invoiceTarget, setInvoiceTarget] = useState<{ member: Member; subscription: MemberSubscription } | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<{ member: Member; subscription: MemberSubscription; payment: MemberPayment } | null>(null);
+  const [registrationQrOpen, setRegistrationQrOpen] = useState(false);
   const [notifyMemberTarget, setNotifyMemberTarget] = useState<Member | null>(null);
   const [assigningTrainerFor, setAssigningTrainerFor] = useState<number | null>(null);
 
@@ -512,6 +514,9 @@ function MembersPanel() {
               </option>
             ))}
           </select>
+          <FlexButton variant="ghost" onClick={() => setRegistrationQrOpen(true)}>
+            <QrCode className="size-4" /> Registration QR
+          </FlexButton>
           <FlexButton variant="lime" onClick={() => setModalState("create")}>
             <Plus className="size-4" /> Add member
           </FlexButton>
@@ -828,6 +833,10 @@ function MembersPanel() {
           payment={receiptTarget.payment}
           onClose={() => setReceiptTarget(null)}
         />
+      )}
+
+      {registrationQrOpen && gymId && gym && (
+        <RegistrationQrModal gymId={gymId} gymName={gym.name} onClose={() => setRegistrationQrOpen(false)} />
       )}
 
       {notifyMemberTarget && (
