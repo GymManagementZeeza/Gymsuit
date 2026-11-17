@@ -265,6 +265,23 @@ export function registerNutritionist(input: { email: string; otp: string; firstN
   });
 }
 
+/**
+ * Public account deletion (gymsuit.app/detele/account): deletes the account a
+ * just-verified OTP session belongs to. Takes the access token directly so the
+ * page never stores a session; the response also clears the refresh cookie.
+ */
+export async function deleteAccountWithToken(accessToken: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/account`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  // Success is a 200 with an empty body, so don't parse JSON here.
+  if (!res.ok) {
+    return throwApiError(res);
+  }
+}
+
 export function verifyOtp(email: string, otp: string) {
   return sessionRequest<LoginResponse>("/api/auth/otp/verify", {
     method: "POST",
