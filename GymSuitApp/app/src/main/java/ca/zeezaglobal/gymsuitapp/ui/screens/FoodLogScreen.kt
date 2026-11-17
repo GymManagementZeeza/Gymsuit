@@ -311,7 +311,7 @@ fun FoodLogScreen() {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 190.dp)
         ) {
             // Overall eating-habit score, shown at the top of the page.
             // A failed load leaves habitScore null and the card hidden.
@@ -427,9 +427,10 @@ fun FoodLogScreen() {
         onClick = { showAiSheet = true },
         icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
         text = { Text("Log with AI") },
+        // Sit above the floating nav toolbar + settings button (≈100dp tall).
         modifier = Modifier
             .align(Alignment.BottomEnd)
-            .padding(16.dp)
+            .padding(end = 16.dp, bottom = 112.dp)
     )
     }
 

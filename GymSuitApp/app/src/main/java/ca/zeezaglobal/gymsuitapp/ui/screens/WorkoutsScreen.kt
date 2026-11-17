@@ -287,7 +287,7 @@ fun WorkoutsScreen(
             .fillMaxSize()
             .background(WpBackground),
         contentPadding = PaddingValues(
-            start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp
+            start = 20.dp, end = 20.dp, top = 8.dp, bottom = 190.dp
         )
     ) {
         if (trainerSuggestion != null) {
@@ -336,9 +336,10 @@ fun WorkoutsScreen(
         text = { Text("Log with AI") },
         containerColor = WpBlue,
         contentColor = Color.White,
+        // Sit above the floating nav toolbar + settings button (≈100dp tall).
         modifier = Modifier
             .align(Alignment.BottomEnd)
-            .padding(20.dp)
+            .padding(end = 20.dp, bottom = 112.dp)
     )
     }
 
