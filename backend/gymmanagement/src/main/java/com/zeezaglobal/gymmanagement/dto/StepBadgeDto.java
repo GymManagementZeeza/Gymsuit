@@ -14,6 +14,8 @@ public record StepBadgeDto(
         String badgeName,
         long stepsAchieved,
         LocalDate date,
-        Instant awardedAt
+        Instant awardedAt,
+        /** STEPS or CALORIES. For CALORIES, stepsAchieved holds the kcal burned. */
+        String kind
 ) {
 }

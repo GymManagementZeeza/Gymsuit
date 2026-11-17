@@ -46,9 +46,23 @@ public class StepBadgeService {
     public static final LinkedHashMap<Integer, String> MILESTONES = new LinkedHashMap<>();
 
     static {
-        MILESTONES.put(5_000, "Stride Starter");
         MILESTONES.put(10_000, "Step Champion");
-        MILESTONES.put(20_000, "Trail Blazer");
+    }
+
+    /** Daily calories-burned milestone (steps + exercise), as a threshold in kcal. */
+    public static final int CALORIE_THRESHOLD = 1_000;
+    public static final String CALORIE_BADGE_NAME = "Calorie Crusher";
+    /** Estimated kcal per step, the same figure the app's calories card uses. */
+    public static final double KCAL_PER_STEP = 0.04;
+
+    /** Names of retired step milestones, kept so badges already earned still display. */
+    private static final Map<Integer, String> LEGACY_NAMES = Map.of(
+            5_000, "Stride Starter",
+            20_000, "Trail Blazer");
+
+    /** STEPS for step milestones (incl. retired ones), CALORIES for the kcal badge. */
+    public static String kindFor(int threshold) {
+        return threshold == CALORIE_THRESHOLD ? "CALORIES" : "STEPS";
     }
 
     /**
@@ -59,7 +73,9 @@ public class StepBadgeService {
      * falls back to a readable label instead of null.
      */
     public static String nameFor(int threshold) {
+        if (threshold == CALORIE_THRESHOLD) return CALORIE_BADGE_NAME;
         String name = MILESTONES.get(threshold);
+        if (name == null) name = LEGACY_NAMES.get(threshold);
         return name != null ? name : String.format("%,d Steps", threshold);
     }
 
@@ -102,6 +118,33 @@ public class StepBadgeService {
         return created;
     }
 
+    /**
+     * Awards the daily calories-burned badge when steps + exercise calories
+     * for the day reach {@link #CALORIE_THRESHOLD}. Once per (user, date).
+     * {@code activeKcal} is the day's exercise/active calories (may be null);
+     * steps are converted at {@link #KCAL_PER_STEP}.
+     */
+    @Transactional
+    public List<StepBadge> awardCalorieBadgeIfEarned(User user, LocalDate date, Double activeKcal, Long steps) {
+        double burned = (activeKcal != null ? activeKcal : 0.0)
+                + (steps != null ? steps * KCAL_PER_STEP : 0.0);
+        List<StepBadge> created = new ArrayList<>();
+        if (burned < CALORIE_THRESHOLD
+                || badgeRepository.existsByUserIdAndThresholdAndBadgeDate(user.getId(), CALORIE_THRESHOLD, date)) {
+            return created;
+        }
+        StepBadge badge = new StepBadge();
+        badge.setUser(user);
+        badge.setThreshold(CALORIE_THRESHOLD);
+        badge.setStepsAchieved(Math.round(burned)); // for the calories badge: kcal burned
+        badge.setBadgeDate(date);
+        badge.setAwardedAt(Instant.now());
+        badgeRepository.save(badge);
+        created.add(badge);
+        log.info("Awarded calorie badge ({} kcal) to user {} for {}", Math.round(burned), user.getId(), date);
+        return created;
+    }
+
     @Transactional(readOnly = true)
     public List<StepBadgeDto> getBadges(User user) {
         return badgeRepository.findByUserIdOrderByAwardedAtDesc(user.getId())
@@ -110,7 +153,7 @@ public class StepBadgeService {
 
     private StepBadgeDto toDto(StepBadge b) {
         return new StepBadgeDto(b.getId(), b.getThreshold(), nameFor(b.getThreshold()),
-                b.getStepsAchieved(), b.getBadgeDate(), b.getAwardedAt());
+                b.getStepsAchieved(), b.getBadgeDate(), b.getAwardedAt(), kindFor(b.getThreshold()));
     }
 
     /**
@@ -130,7 +173,7 @@ public class StepBadgeService {
             }
             String subject = newBadges.size() == 1
                     ? "\uD83C\uDFC5 You earned the \"" + nameFor(newBadges.get(0).getThreshold()) + "\" badge!"
-                    : "\uD83C\uDFC5 You earned " + newBadges.size() + " GymSuit step badges!";
+                    : "\uD83C\uDFC5 You earned " + newBadges.size() + " GymSuit badges!";
             String html = buildBadgeEmailHtml(user, newBadges);
             byte[] gif = loadCelebrationGif();
             if (gif != null) {
@@ -178,7 +221,7 @@ public class StepBadgeService {
         sb.append("<h2 class=\"badge-pop\" style=\"font-size:26px;text-align:center;margin:12px 0 4px;\">")
                 .append("\uD83C\uDF89 Congrats, ").append(escape(displayName(user))).append("!</h2>");
         sb.append("<p style=\"font-size:15px;color:#5f6368;text-align:center;margin:0 0 20px;\">You just unlocked ")
-                .append(badges.size() == 1 ? "a new step milestone badge" : badges.size() + " new step milestone badges")
+                .append(badges.size() == 1 ? "a new daily badge" : badges.size() + " new daily badges")
                 .append(" \u2014 keep walking! \uD83D\uDEB6</p>");
 
         for (StepBadge b : badges) {
@@ -187,10 +230,13 @@ public class StepBadgeService {
             sb.append("<div class=\"badge-pop\" style=\"font-size:20px;font-weight:800;margin:8px 0 2px;\">")
                     .append(escape(nameFor(b.getThreshold()))).append("</div>");
             sb.append("<div style=\"font-size:14px;color:#5f6368;\">")
-                    .append(String.format("%,d", b.getThreshold())).append(" steps in a single day</div>");
+                    .append(String.format("%,d", b.getThreshold()))
+                    .append("CALORIES".equals(kindFor(b.getThreshold())) ? " kcal burned in a day" : " steps in a single day")
+                    .append("</div>");
             sb.append("<div style=\"margin-top:10px;\">");
             sb.append("<span style=\"display:inline-block;background:#eef4ff;color:#1d4ed8;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;\">")
-                    .append(String.format("%,d", b.getStepsAchieved())).append(" steps</span> ");
+                    .append(String.format("%,d", b.getStepsAchieved()))
+                    .append("CALORIES".equals(kindFor(b.getThreshold())) ? " kcal" : " steps").append("</span> ");
             sb.append("<span style=\"display:inline-block;background:#f1f5f9;color:#475569;border-radius:999px;padding:6px 14px;font-size:13px;\">")
                     .append(escape(b.getBadgeDate().format(DATE_FMT))).append("</span>");
             sb.append("</div></div>");

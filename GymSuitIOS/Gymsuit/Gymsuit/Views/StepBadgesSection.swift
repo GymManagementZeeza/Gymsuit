@@ -2,29 +2,37 @@ import SwiftUI
 
 // MARK: - Badges section (Home tab)
 
-/// "Step Badges" section: one card per milestone threshold (5k / 10k / 20k).
-/// Earned badges show in full color with the date earned; unearned ones stay
-/// greyed out with a lock so users see what's next.
+/// "Daily Badges" section: 10,000 steps and 1,000 kcal burned. They reset
+/// every day: a badge shows in full colour once earned today, otherwise it
+/// stays greyed out with a lock.
 struct StepBadgesSectionView: View {
     @StateObject private var store = StepBadgeStore.shared
 
+    private static var todayKey: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Step Badges")
+            Text("Daily Badges")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(AppColors.textPrimary)
-            Text("Hit a daily step milestone to unlock")
+            Text("Earn them again every day")
                 .font(.system(size: 13))
                 .foregroundColor(AppColors.textSecondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(StepBadgeConfig.milestones, id: \.threshold) { milestone in
+                    ForEach(StepBadgeConfig.daily, id: \.name) { milestone in
                         BadgeCardView(
-                            threshold: milestone.threshold,
-                            name: milestone.name,
+                            milestone: milestone,
                             badge: store.badges
-                                .filter { $0.threshold == milestone.threshold }
+                                .filter { $0.threshold == milestone.threshold
+                                    && ($0.kind ?? "STEPS") == milestone.kind
+                                    && $0.date == Self.todayKey }
                                 .max(by: { ($0.awardedAt ?? "") < ($1.awardedAt ?? "") })
                         )
                     }
@@ -39,17 +47,19 @@ struct StepBadgesSectionView: View {
 }
 
 private struct BadgeCardView: View {
-    let threshold: Int
-    let name: String
+    let milestone: StepBadgeConfig.Milestone
     let badge: StepBadge?
+
+    private var threshold: Int { milestone.threshold }
+    private var name: String { milestone.name }
 
     private var earned: Bool { badge != nil }
 
     private var stepsLine: String {
         if let badge {
-            return "\(badge.stepsAchieved.formatted()) steps"
+            return "\(badge.stepsAchieved.formatted()) \(milestone.unit)"
         }
-        return "\(threshold.formatted()) steps"
+        return "\(threshold.formatted()) \(milestone.unit)"
     }
 
     var body: some View {
@@ -146,12 +156,12 @@ private struct BadgeCelebrationView: View {
                     .foregroundColor(Color(hex: 0xFFD97706))
                     .padding(.top, 4)
 
-                Text("\(badge.threshold.formatted()) steps in a day")
+                Text(badge.isCalories ? "\(badge.threshold.formatted()) kcal burned in a day" : "\(badge.threshold.formatted()) steps in a day")
                     .font(.system(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .padding(.top, 8)
 
-                Text("You walked \(badge.stepsAchieved.formatted()) steps")
+                Text(badge.isCalories ? "You burned \(badge.stepsAchieved.formatted()) kcal" : "You walked \(badge.stepsAchieved.formatted()) steps")
                     .font(.system(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .padding(.top, 2)

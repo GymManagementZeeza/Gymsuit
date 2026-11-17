@@ -15,8 +15,12 @@ data class StepBadge(
     val badgeName: String,
     val stepsAchieved: Long,
     val date: LocalDate?,
-    val awardedAt: Instant?
+    val awardedAt: Instant?,
+    /** "STEPS" or "CALORIES". For CALORIES, [stepsAchieved] holds the kcal burned. */
+    val kind: String = "STEPS"
 ) {
+    val isCalories: Boolean get() = kind == "CALORIES"
+
     companion object {
         fun fromJson(o: JSONObject): StepBadge = StepBadge(
             id = o.optLong("id"),
@@ -28,16 +32,21 @@ data class StepBadge(
             },
             awardedAt = o.optString("awardedAt").takeIf { it.isNotBlank() }?.let {
                 try { Instant.parse(it) } catch (e: Exception) { null }
-            }
+            },
+            kind = o.optString("kind", "STEPS").ifBlank { "STEPS" }
         )
     }
 }
 
-/** The three milestone thresholds with their badge names, ascending. */
+/** A daily badge: [kind] is STEPS or CALORIES, [threshold] is steps or kcal in one day. */
+data class DailyBadgeSpec(val kind: String, val threshold: Int, val name: String) {
+    val unit: String get() = if (kind == "CALORIES") "kcal burned" else "steps"
+}
+
+/** The two daily badges (they reset each day). */
 object StepBadgeConfig {
-    val milestones: List<Pair<Int, String>> = listOf(
-        5000 to "Stride Starter",
-        10000 to "Step Champion",
-        20000 to "Trail Blazer"
+    val daily: List<DailyBadgeSpec> = listOf(
+        DailyBadgeSpec("STEPS", 10000, "Step Champion"),
+        DailyBadgeSpec("CALORIES", 1000, "Calorie Crusher")
     )
 }

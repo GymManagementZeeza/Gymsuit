@@ -13,6 +13,10 @@ public struct StepBadge: Codable, Identifiable, Equatable {
     public let stepsAchieved: Int64
     public let date: String?
     public let awardedAt: String?
+    /// "STEPS" or "CALORIES". For CALORIES, `stepsAchieved` holds the kcal burned.
+    public let kind: String?
+
+    public var isCalories: Bool { kind == "CALORIES" }
 
     public var formattedDate: String {
         guard let date, let parsed = Self.dayFormatter.date(from: date) else { return "" }
@@ -35,17 +39,18 @@ public struct StepBadge: Codable, Identifiable, Equatable {
 
 // MARK: - Configuration
 
-/// The three milestone thresholds with their badge names, ascending.
+/// The two daily badges (they reset each day): 10,000 steps and 1,000 kcal burned.
 public enum StepBadgeConfig {
     public struct Milestone {
+        public let kind: String
         public let threshold: Int
         public let name: String
+        public var unit: String { kind == "CALORIES" ? "kcal burned" : "steps" }
     }
 
-    public static let milestones: [Milestone] = [
-        Milestone(threshold: 5000, name: "Stride Starter"),
-        Milestone(threshold: 10000, name: "Step Champion"),
-        Milestone(threshold: 20000, name: "Trail Blazer")
+    public static let daily: [Milestone] = [
+        Milestone(kind: "STEPS", threshold: 10000, name: "Step Champion"),
+        Milestone(kind: "CALORIES", threshold: 1000, name: "Calorie Crusher")
     ]
 }
 

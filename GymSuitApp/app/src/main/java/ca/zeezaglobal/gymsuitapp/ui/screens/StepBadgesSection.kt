@@ -55,7 +55,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.collectAsState
 import ca.zeezaglobal.gymsuitapp.data.StepBadgeStore
 import ca.zeezaglobal.gymsuitapp.data.model.StepBadge
+import ca.zeezaglobal.gymsuitapp.data.model.DailyBadgeSpec
 import ca.zeezaglobal.gymsuitapp.data.model.StepBadgeConfig
+import java.time.LocalDate
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -63,10 +65,10 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * "Step Badges" section for the Home screen: one card per milestone
- * threshold (5k / 10k / 20k). Earned badges show in full color with the
- * date earned; unearned ones stay greyed out with a lock so users see
- * what's next.
+ * "Daily Badges" section for the Home screen: two badges that reset every
+ * day (10,000 steps, 1,000 kcal burned). A badge shows in full colour once
+ * it is earned today; otherwise it stays greyed out with a lock until it is
+ * earned again.
  */
 @Composable
 fun StepBadgesSection() {
@@ -77,32 +79,34 @@ fun StepBadgesSection() {
         StepBadgeStore.refresh(context)
     }
 
+    val today = LocalDate.now()
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Step Badges",
+            text = "Daily Badges",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF111827)
         )
         Text(
-            text = "Hit a daily step milestone to unlock",
+            text = "Earn them again every day",
             fontSize = 13.sp,
             color = Color(0xFF6B7280)
         )
         Spacer(modifier = Modifier.height(12.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(StepBadgeConfig.milestones) { (threshold, name) ->
+            items(StepBadgeConfig.daily) { spec ->
                 val earned = badges
-                    .filter { it.threshold == threshold }
+                    .filter { it.threshold == spec.threshold && it.kind == spec.kind && it.date == today }
                     .maxByOrNull { it.awardedAt ?: Instant.EPOCH }
-                BadgeCard(threshold = threshold, name = name, badge = earned)
+                BadgeCard(spec = spec, badge = earned)
             }
         }
     }
 }
 
 @Composable
-private fun BadgeCard(threshold: Int, name: String, badge: StepBadge?) {
+private fun BadgeCard(spec: DailyBadgeSpec, badge: StepBadge?) {
+    val name = spec.name
     val earned = badge != null
     Card(
         colors = CardDefaults.cardColors(
@@ -132,9 +136,9 @@ private fun BadgeCard(threshold: Int, name: String, badge: StepBadge?) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = if (earned) {
-                    "%,d steps".format(badge.stepsAchieved)
+                    "%,d %s".format(badge.stepsAchieved, spec.unit)
                 } else {
-                    "%,d steps".format(threshold)
+                    "%,d %s".format(spec.threshold, spec.unit)
                 },
                 fontSize = 12.sp,
                 color = Color(0xFF6B7280),
@@ -235,13 +239,15 @@ private fun BadgeCelebrationOverlay(badge: StepBadge, onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "%,d steps in a day".format(badge.threshold),
+                        text = if (badge.isCalories) "%,d kcal burned in a day".format(badge.threshold)
+                    else "%,d steps in a day".format(badge.threshold),
                         fontSize = 14.sp,
                         color = Color(0xFF6B7280),
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "You walked %,d steps".format(badge.stepsAchieved),
+                        text = if (badge.isCalories) "You burned %,d kcal".format(badge.stepsAchieved)
+                        else "You walked %,d steps".format(badge.stepsAchieved),
                         fontSize = 14.sp,
                         color = Color(0xFF6B7280),
                         textAlign = TextAlign.Center

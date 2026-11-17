@@ -206,9 +206,14 @@ public class HealthSyncService {
                 if (dto.recordDate() == null) continue;
                 Optional<DailyHealthRecord> reconciled = dailyHealthRecordRepository
                         .findByUserIdAndRecordDate(user.getId(), dto.recordDate());
-                if (reconciled.isEmpty() || reconciled.get().getSteps() == null) continue;
-                newBadges.addAll(stepBadgeService.awardBadgesIfEarned(
-                        user, reconciled.get().getRecordDate(), reconciled.get().getSteps()));
+                if (reconciled.isEmpty()) continue;
+                if (reconciled.get().getSteps() != null) {
+                    newBadges.addAll(stepBadgeService.awardBadgesIfEarned(
+                            user, reconciled.get().getRecordDate(), reconciled.get().getSteps()));
+                }
+                newBadges.addAll(stepBadgeService.awardCalorieBadgeIfEarned(
+                        user, reconciled.get().getRecordDate(),
+                        reconciled.get().getActiveCalories(), reconciled.get().getSteps()));
             }
         }
         if (!newBadges.isEmpty()) {
