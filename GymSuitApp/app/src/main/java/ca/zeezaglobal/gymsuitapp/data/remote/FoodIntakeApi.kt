@@ -109,30 +109,73 @@ class FoodIntakeApi(private val context: Context) {
                 val zone = ZoneId.systemDefault()
                 val entries = ArrayList<FoodEntry>(arr.length())
                 for (i in 0 until arr.length()) {
-                    val o = arr.getJSONObject(i)
-                    val meal = runCatching { MealType.valueOf(o.optString("meal")) }
-                        .getOrDefault(MealType.SNACK)
-                    val date = runCatching { LocalDate.parse(o.optString("recordDate")) }
-                        .getOrDefault(LocalDate.now())
-                    val millis = date.atTime(mealHour(meal), 0)
-                        .atZone(zone).toInstant().toEpochMilli()
-                    entries.add(
-                        FoodEntry(
-                            id = o.optString("externalId"),
-                            name = o.optString("dishName"),
-                            meal = meal,
-                            calories = o.optInt("calories"),
-                            proteinG = o.optDouble("proteinG", 0.0),
-                            carbsG = o.optDouble("carbsG", 0.0),
-                            fatG = o.optDouble("fatG", 0.0),
-                            timestampMillis = millis
-                        )
-                    )
+                    entries.add(toFoodEntry(arr.getJSONObject(i), zone))
                 }
                 Result.success(entries)
             } catch (e: Exception) {
                 Log.w(TAG, "Food fetch failed: ${e.message}")
                 Result.failure(e)
+            } finally {
+                connection?.disconnect()
+            }
+        }
+
+    private fun toFoodEntry(o: JSONObject, zone: ZoneId): FoodEntry {
+        val meal = runCatching { MealType.valueOf(o.optString("meal")) }
+            .getOrDefault(MealType.SNACK)
+        val date = runCatching { LocalDate.parse(o.optString("recordDate")) }
+            .getOrDefault(LocalDate.now())
+        val millis = date.atTime(mealHour(meal), 0).atZone(zone).toInstant().toEpochMilli()
+        return FoodEntry(
+            id = o.optString("externalId"),
+            name = o.optString("dishName"),
+            meal = meal,
+            calories = o.optInt("calories"),
+            proteinG = o.optDouble("proteinG", 0.0),
+            carbsG = o.optDouble("carbsG", 0.0),
+            fatG = o.optDouble("fatG", 0.0),
+            timestampMillis = millis
+        )
+    }
+
+    /**
+     * Sends free text ("2 idlis for breakfast, biryani for lunch") to the backend,
+     * where the AI turns it into meals with estimated nutrition that are saved.
+     * Returns the saved entries for the caller to merge into the local log.
+     */
+    suspend fun aiLog(text: String, date: LocalDate): Result<List<FoodEntry>> =
+        withContext(Dispatchers.IO) {
+            var connection: HttpURLConnection? = null
+            try {
+                connection = (URL("$BASE_URL/ai-log").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = TIMEOUT_MS
+                    readTimeout = 60000 // the AI call can take a while
+                }
+                val token = authManager.getAccessToken()
+                if (!token.isNullOrBlank()) {
+                    connection.setRequestProperty("Authorization", "Bearer $token")
+                }
+                val body = JSONObject().put("text", text).put("date", date.format(DATE_FORMATTER))
+                connection.outputStream.use { it.write(body.toString().toByteArray()) }
+                val code = connection.responseCode
+                if (code == 401) AuthManager.unauthorizedEvent.tryEmit(Unit)
+                if (code !in 200..299) {
+                    val err = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    val msg = runCatching { JSONObject(err).optString("message") }.getOrNull()
+                    return@withContext Result.failure(
+                        Exception(msg?.takeIf { it.isNotBlank() } ?: "Couldn't log meals ($code)")
+                    )
+                }
+                val arr = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+                val zone = ZoneId.systemDefault()
+                Result.success(List(arr.length()) { toFoodEntry(arr.getJSONObject(it), zone) })
+            } catch (e: Exception) {
+                Log.w(TAG, "AI food log failed: ${e.message}")
+                Result.failure(Exception("Couldn't reach GymSuit. Check your connection."))
             } finally {
                 connection?.disconnect()
             }

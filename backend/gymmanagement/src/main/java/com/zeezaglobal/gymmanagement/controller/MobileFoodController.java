@@ -2,10 +2,12 @@ package com.zeezaglobal.gymmanagement.controller;
 
 import com.zeezaglobal.gymmanagement.dto.EatingHabitScoreResponse;
 import com.zeezaglobal.gymmanagement.dto.FoodIntakeResponse;
+import com.zeezaglobal.gymmanagement.dto.FoodAiLogRequest;
 import com.zeezaglobal.gymmanagement.dto.FoodIntakeSyncRequest;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import com.zeezaglobal.gymmanagement.security.UserPrincipal;
 import com.zeezaglobal.gymmanagement.service.EatingHabitScoreService;
+import com.zeezaglobal.gymmanagement.service.FoodAiService;
 import com.zeezaglobal.gymmanagement.service.FoodIntakeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ import java.util.Map;
 public class MobileFoodController {
 
     private final FoodIntakeService foodIntakeService;
+    private final FoodAiService foodAiService;
     private final EatingHabitScoreService eatingHabitScoreService;
     private final SecurityService securityService;
 
@@ -72,6 +75,26 @@ public class MobileFoodController {
             throw new AccessDeniedException("Authentication required");
         }
         return Map.of("synced", foodIntakeService.sync(request, principal));
+    }
+
+    /**
+     * Describe what was eaten in plain language; the AI turns it into meals with
+     * estimated nutrition, which are saved and returned for the app to merge.
+     */
+    @PostMapping("/ai-log")
+    public List<FoodIntakeResponse> aiLog(@Valid @RequestBody FoodAiLogRequest request) {
+        UserPrincipal principal = securityService.currentUser();
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+        LocalDate date = request.date() != null ? request.date() : LocalDate.now();
+        var entries = foodAiService.parse(request.text(), date);
+        foodIntakeService.sync(new FoodIntakeSyncRequest(entries), principal);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        return entries.stream()
+                .map(e -> new FoodIntakeResponse(e.externalId(), e.recordDate(), e.meal(), e.dishName(),
+                        e.calories(), e.proteinG(), e.carbsG(), e.fatG(), false, now))
+                .toList();
     }
 
     @DeleteMapping("/{externalId}")

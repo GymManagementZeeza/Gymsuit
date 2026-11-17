@@ -78,6 +78,9 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -107,6 +110,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ca.zeezaglobal.gymsuitapp.data.FoodEntry
+import ca.zeezaglobal.gymsuitapp.data.remote.FoodIntakeApi
 import ca.zeezaglobal.gymsuitapp.data.remote.EatingHabitScoreApi
 import ca.zeezaglobal.gymsuitapp.data.remote.FoodRecognitionApi
 import ca.zeezaglobal.gymsuitapp.data.remote.MealPlanApi
@@ -252,6 +256,9 @@ fun FoodLogScreen() {
         MealReminders.setEnabled(context, granted)
     }
 
+    var showAiSheet by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -414,6 +421,28 @@ fun FoodLogScreen() {
                 }
             }
         }
+    }
+
+    ExtendedFloatingActionButton(
+        onClick = { showAiSheet = true },
+        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+        text = { Text("Log with AI") },
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(16.dp)
+    )
+    }
+
+    if (showAiSheet) {
+        AiFoodLogSheet(
+            date = date,
+            onDismiss = { showAiSheet = false },
+            onLogged = { pulled ->
+                store.mergeFromServer(pulled)
+                entries = store.getAll()
+                showAiSheet = false
+            }
+        )
     }
 
     chooserMeal?.let { meal ->
@@ -1144,6 +1173,88 @@ private fun AddMethodSheet(
                 leadingContent = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                 modifier = Modifier.clickable(onClick = onManual)
             )
+        }
+    }
+}
+
+
+/** Bottom sheet: describe what you ate in plain words; the AI logs the meals. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AiFoodLogSheet(
+    date: LocalDate,
+    onDismiss: () -> Unit,
+    onLogged: (List<FoodEntry>) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val dayLabel = if (date == LocalDate.now()) "today"
+    else date.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))
+
+    ModalBottomSheet(onDismissRequest = { if (!loading) onDismiss() }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 16.dp)
+        ) {
+            Text(
+                text = "Log with AI",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(
+                text = "Tell me what you ate $dayLabel. I'll split it into meals and " +
+                    "estimate calories, protein, carbs and fat.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            )
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it; error = null },
+                enabled = !loading,
+                label = { Text("What did you eat?") },
+                placeholder = {
+                    Text("2 idlis with sambar for breakfast, chicken biryani for lunch, a banana as snack")
+                },
+                isError = error != null,
+                supportingText = { error?.let { Text(it) } },
+                minLines = 4,
+                maxLines = 8,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    loading = true
+                    scope.launch {
+                        FoodIntakeApi(context).aiLog(text.trim(), date)
+                            .onSuccess { onLogged(it) }
+                            .onFailure { error = it.message; loading = false }
+                    }
+                },
+                enabled = text.isNotBlank() && !loading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Logging…")
+                } else {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Log meals")
+                }
+            }
         }
     }
 }
