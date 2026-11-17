@@ -96,7 +96,9 @@ data class LoggedWorkout(
     val sets: List<WorkoutSet>,
     val durationMinutes: Int,
     val notes: String,
-    val syncedToHealth: Boolean = false
+    val syncedToHealth: Boolean = false,
+    /** Calories burned when known (pulled from the backend, e.g. MCP estimate). */
+    val caloriesBurned: Int? = null
 ) {
     val totalReps: Int get() = sets.sumOf { it.reps }
     val totalVolumeKg: Double get() = sets.sumOf { it.reps * it.weightKg }

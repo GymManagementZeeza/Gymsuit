@@ -117,7 +117,6 @@ import kotlin.math.roundToInt
 //
 //   1. WorkoutStreakCardView        → week strip + day streak / personal best
 //   2. WorkoutDaySummaryCardView    → Workout / Kcal / Minute for selected day
-//   3. WorkoutBodyFocusSectionView  → focus pills + exercise GIF grid
 //   4. WorkoutProgressProjectionCardView → weight projection graph + the
 //      Record Weight sheet
 //
@@ -217,7 +216,6 @@ fun WorkoutsScreen(
     var storedPersonalBest by remember {
         mutableIntStateOf(onboardingStore.personalBestDays)
     }
-    var selectedFocus by remember { mutableStateOf("Forearm") }
 
     // Workout the member's trainer sent for today (if any) — shown as the
     // top card on this page. A 404 just means nothing was sent today.
@@ -265,13 +263,6 @@ fun WorkoutsScreen(
         }
     }
 
-    val exercises = remember { workoutStore.exercises }
-    val filteredExercises = remember(exercises, selectedFocus) {
-        val matches = exercises.filter { matchesBodyFocus(it, selectedFocus) }
-        // iOS: an empty filter result shows the whole catalog.
-        if (matches.isEmpty()) exercises else matches
-    }
-
     // iOS page: #FAFBFD, sections stacked with 20pt spacing, 20pt side
     // padding, 8pt top / 24pt bottom.
     LazyColumn(
@@ -305,14 +296,7 @@ fun WorkoutsScreen(
                 healthSessions = healthSessions
             )
         }
-        // iOS adds 4pt of top padding before sections 3 and 4 (24 total).
         item { Spacer(Modifier.height(24.dp)) }
-        bodyFocusItems(
-            exercises = filteredExercises,
-            selectedFocus = selectedFocus,
-            onSelectFocus = { selectedFocus = it }
-        )
-        item { Spacer(Modifier.height(8.dp)) }
         item {
             WorkoutProgressProjectionCard(
                 onboardingStore = onboardingStore,
@@ -588,6 +572,7 @@ private fun WorkoutDaySummaryCard(
     loggedWorkouts: List<LoggedWorkout>,
     healthSessions: List<HealthWorkoutSession>
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val zone = ZoneId.systemDefault()
     val dayLogged = loggedWorkouts.filter {
         Instant.ofEpochMilli(it.timestampMillis)
@@ -595,7 +580,10 @@ private fun WorkoutDaySummaryCard(
     }
     // iOS separates logged workouts already synced to the health store from
     // unsynced ones, whose values are estimated so nothing double-counts.
-    val unsyncedLogged = dayLogged.filter { !it.syncedToHealth }
+    // Workouts pulled from the backend (MCP / another device) never reach this
+    // device's Health Connect, so they count here with their own calories.
+    val serverIds = remember(loggedWorkouts) { WorkoutStore(context).serverOriginIds() }
+    val unsyncedLogged = dayLogged.filter { !it.syncedToHealth || it.id in serverIds }
     val daySessions = healthSessions.filter { it.date == selectedDate }
 
     val workoutCount = daySessions.size + unsyncedLogged.size
@@ -607,7 +595,11 @@ private fun WorkoutDaySummaryCard(
     // Connect sessions without calories and Health Connect exposes no
     // per-session kcal, so the same 7.5 kcal/min estimate covers the synced
     // sessions too; counts and minutes are exact real data.
-    val totalKcal = (totalMinutes * 7.5).roundToInt()
+    val serverKcal = unsyncedLogged.filter { it.id in serverIds }
+        .sumOf { it.caloriesBurned ?: (it.durationMinutes * 7.5).roundToInt() }
+    val localUnsyncedMinutes = unsyncedLogged.filter { it.id !in serverIds }
+        .sumOf { it.durationMinutes }.toLong()
+    val totalKcal = ((healthMinutes + localUnsyncedMinutes) * 7.5).roundToInt() + serverKcal
 
     IosSectionCard(modifier = Modifier.fillMaxWidth()) {
         Row(

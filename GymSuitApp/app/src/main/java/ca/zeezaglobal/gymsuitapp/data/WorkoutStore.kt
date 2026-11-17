@@ -77,7 +77,9 @@ class WorkoutStore(private val context: Context) {
                     } ?: emptyList(),
                     durationMinutes = o.optInt("durationMinutes"),
                     notes = o.optString("notes"),
-                    syncedToHealth = o.optBoolean("syncedToHealth")
+                    syncedToHealth = o.optBoolean("syncedToHealth"),
+                    caloriesBurned = if (o.has("caloriesBurned") && !o.isNull("caloriesBurned"))
+                        o.optInt("caloriesBurned") else null
                 )
             }.sortedByDescending { it.timestampMillis }
         } catch (e: Exception) {
@@ -123,11 +125,18 @@ class WorkoutStore(private val context: Context) {
      */
     fun mergeFromServer(serverWorkouts: List<LoggedWorkout>): List<LoggedWorkout> {
         val current = getLoggedWorkouts()
-        val localIds = current.mapTo(HashSet()) { it.id }
-        val toAdd = serverWorkouts.filter { it.id.isNotBlank() && it.id !in localIds }
-        if (toAdd.isEmpty()) return current
-        markServerOrigin(toAdd.map { it.id })
-        val updated = (current + toAdd).sortedByDescending { it.timestampMillis }
+        val serverIds = serverOriginIds()
+        val byId = current.associateBy { it.id }
+        // New sessions are added; sessions already pulled earlier are refreshed
+        // (so calories/edits from the server show). Locally-logged ones are
+        // never overwritten.
+        val fresh = serverWorkouts.filter { it.id.isNotBlank() && it.id !in byId }
+        val refreshed = serverWorkouts.filter { it.id in serverIds && it.id in byId }
+            .associateBy { it.id }
+        if (fresh.isEmpty() && refreshed.isEmpty()) return current
+        markServerOrigin(fresh.map { it.id })
+        val updated = (current.map { refreshed[it.id] ?: it } + fresh)
+            .sortedByDescending { it.timestampMillis }
         persist(updated)
         return updated
     }
@@ -171,6 +180,7 @@ class WorkoutStore(private val context: Context) {
                     put("durationMinutes", w.durationMinutes)
                     put("notes", w.notes)
                     put("syncedToHealth", w.syncedToHealth)
+                    w.caloriesBurned?.let { put("caloriesBurned", it) }
                 })
             }
             logFile.writeText(arr.toString())

@@ -104,7 +104,8 @@ class WorkoutApi(private val context: Context) {
             sets = sets,
             durationMinutes = if (o.isNull("durationMinutes")) 0 else o.optInt("durationMinutes"),
             notes = notes,
-            syncedToHealth = true
+            syncedToHealth = true,
+            caloriesBurned = calories?.roundToInt()
         )
     }
 }
