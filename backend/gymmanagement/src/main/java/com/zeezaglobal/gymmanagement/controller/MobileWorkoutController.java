@@ -1,9 +1,11 @@
 package com.zeezaglobal.gymmanagement.controller;
 
+import com.zeezaglobal.gymmanagement.dto.WorkoutAiLogRequest;
 import com.zeezaglobal.gymmanagement.dto.WorkoutResponse;
 import com.zeezaglobal.gymmanagement.dto.WorkoutSyncRequest;
 import com.zeezaglobal.gymmanagement.security.SecurityService;
 import com.zeezaglobal.gymmanagement.security.UserPrincipal;
+import com.zeezaglobal.gymmanagement.service.WorkoutAiService;
 import com.zeezaglobal.gymmanagement.service.WorkoutIntakeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ import java.util.List;
 public class MobileWorkoutController {
 
     private final WorkoutIntakeService workoutIntakeService;
+    private final WorkoutAiService workoutAiService;
     private final SecurityService securityService;
 
     private UserPrincipal requireUser() {
@@ -47,6 +50,18 @@ public class MobileWorkoutController {
     @PostMapping("/sync")
     public List<WorkoutResponse> sync(@Valid @RequestBody WorkoutSyncRequest request) {
         return workoutIntakeService.sync(request, requireUser());
+    }
+
+    /**
+     * Describe the day's training in plain language; the AI turns it into
+     * structured workouts which are saved (calories estimated) and returned.
+     */
+    @PostMapping("/ai-log")
+    public List<WorkoutResponse> aiLog(@Valid @RequestBody WorkoutAiLogRequest request) {
+        UserPrincipal user = requireUser();
+        LocalDate date = request.date() != null ? request.date() : LocalDate.now();
+        var entries = workoutAiService.parse(request.text(), date);
+        return workoutIntakeService.sync(new WorkoutSyncRequest(entries), user);
     }
 
     /**

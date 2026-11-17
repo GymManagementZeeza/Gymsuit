@@ -6,6 +6,15 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -39,6 +48,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -263,6 +277,9 @@ fun WorkoutsScreen(
         }
     }
 
+    var showAiSheet by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     // iOS page: #FAFBFD, sections stacked with 20pt spacing, 20pt side
     // padding, 8pt top / 24pt bottom.
     LazyColumn(
@@ -270,7 +287,7 @@ fun WorkoutsScreen(
             .fillMaxSize()
             .background(WpBackground),
         contentPadding = PaddingValues(
-            start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp
+            start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp
         )
     ) {
         if (trainerSuggestion != null) {
@@ -296,12 +313,125 @@ fun WorkoutsScreen(
                 healthSessions = healthSessions
             )
         }
+        item { Spacer(Modifier.height(20.dp)) }
+        item {
+            WorkoutDayDetails(
+                selectedDate = selectedDate,
+                loggedWorkouts = loggedWorkouts,
+                healthSessions = healthSessions
+            )
+        }
         item { Spacer(Modifier.height(24.dp)) }
         item {
             WorkoutProgressProjectionCard(
                 onboardingStore = onboardingStore,
                 healthConnectManager = healthConnectManager
             )
+        }
+    }
+
+    ExtendedFloatingActionButton(
+        onClick = { showAiSheet = true },
+        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+        text = { Text("Log with AI") },
+        containerColor = WpBlue,
+        contentColor = Color.White,
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(20.dp)
+    )
+    }
+
+    if (showAiSheet) {
+        AiWorkoutLogSheet(
+            date = selectedDate,
+            onDismiss = { showAiSheet = false },
+            onLogged = { pulled ->
+                workoutStore.mergeFromServer(pulled)
+                loggedWorkouts = workoutStore.getLoggedWorkouts()
+                showAiSheet = false
+            }
+        )
+    }
+}
+
+/** Bottom sheet: describe the day's workouts in plain words; the AI logs them. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AiWorkoutLogSheet(
+    date: LocalDate,
+    onDismiss: () -> Unit,
+    onLogged: (List<LoggedWorkout>) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = { if (!loading) onDismiss() }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 16.dp)
+        ) {
+            Text(
+                text = "Log with AI",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Tell me what you did on ${formatMonthDay(date)}. " +
+                    "I'll turn it into workouts with sets, reps, time and calories.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            )
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it; error = null },
+                enabled = !loading,
+                label = { Text("What did you do?") },
+                placeholder = {
+                    Text("Bench press 3 sets of 10 at 40 kg, then a 30 minute run")
+                },
+                isError = error != null,
+                supportingText = { error?.let { Text(it) } },
+                minLines = 4,
+                maxLines = 8,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    loading = true
+                    scope.launch {
+                        ca.zeezaglobal.gymsuitapp.data.remote.WorkoutApi(context)
+                            .aiLog(text.trim(), date)
+                            .onSuccess { onLogged(it) }
+                            .onFailure { error = it.message; loading = false }
+                    }
+                },
+                enabled = text.isNotBlank() && !loading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Logging…")
+                } else {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Log workouts")
+                }
+            }
         }
     }
 }
@@ -644,6 +774,213 @@ private fun WorkoutDaySummaryCard(
                 label = "Minute",
                 modifier = Modifier.weight(1f)
             )
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Day details — what was done on the selected day
+// ----------------------------------------------------------------------------
+
+@Composable
+private fun WorkoutDayDetails(
+    selectedDate: LocalDate,
+    loggedWorkouts: List<LoggedWorkout>,
+    healthSessions: List<HealthWorkoutSession>
+) {
+    val zone = ZoneId.systemDefault()
+    val timeFormat = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
+    val dayLogged = loggedWorkouts
+        .filter { Instant.ofEpochMilli(it.timestampMillis).atZone(zone).toLocalDate() == selectedDate }
+        .sortedBy { it.timestampMillis }
+    // Health Connect also holds sessions written from logged workouts; keep only
+    // the ones with no logged twin (same length) so nothing is listed twice.
+    val otherSessions = healthSessions.filter { hs ->
+        hs.date == selectedDate && dayLogged.none { it.durationMinutes.toLong() == hs.durationMinutes }
+    }
+    val count = dayLogged.size + otherSessions.size
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = "Today's activity".takeIf { selectedDate == LocalDate.now() }
+                    ?: formatMonthDay(selectedDate),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = WpInk,
+                modifier = Modifier.weight(1f)
+            )
+            if (count > 0) {
+                Text(
+                    text = if (count == 1) "1 workout" else "$count workouts",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = WpSlate
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        // Material Motion "fade": 90ms out, 210ms in, emphasized easing.
+        AnimatedContent(
+            targetState = selectedDate,
+            transitionSpec = {
+                fadeIn(tween(210, delayMillis = 90, easing = FastOutSlowInEasing)) togetherWith
+                    fadeOut(tween(90, easing = FastOutSlowInEasing))
+            },
+            label = "workoutDayDetails"
+        ) { _ ->
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (count == 0) {
+                    IosSectionCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FitnessCenter,
+                                contentDescription = null,
+                                tint = WpIconBlue,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "No workouts logged",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = WpInk
+                            )
+                            Text(
+                                "Log one in the app or tell your AI assistant.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = WpSlate
+                            )
+                        }
+                    }
+                }
+                dayLogged.forEach { w ->
+                    val strength = w.sets.isNotEmpty()
+                    val stats = buildList {
+                        if (strength) {
+                            add(w.sets.size.toString() to "Sets")
+                            add(w.sets.first().reps.toString() to "Reps")
+                            if (w.maxWeightKg > 0) add("${formatKg(w.maxWeightKg)} kg" to "Weight")
+                            if (w.totalVolumeKg > 0) add("${formatKg(w.totalVolumeKg)} kg" to "Volume")
+                        }
+                        if (w.durationMinutes > 0) add("${w.durationMinutes} min" to "Time")
+                    }
+                    WorkoutEntryCard(
+                        title = w.exerciseName,
+                        time = Instant.ofEpochMilli(w.timestampMillis).atZone(zone).format(timeFormat),
+                        strength = strength,
+                        calories = w.caloriesBurned,
+                        stats = stats
+                    )
+                }
+                otherSessions.forEach { hs ->
+                    WorkoutEntryCard(
+                        title = hs.title.ifBlank { "Workout" },
+                        time = null,
+                        strength = false,
+                        calories = null,
+                        stats = listOf("${hs.durationMinutes} min" to "Time")
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatKg(value: Double): String =
+    if (value % 1.0 == 0.0) value.roundToInt().toString() else "%.1f".format(value)
+
+/** One workout: icon badge, name + time, calories, and a row of stat tiles. */
+@Composable
+private fun WorkoutEntryCard(
+    title: String,
+    time: String?,
+    strength: Boolean,
+    calories: Int?,
+    stats: List<Pair<String, String>>
+) {
+    IosSectionCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).background(WpPaleBlue, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (strength) Icons.Filled.FitnessCenter
+                        else Icons.Filled.Whatshot,
+                        contentDescription = null,
+                        tint = WpBlue,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = WpInk,
+                        maxLines = 2
+                    )
+                    if (time != null) {
+                        Text(
+                            text = time,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WpSlate
+                        )
+                    }
+                }
+                if (calories != null) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = calories.toString(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = WpInk
+                        )
+                        Text(
+                            text = "kcal",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WpSlate
+                        )
+                    }
+                }
+            }
+            if (stats.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    stats.forEach { (value, label) ->
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            color = WpBackground
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = value,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WpInk,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = WpSlate
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

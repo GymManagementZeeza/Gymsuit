@@ -74,6 +74,49 @@ class WorkoutApi(private val context: Context) {
             }
         }
 
+    /**
+     * Sends free text ("bench press 3x10 at 40 kg, then a 5k run") to the backend,
+     * where the AI structures it into workouts that are saved (calories
+     * estimated). Returns the saved sessions for the caller to merge.
+     */
+    suspend fun aiLog(text: String, date: LocalDate): Result<List<LoggedWorkout>> =
+        withContext(Dispatchers.IO) {
+            var connection: HttpURLConnection? = null
+            try {
+                connection = (URL("$BASE_URL/ai-log").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = TIMEOUT_MS
+                    readTimeout = 60000 // the AI call can take a while
+                }
+                val token = authManager.getAccessToken()
+                if (!token.isNullOrBlank()) {
+                    connection.setRequestProperty("Authorization", "Bearer $token")
+                }
+                val body = JSONObject().put("text", text).put("date", date.format(DATE_FORMATTER))
+                connection.outputStream.use { it.write(body.toString().toByteArray()) }
+                val code = connection.responseCode
+                if (code == 401) AuthManager.unauthorizedEvent.tryEmit(Unit)
+                if (code !in 200..299) {
+                    val err = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    val msg = runCatching { JSONObject(err).optString("message") }.getOrNull()
+                    return@withContext Result.failure(
+                        Exception(msg?.takeIf { it.isNotBlank() } ?: "Couldn't log workouts ($code)")
+                    )
+                }
+                val arr = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+                val zone = ZoneId.systemDefault()
+                Result.success(List(arr.length()) { toLoggedWorkout(arr.getJSONObject(it), zone) })
+            } catch (e: Exception) {
+                Log.w(TAG, "AI workout log failed: ${e.message}")
+                Result.failure(Exception("Couldn't reach GymSuit. Check your connection."))
+            } finally {
+                connection?.disconnect()
+            }
+        }
+
     private fun toLoggedWorkout(o: JSONObject, zone: ZoneId): LoggedWorkout {
         val startMillis = runCatching {
             LocalDateTime.parse(o.optString("startTime"))
