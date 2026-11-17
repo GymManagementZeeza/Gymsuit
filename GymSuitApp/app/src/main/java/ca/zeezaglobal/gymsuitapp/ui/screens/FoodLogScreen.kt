@@ -79,6 +79,15 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BreakfastDining
+import androidx.compose.material.icons.filled.Cookie
+import androidx.compose.material.icons.filled.DinnerDining
+import androidx.compose.material.icons.filled.LunchDining
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Button
@@ -267,18 +276,58 @@ fun FoodLogScreen() {
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.weight(1f)
             )
-            FilledTonalIconButton(onClick = { date = date.minusDays(1) }) {
+            FilledTonalIconButton(
+                onClick = { date = date.minusDays(1) },
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Previous day")
             }
-            FilledTonalIconButton(onClick = { date = date.plusDays(1) }, enabled = date < today) {
+            FilledTonalIconButton(
+                onClick = { date = date.plusDays(1) },
+                enabled = date < today,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Next day")
             }
         }
 
-        ListItem(
-            headlineContent = { Text("Meal reminders") },
-            supportingContent = { Text("Morning, noon, evening and night") },
-            trailingContent = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3D6)),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(CircleShape)
+                        .background(Color(0xFFFFE3A3)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Notifications,
+                        contentDescription = null,
+                        tint = Color(0xFF92400E)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Meal reminders",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF7C4A03)
+                    )
+                    Text(
+                        "Morning, noon, evening and night",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF7C4A03).copy(alpha = 0.75f)
+                    )
+                }
                 Switch(
                     checked = remindersOn,
                     onCheckedChange = { on ->
@@ -290,9 +339,8 @@ fun FoodLogScreen() {
                         }
                     }
                 )
-            },
-            modifier = Modifier.clip(RoundedCornerShape(16.dp))
-        )
+            }
+        }
 
         Spacer(Modifier.height(8.dp))
 
@@ -330,23 +378,61 @@ fun FoodLogScreen() {
                     item(key = "meal-plan-${plan.id}") { MealPlanCard(plan, Modifier.animateItem()) }
                 }
             }
-            item {
+            item(key = "calories-eaten") {
+                val remainingKcal = DAILY_CALORIE_TARGET - totalKcal
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth().animateItem()
                 ) {
-                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Calories eaten", style = MaterialTheme.typography.labelLarge)
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier.size(44.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.Whatshot,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Calories eaten",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    if (remainingKcal >= 0) "$remainingKcal kcal left today"
+                                    else "${-remainingKcal} kcal over target",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                                )
+                            }
+                        }
                         Row(verticalAlignment = Alignment.Bottom) {
-                            Text("$totalKcal", style = MaterialTheme.typography.displaySmall)
+                            Text(
+                                "$totalKcal",
+                                style = MaterialTheme.typography.displaySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 "/ $DAILY_CALORIE_TARGET kcal",
                                 style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                                 modifier = Modifier.padding(bottom = 6.dp)
                             )
                         }
-                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.18f),
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         MacroBar(
                             proteinG = dayEntries.sumOf { it.proteinG }.toInt(),
                             carbsG = dayEntries.sumOf { it.carbsG }.toInt(),
@@ -357,26 +443,50 @@ fun FoodLogScreen() {
                 }
             }
 
-            items(MealType.entries) { meal ->
+            items(MealType.entries, key = { it.name }) { meal ->
                 val mealEntries = dayEntries.filter { it.meal == meal }
+                val style = mealStyle(meal)
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = CardDefaults.cardColors(containerColor = style.container),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth().animateItem()
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 8.dp).animateContentSize()) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Box(
+                                modifier = Modifier.size(44.dp).clip(CircleShape)
+                                    .background(style.chip),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    style.icon,
+                                    contentDescription = null,
+                                    tint = style.accent
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(meal.label, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    meal.label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = style.accent
+                                )
                                 Text(
                                     "${mealEntries.sumOf { it.calories }} kcal",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = style.accent.copy(alpha = 0.75f)
                                 )
                             }
-                            IconButton(onClick = { chooserMeal = meal }) {
+                            FilledTonalIconButton(
+                                onClick = { chooserMeal = meal },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.White,
+                                    contentColor = style.accent
+                                )
+                            ) {
                                 Icon(Icons.Outlined.Add, contentDescription = "Add to ${meal.label}")
                             }
                         }
@@ -387,37 +497,70 @@ fun FoodLogScreen() {
                                 exit = fadeOut() + shrinkVertically()
                             ) {
                                 Column {
-                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                    ListItem(
-                                        headlineContent = { Text(entry.name) },
-                                        supportingContent = {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = style.accent.copy(alpha = 0.12f)
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                entry.name,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = Color(0xFF1C1B1F)
+                                            )
                                             if (entry.proteinG + entry.carbsG + entry.fatG > 0) {
-                                                Text("P ${entry.proteinG.toInt()} • C ${entry.carbsG.toInt()} • F ${entry.fatG.toInt()} g")
-                                            }
-                                        },
-                                        trailingContent = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text("${entry.calories} kcal", style = MaterialTheme.typography.labelLarge)
-                                                IconButton(onClick = {
-                                                    entries = store.delete(entry.id)
-                                                    // Also remove the backend row so the trainer view stops showing it.
-                                                    scope.launch { HealthSyncManager(context).deleteFoodEntry(entry.id) }
-                                                }) {
-                                                    Icon(Icons.Outlined.Delete, contentDescription = "Delete ${entry.name}")
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    modifier = Modifier.padding(top = 6.dp)
+                                                ) {
+                                                    MacroPill("P", entry.proteinG.toInt(), Color(0xFF2563EB))
+                                                    MacroPill("C", entry.carbsG.toInt(), Color(0xFFD97706))
+                                                    MacroPill("F", entry.fatG.toInt(), Color(0xFFE11D48))
                                                 }
                                             }
                                         }
-                                    )
+                                        Text(
+                                            "${entry.calories} kcal",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = style.accent
+                                        )
+                                        IconButton(onClick = {
+                                            entries = store.delete(entry.id)
+                                            // Also remove the backend row so the trainer view stops showing it.
+                                            scope.launch { HealthSyncManager(context).deleteFoodEntry(entry.id) }
+                                        }) {
+                                            Icon(
+                                                Icons.Outlined.Delete,
+                                                contentDescription = "Delete ${entry.name}",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                         if (mealEntries.isEmpty()) {
-                            Text(
-                                "Nothing logged",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    style.icon,
+                                    contentDescription = null,
+                                    tint = style.accent.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Nothing logged yet — tap + to add",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = style.accent.copy(alpha = 0.6f)
+                                )
+                            }
                         }
                     }
                 }
@@ -888,6 +1031,57 @@ private fun ScoreStatCard(
                 )
             }
         }
+    }
+}
+
+/** Per-meal accent colours for the food log: a pale tinted card, a deeper chip and text colour, and the meal's icon. */
+private data class MealStyle(
+    val container: Color,
+    val chip: Color,
+    val accent: Color,
+    val icon: ImageVector
+)
+
+private fun mealStyle(meal: MealType): MealStyle = when (meal) {
+    MealType.BREAKFAST -> MealStyle(
+        container = Color(0xFFFFF3D6),
+        chip = Color(0xFFFFE3A3),
+        accent = Color(0xFF92400E),
+        icon = Icons.Filled.BreakfastDining
+    )
+    MealType.LUNCH -> MealStyle(
+        container = Color(0xFFFFE8D9),
+        chip = Color(0xFFFFC9A8),
+        accent = Color(0xFF9A3412),
+        icon = Icons.Filled.LunchDining
+    )
+    MealType.DINNER -> MealStyle(
+        container = Color(0xFFE4E9FF),
+        chip = Color(0xFFC7D2FE),
+        accent = Color(0xFF3730A3),
+        icon = Icons.Filled.DinnerDining
+    )
+    MealType.SNACK -> MealStyle(
+        container = Color(0xFFDFF3E4),
+        chip = Color(0xFFB7E4C7),
+        accent = Color(0xFF166534),
+        icon = Icons.Filled.Cookie
+    )
+}
+
+/** Small coloured macro pill, e.g. "P 25": protein blue, carbs amber, fat rose. */
+@Composable
+private fun MacroPill(label: String, grams: Int, color: Color) {
+    Surface(
+        color = color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            "$label $grams",
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+        )
     }
 }
 
