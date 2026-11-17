@@ -113,10 +113,14 @@ public final class ChallengeApi {
     // MARK: - HTTP Helpers
 
     private func request(method: String, urlString: String, payload: [String: Any]?) async throws -> Data {
+        let path = urlString.replacingOccurrences(of: baseURL, with: "").isEmpty
+            ? "/" : urlString.replacingOccurrences(of: baseURL, with: "")
         guard let url = URL(string: urlString) else {
+            log("\(method) \(path) — bad URL")
             throw URLError(.badURL)
         }
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else {
+            log("\(method) \(path) — no access token, not sent")
             throw NSError(
                 domain: "ChallengeApi",
                 code: 401,
@@ -134,15 +138,29 @@ public final class ChallengeApi {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        log("→ \(method) \(path)\(payload.map { " body: \(describe($0))" } ?? "")")
+        let started = Date()
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            log("✗ \(method) \(path) failed after \(elapsedMs(since: started)) ms: \(error.localizedDescription)")
+            throw error
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            log("✗ \(method) \(path) — not an HTTP response")
             throw URLError(.badServerResponse)
         }
 
-        if (200...299).contains(httpResponse.statusCode) {
+        let status = httpResponse.statusCode
+        if (200...299).contains(status) {
+            log("← \(status) \(method) \(path) in \(elapsedMs(since: started)) ms, \(data.count) bytes")
             return data
         } else {
+            log("← \(status) \(method) \(path) in \(elapsedMs(since: started)) ms — error body: \(snippet(data))")
             if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let message = errorJson["message"] as? String, !message.isEmpty {
                 throw NSError(domain: "ChallengeApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
@@ -156,11 +174,54 @@ public final class ChallengeApi {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
+            log("✗ decode \(T.self) failed: \(error) — body: \(snippet(data))")
             throw NSError(
                 domain: "ChallengeApi",
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "Could not understand the server response: \(error.localizedDescription)"]
             )
         }
+    }
+
+    // MARK: - Logging
+    //
+    // Same "[Tag] message" console style as FoodRecognitionApi. The bearer
+    // token is never logged and invite emails are masked.
+
+    private func log(_ message: String) {
+        print("[ChallengeApi] \(message)")
+    }
+
+    private func elapsedMs(since start: Date) -> Int {
+        Int(Date().timeIntervalSince(start) * 1000)
+    }
+
+    /// Request body for the log, with personal fields masked.
+    private func describe(_ payload: [String: Any]) -> String {
+        var safe = payload
+        if let email = safe["email"] as? String {
+            safe["email"] = Self.maskEmail(email)
+        }
+        if let entries = safe["entries"] as? [Any] {
+            safe["entries"] = "[\(entries.count) days]"
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: safe, options: [.sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else {
+            return "\(safe.keys.sorted())"
+        }
+        return text
+    }
+
+    /// First 500 characters of a response body.
+    private func snippet(_ data: Data) -> String {
+        guard !data.isEmpty else { return "<empty>" }
+        let text = String(data: data, encoding: .utf8) ?? "<\(data.count) bytes, not UTF-8>"
+        return text.count > 500 ? String(text.prefix(500)) + "…" : text
+    }
+
+    /// "john.doe@gmail.com" → "j***@gmail.com".
+    private static func maskEmail(_ email: String) -> String {
+        guard let at = email.firstIndex(of: "@"), at > email.startIndex else { return "***" }
+        return "\(email[email.startIndex])***\(email[at...])"
     }
 }
