@@ -18,26 +18,29 @@ struct WorkoutDaySummaryCardView: View {
         }
     }
 
+    /// Logged workouts not already counted via HealthKit: unsynced in-app ones plus
+    /// server-origin ones (AI / MCP), which never reach this device's Apple Health.
+    private var countedLogged: [LoggedWorkout] {
+        let serverOrigin = workoutStore.serverOriginIds()
+        return dayLoggedWorkouts.filter { !$0.syncedToHealthKit || serverOrigin.contains($0.id) }
+    }
+
     /// Total workout count: HealthKit workouts + any unsynced in-app workouts
     private var workoutCount: Int {
-        let unsyncedCount = dayLoggedWorkouts.filter { !$0.syncedToHealthKit }.count
-        return hkWorkouts.count + unsyncedCount
+        return hkWorkouts.count + countedLogged.count
     }
 
     /// Total active calories burned from workouts on the selected day
     private var totalCaloriesKcal: Int {
-        let unsyncedKcal = dayLoggedWorkouts
-            .filter { !$0.syncedToHealthKit }
-            .reduce(0.0) { $0 + Double($1.durationMinutes) * 7.5 }
+        let unsyncedKcal = countedLogged
+            .reduce(0.0) { $0 + ($1.caloriesBurned.map(Double.init) ?? Double($1.durationMinutes) * 7.5) }
         let total = hkWorkoutKcal + unsyncedKcal
         return Int(round(total))
     }
 
     /// Total minutes spent working out on the selected day
     private var totalMinutes: Int {
-        let unsyncedMinutes = dayLoggedWorkouts
-            .filter { !$0.syncedToHealthKit }
-            .reduce(0) { $0 + $1.durationMinutes }
+        let unsyncedMinutes = countedLogged.reduce(0) { $0 + $1.durationMinutes }
         return hkWorkoutMinutes + unsyncedMinutes
     }
 

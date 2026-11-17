@@ -116,6 +116,33 @@ public final class WorkoutStore: ObservableObject {
         persistLog()
     }
 
+    // MARK: - Server-origin workouts (AI / MCP)
+
+    private let serverOriginKey = "server_origin_workout_ids"
+
+    /// Ids of workouts that came from the backend (AI log or MCP). They are
+    /// excluded from the health-sync upload so re-sending can never duplicate
+    /// them or overwrite the server's calorie estimate.
+    public func serverOriginIds() -> Set<UUID> {
+        Set((UserDefaults.standard.stringArray(forKey: serverOriginKey) ?? []).compactMap(UUID.init(uuidString:)))
+    }
+
+    public func isServerOrigin(_ id: UUID) -> Bool { serverOriginIds().contains(id) }
+
+    /// Adds backend workouts not already present (by id) and records them as server-origin.
+    public func mergeFromServer(_ serverWorkouts: [LoggedWorkout]) {
+        let existing = Set(loggedWorkouts.map(\.id))
+        let toAdd = serverWorkouts.filter { !existing.contains($0.id) }
+        guard !toAdd.isEmpty else { return }
+        UserDefaults.standard.set(
+            Array(serverOriginIds().union(toAdd.map(\.id)).map(\.uuidString)),
+            forKey: serverOriginKey
+        )
+        loggedWorkouts.append(contentsOf: toAdd)
+        loggedWorkouts.sort { $0.date > $1.date }
+        persistLog()
+    }
+
     public func markSynced(id: UUID) {
         guard let index = loggedWorkouts.firstIndex(where: { $0.id == id }) else { return }
         loggedWorkouts[index].syncedToHealthKit = true

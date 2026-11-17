@@ -244,7 +244,8 @@ public final class HealthSyncManager: ObservableObject {
             }
 
             // 2. Collect logged workouts
-            let workouts = WorkoutStore.shared.loggedWorkouts
+            let serverOrigin = WorkoutStore.shared.serverOriginIds()
+            let workouts = WorkoutStore.shared.loggedWorkouts.filter { !serverOrigin.contains($0.id) }
             let workoutDtos = workouts.map { w in
                 let end = calendar.date(byAdding: .minute, value: max(1, w.durationMinutes), to: w.date) ?? w.date
                 return WorkoutSyncDto(

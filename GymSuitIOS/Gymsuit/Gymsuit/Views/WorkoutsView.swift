@@ -24,6 +24,14 @@ struct WorkoutsView: View {
     @AppStorage("workout_user_days_per_week") private var userWorkoutDaysPerWeek: Int = 2
     @State private var setupStep: WorkoutSetupStep = .goal
     @State private var selectedDate: Date = Date()
+    @State private var showAiSheet = false
+
+    private var aiDayLabel: String {
+        if Calendar.current.isDateInToday(selectedDate) { return "today" }
+        let f = DateFormatter()
+        f.dateFormat = "EEE, MMM d"
+        return f.string(from: selectedDate)
+    }
 
     private var currentGoal: WorkoutGoal {
         WorkoutGoal(rawValue: selectedGoalRaw) ?? .loseWeight
@@ -223,6 +231,30 @@ struct WorkoutsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(hex: 0xFFFAFBFD).ignoresSafeArea())
+                .overlay(alignment: .bottomTrailing) {
+                    AiLogButton { showAiSheet = true }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 16)
+                }
+                .sheet(isPresented: $showAiSheet) {
+                    AiLogSheet(
+                        title: "Log with AI",
+                        prompt: "Tell me what you did on \(aiDayLabel). I'll turn it into workouts with sets, reps, time and calories.",
+                        placeholder: "Bench press 3 sets of 10 at 40 kg, then a 30 minute run",
+                        fieldLabel: "What did you do?",
+                        buttonTitle: "Log workouts",
+                        submit: { text in
+                            switch await WorkoutAiApi.shared.aiLog(text: text, date: selectedDate) {
+                            case .success(let workouts):
+                                WorkoutStore.shared.mergeFromServer(workouts)
+                                return nil
+                            case .failure(let error):
+                                return error.message
+                            }
+                        },
+                        onDone: { showAiSheet = false }
+                    )
+                }
             }
         }
         .background(Color(hex: 0xFFFAFBFD))

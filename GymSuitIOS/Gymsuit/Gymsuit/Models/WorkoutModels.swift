@@ -149,6 +149,8 @@ public struct LoggedWorkout: Codable, Identifiable {
     public var durationMinutes: Int
     public var notes: String
     public var syncedToHealthKit: Bool
+    /// Calories burned when known (e.g. the server's estimate for AI/MCP-logged sessions).
+    public var caloriesBurned: Int? = nil
 
     public var totalReps: Int {
         sets.reduce(0) { $0 + $1.reps }

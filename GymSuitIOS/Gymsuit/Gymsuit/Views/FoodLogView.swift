@@ -28,6 +28,7 @@ struct FoodLogView: View {
     @State private var scanError: String?
 
     @State private var remindersOn = false
+    @State private var showAiSheet = false
     @State private var mealPlan: MealPlan?
 
     private let dailyTarget = 2000
@@ -55,6 +56,30 @@ struct FoodLogView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: scanning)
+        .overlay(alignment: .bottomTrailing) {
+            AiLogButton { showAiSheet = true }
+                .padding(.trailing, 20)
+                .padding(.bottom, 16)
+        }
+        .sheet(isPresented: $showAiSheet) {
+            AiLogSheet(
+                title: "Log with AI",
+                prompt: "Tell me what you ate \(isToday ? "today" : dateLabel). I'll split it into meals and estimate calories, protein, carbs and fat.",
+                placeholder: "2 idlis with sambar for breakfast, chicken biryani for lunch, a banana as snack",
+                fieldLabel: "What did you eat?",
+                buttonTitle: "Log meals",
+                submit: { text in
+                    switch await FoodIntakeApi.shared.aiLog(text: text, date: date) {
+                    case .success(let entries):
+                        store.mergeFromServer(entries)
+                        return nil
+                    case .failure(let error):
+                        return error.message
+                    }
+                },
+                onDone: { showAiSheet = false }
+            )
+        }
     }
 
     private var mainContent: some View {

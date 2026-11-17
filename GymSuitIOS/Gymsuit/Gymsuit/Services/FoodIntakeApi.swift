@@ -123,6 +123,57 @@ public final class FoodIntakeApi {
         }
     }
 
+    /// Free-text meal logging: sends "2 idlis for breakfast, biryani for lunch" to the
+    /// backend, where the AI turns it into meals with estimated nutrition that are
+    /// saved. Returns the saved entries for the caller to merge into the local log.
+    public func aiLog(text: String, date: Date) async -> Result<[FoodEntry], AiLogError> {
+        guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else {
+            return .failure(AiLogError(message: "Please log in again."))
+        }
+        guard let url = URL(string: "\(baseURL)/ai-log") else {
+            return .failure(AiLogError(message: "Couldn't reach GymSuit."))
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 60 // the AI call can take a while
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "text": text, "date": dateFormatter.string(from: date),
+        ])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                return .failure(AiLogError(message: "Couldn't reach GymSuit."))
+            }
+            guard (200...299).contains(http.statusCode) else {
+                let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
+                return .failure(AiLogError(message: msg ?? "Couldn't log meals (\(http.statusCode))."))
+            }
+            let decoded = try JSONDecoder().decode([ServerFoodEntry].self, from: data)
+            return .success(decoded.map(entry(from:)))
+        } catch {
+            return .failure(AiLogError(message: "Couldn't reach GymSuit. Check your connection."))
+        }
+    }
+
+    private func entry(from dto: ServerFoodEntry) -> FoodEntry {
+        let meal = dto.meal.flatMap { MealType(rawValue: $0) } ?? .snack
+        let day = dateFormatter.date(from: dto.recordDate) ?? Date()
+        let dated = Calendar.current.date(bySettingHour: mealHour(meal), minute: 0, second: 0, of: day) ?? day
+        return FoodEntry(
+            id: dto.externalId,
+            name: dto.dishName ?? "",
+            meal: meal,
+            calories: dto.calories ?? 0,
+            proteinG: dto.proteinG ?? 0,
+            carbsG: dto.carbsG ?? 0,
+            fatG: dto.fatG ?? 0,
+            timestampMillis: Int64(dated.timeIntervalSince1970 * 1000)
+        )
+    }
+
     @discardableResult
     public func delete(externalId: String) async -> Bool {
         guard let token = AuthManager.shared.getAccessToken(), !token.isEmpty else { return false }
