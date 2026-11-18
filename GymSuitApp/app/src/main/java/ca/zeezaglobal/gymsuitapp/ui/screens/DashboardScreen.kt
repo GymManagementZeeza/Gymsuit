@@ -110,6 +110,7 @@ fun DashboardScreen(
     onLogout: () -> Unit = {},
     onNavigateToSleepDetail: (LocalDate) -> Unit = {},
     onNavigateToHeartRateDetail: (LocalDate) -> Unit = {},
+    onNavigateToVitalsDetail: (LocalDate) -> Unit = {},
     onNavigateToCaloriesDetail: (LocalDate) -> Unit = {},
     onNavigateToStepsDetail: (LocalDate) -> Unit = {},
     onNavigateToWeightDetail: () -> Unit = {},
@@ -539,7 +540,10 @@ fun DashboardScreen(
                                     )
                                     VitalsWidget(
                                         selectedDate = days[selectedDayIndex].localDate,
-                                        syncTrigger = syncKey
+                                        syncTrigger = syncKey,
+                                        onClick = {
+                                            onNavigateToVitalsDetail(days[selectedDayIndex].localDate)
+                                        }
                                     )
                                 }
 

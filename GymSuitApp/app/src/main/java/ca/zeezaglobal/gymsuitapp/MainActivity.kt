@@ -25,6 +25,7 @@ import ca.zeezaglobal.gymsuitapp.ui.screens.SleepDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.StepsDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.widgets.WidgetUpdateWorker
 import ca.zeezaglobal.gymsuitapp.ui.screens.HeartRateDetailScreen
+import ca.zeezaglobal.gymsuitapp.ui.screens.VitalsDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.CaloriesDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.WeightDetailScreen
 import ca.zeezaglobal.gymsuitapp.ui.screens.NotificationsScreen
@@ -51,6 +52,7 @@ enum class AppScreen {
     DASHBOARD,
     SLEEP_DETAIL,
     HEART_RATE_DETAIL,
+    VITALS_DETAIL,
     CALORIES_DETAIL,
     STEPS_DETAIL,
     WEIGHT_DETAIL,
@@ -93,6 +95,7 @@ class MainActivity : ComponentActivity() {
                 val healthConnectManager = remember { HealthConnectManager(context) }
                 var selectedSleepDate by remember { mutableStateOf(LocalDate.now()) }
                 var selectedHeartRateDate by remember { mutableStateOf(LocalDate.now()) }
+                var selectedVitalsDate by remember { mutableStateOf(LocalDate.now()) }
                 var selectedCaloriesDate by remember { mutableStateOf(LocalDate.now()) }
                 var selectedStepsDate by remember { mutableStateOf(LocalDate.now()) }
 
@@ -149,7 +152,7 @@ class MainActivity : ComponentActivity() {
                 // Back goes up one level instead of closing the app
                 BackHandler(
                     enabled = currentScreen in setOf(
-                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.CALORIES_DETAIL, AppScreen.STEPS_DETAIL, AppScreen.WEIGHT_DETAIL, AppScreen.NOTIFICATIONS,
+                        AppScreen.SLEEP_DETAIL, AppScreen.HEART_RATE_DETAIL, AppScreen.VITALS_DETAIL, AppScreen.CALORIES_DETAIL, AppScreen.STEPS_DETAIL, AppScreen.WEIGHT_DETAIL, AppScreen.NOTIFICATIONS,
                         AppScreen.REGISTER, AppScreen.LOGIN
                     )
                 ) {
@@ -238,6 +241,10 @@ class MainActivity : ComponentActivity() {
                                         selectedHeartRateDate = date
                                         currentScreen = AppScreen.HEART_RATE_DETAIL
                                     },
+                                    onNavigateToVitalsDetail = { date ->
+                                        selectedVitalsDate = date
+                                        currentScreen = AppScreen.VITALS_DETAIL
+                                    },
                                     onNavigateToCaloriesDetail = { date ->
                                         selectedCaloriesDate = date
                                         currentScreen = AppScreen.CALORIES_DETAIL
@@ -269,6 +276,15 @@ class MainActivity : ComponentActivity() {
                                     onBackClick = {
                                         currentScreen = AppScreen.DASHBOARD
                                     }
+                                )
+                            }
+                            AppScreen.VITALS_DETAIL -> {
+                                VitalsDetailScreen(
+                                    date = selectedVitalsDate,
+                                    onBackClick = {
+                                        currentScreen = AppScreen.DASHBOARD
+                                    },
+                                    onDateChange = { selectedVitalsDate = it }
                                 )
                             }
                             AppScreen.NOTIFICATIONS -> {
