@@ -13,9 +13,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,13 +39,20 @@ import ca.zeezaglobal.gymsuitapp.R
 import ca.zeezaglobal.gymsuitapp.data.CalorieActivityItem
 import ca.zeezaglobal.gymsuitapp.data.DetailedCaloriesData
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+private fun fmt(pattern: String) = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
 
 /**
  * Dedicated Calories Details Screen matching the uploaded design reference:
  * - Top app bar with back navigation, battery pill, "Calories" title, and profile avatar.
- * - Bold donut ring chart styled after the reference image (with deep purple/lavender segmented arcs,
- *   subtle transparent background track, and smooth rounded endpoints).
+ * - Bold donut ring chart with one color per activity category (red workouts,
+ *   blue steps, green active movement, purple resting metabolism), subtle
+ *   transparent background track, and smooth rounded endpoints.
  * - Readout of total calories burned against 4,000 kcal goal.
  * - Activity breakdown list:
  *   1. Workouts & Exercises
@@ -50,10 +60,12 @@ import java.time.LocalDate
  *   3. Active Movement
  *   4. Resting Metabolism (BMR)
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaloriesDetailScreen(
     date: LocalDate = LocalDate.now(),
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onDateChange: (LocalDate) -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("user_fitness_prefs", android.content.Context.MODE_PRIVATE) }
@@ -61,6 +73,10 @@ fun CaloriesDetailScreen(
         mutableDoubleStateOf(prefs.getFloat("calorie_goal", 4000.0f).toDouble())
     }
     var showGoalDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val today = remember { LocalDate.now() }
+    val isToday = date >= today
+    val dateLabel = if (date == today) "Today" else date.format(fmt("EEE, MMM d"))
 
     val healthConnectManager = remember { HealthConnectManager(context) }
     var caloriesData by remember { mutableStateOf<DetailedCaloriesData?>(null) }
@@ -181,6 +197,73 @@ fun CaloriesDetailScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
+            // Date toggle — same pattern as the Sleep detail page:
+            // previous day / tap the date for a calendar picker / next day.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .clickable { onDateChange(date.minusDays(1)) }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                            contentDescription = "Previous day",
+                            tint = Color(0xFF1E293B),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .clickable { showDatePicker = true }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CalendarToday,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = dateLabel,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1E293B)
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = !isToday) { onDateChange(date.plusDays(1)) }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                            contentDescription = "Next day",
+                            tint = if (isToday) Color(0xFFCBD5E1) else Color(0xFF1E293B),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
             // Main Calories Ring Card matching the uploaded reference image
             Surface(
                 shape = RoundedCornerShape(32.dp),
@@ -319,6 +402,28 @@ fun CaloriesDetailScreen(
             Spacer(modifier = Modifier.height(20.dp))
         }
     }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = date.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneId.of("UTC")).toLocalDate() <= today
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        onDateChange(Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate())
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = pickerState) }
+    }
 }
 
 /**
@@ -389,8 +494,10 @@ private fun CaloriesDetailTopBar(
 }
 
 /**
- * Donut Ring Graphic faithfully reproducing the uploaded reference image:
- * Features thick segmented rounded arcs with subtle gaps and gradient/solid purple-lavender layers.
+ * Donut Ring Graphic with one color per activity category:
+ * Features thick segmented rounded arcs with subtle gaps and smooth rounded endpoints.
+ * Segment colors come from each activity's colorHex, so the ring matches the
+ * Activity Breakdown dots below it.
  */
 @Composable
 private fun CaloriesDonutRing(

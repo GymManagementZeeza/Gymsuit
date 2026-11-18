@@ -290,7 +290,8 @@ class MainActivity : ComponentActivity() {
                                     date = selectedCaloriesDate,
                                     onBackClick = {
                                         currentScreen = AppScreen.DASHBOARD
-                                    }
+                                    },
+                                    onDateChange = { selectedCaloriesDate = it }
                                 )
                             }
                             AppScreen.STEPS_DETAIL -> {

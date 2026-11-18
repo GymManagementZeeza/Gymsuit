@@ -896,28 +896,28 @@ class HealthConnectManager(private val context: Context) {
                     caloriesKcal = computedWorkoutKcal,
                     percentage = ((computedWorkoutKcal / totalBurn) * 100).toInt(),
                     durationOrCount = "$workoutMins min",
-                    colorHex = 0xFF5B4D8C // Deep Violet/Purple (as in uploaded ring)
+                    colorHex = 0xFFEF4444 // Red — workouts
                 ),
                 CalorieActivityItem(
                     name = "Steps & Walking",
                     caloriesKcal = computedStepsKcal,
                     percentage = ((computedStepsKcal / totalBurn) * 100).toInt(),
                     durationOrCount = "${"%,d".format(stepsCount)} steps",
-                    colorHex = 0xFF7C6FA8 // Medium Lavender Purple
+                    colorHex = 0xFF3B82F6 // Blue — steps
                 ),
                 CalorieActivityItem(
                     name = "Active Movement",
                     caloriesKcal = computedMovementKcal,
                     percentage = ((computedMovementKcal / totalBurn) * 100).toInt(),
                     durationOrCount = "Daily burn",
-                    colorHex = 0xFFA594D0 // Soft Lilac
+                    colorHex = 0xFF22C55E // Green — active movement
                 ),
                 CalorieActivityItem(
                     name = "Resting Metabolism (BMR)",
                     caloriesKcal = restingKcal,
                     percentage = ((restingKcal / totalBurn) * 100).toInt(),
                     durationOrCount = "Basal burn",
-                    colorHex = 0xFFDED8F3 // Pale Lavender
+                    colorHex = 0xFFA855F7 // Purple — resting metabolism
                 )
             )
 
