@@ -259,7 +259,8 @@ class MainActivity : ComponentActivity() {
                                     date = selectedSleepDate,
                                     onBackClick = {
                                         currentScreen = AppScreen.DASHBOARD
-                                    }
+                                    },
+                                    onDateChange = { selectedSleepDate = it }
                                 )
                             }
                             AppScreen.HEART_RATE_DETAIL -> {
