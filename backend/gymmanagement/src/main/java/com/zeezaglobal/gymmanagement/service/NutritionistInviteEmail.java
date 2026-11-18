@@ -4,11 +4,12 @@ package com.zeezaglobal.gymmanagement.service;
  * HTML for the email a standalone nutritionist's client receives, styled like diet.gymsuit.app
  * (ink / paper / sand / saffron / sage, Space Grotesk headings).
  *
- * Built for email clients: table layout, inline styles, emoji icons (no SVG, which Gmail blocks) and an
- * animated GIF hosted on the diet site, which animates everywhere including Gmail. The CSS keyframe
- * animations in the head (sliding feature rows, pulsing button, floating icon) are a progressive extra for
- * clients that support them (Apple Mail, iOS Mail); they only move things and never hide them, so clients
- * without animation support simply show the static design.
+ * Built for email clients and deliverability: table layout, inline styles, emoji icons (no SVG, which
+ * Gmail blocks), system font stack (no webfont fetch), and a single small hosted logo — no large remote
+ * images, so spam filters see a light, mostly-text email. The CSS keyframe animations in the head
+ * (sliding feature rows, pulsing button, floating icon) are a progressive extra for clients that
+ * support them (Apple Mail, iOS Mail); they only move things and never hide them, so clients without
+ * animation support simply show the static design. A plain-text version travels alongside the HTML.
  */
 final class NutritionistInviteEmail {
 
@@ -36,7 +37,6 @@ final class NutritionistInviteEmail {
         String href = escape(link);
         String base = escape(siteUrl.replaceAll("/+$", ""));
         String logo = base + "/GymSuit_logo_package/01-icon-brand.png";
-        String gif = base + "/email/diet-invite-macros.gif";
 
         return """
                 <!doctype html>
@@ -47,7 +47,6 @@ final class NutritionistInviteEmail {
                 <meta name="color-scheme" content="light">
                 <meta name="supported-color-schemes" content="light">
                 <title>%1$s invited you to GymSuit Diet</title>
-                <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
                 <style>
                   /* Motion only, never opacity: a client that pauses animations must still show everything. */
                   @keyframes gs-slide-in { from { transform: translateX(-10px); } to { transform: none; } }
@@ -63,7 +62,6 @@ final class NutritionistInviteEmail {
                     .gs-wrap { width: 100%% !important; }
                     .gs-pad { padding-left: 22px !important; padding-right: 22px !important; }
                     .gs-h1 { font-size: 28px !important; line-height: 32px !important; }
-                    .gs-gif { width: 100%% !important; height: auto !important; }
                   }
                 </style>
                 </head>
@@ -88,16 +86,11 @@ final class NutritionistInviteEmail {
                       <p style="margin:14px 0 0;font-family:%12$s;font-size:16px;line-height:25px;color:%10$s;">%1$s is a nutrition expert on GymSuit. Accept the invite and they'll see what you log in the GymSuit app, so they can shape your diet around what you actually eat.</p>
                     </td></tr>
 
-                    <!-- animated macros -->
-                    <tr><td class="gs-pad" style="padding:24px 28px 6px;" align="center">
-                      <img class="gs-gif" src="%13$s" width="544" height="214" alt="Today's plate: protein, carbs and fat filling up" style="display:block;width:544px;max-width:100%%;height:auto;border:0;border-radius:18px;">
-                    </td></tr>
-
                     <!-- features -->
                     <tr><td class="gs-pad" style="padding:18px 36px 4px;">
+                      %13$s
                       %14$s
                       %15$s
-                      %16$s
                     </td></tr>
 
                     <!-- CTA -->
@@ -137,13 +130,33 @@ final class NutritionistInviteEmail {
                 MUTED,                // 10
                 HEADING,              // 11
                 BODY,                 // 12
-                gif,                  // 13
                 feature("gs-feature", "🍽️", SAND, "You log, as usual",
-                        "Meals, photos and weigh-ins you add in the GymSuit app."),          // 14
+                        "Meals, photos and weigh-ins you add in the GymSuit app."),          // 13
                 feature("gs-feature gs-feature-2", "📊", "#e4efe7", "They see your macros",
-                        "Calories, protein, carbs, fat and your weight trend."),              // 15
+                        "Calories, protein, carbs, fat and your weight trend."),              // 14
                 feature("gs-feature gs-feature-3", "🔒", "#fde3d7", "View-only, always",
-                        "They can't change anything — and you can be removed anytime."));    // 16
+                        "They can't change anything — and you can be removed anytime."));    // 15
+    }
+
+    /** Plain-text version of the invite, sent alongside the HTML so filters see a real text part. */
+    static String text(String nutritionistName, String email, String link) {
+        return """
+                %1$s invited you to GymSuit Diet
+
+                %1$s is a nutrition expert on GymSuit. Accept the invite and they'll see what you log in the GymSuit app, so they can shape your diet around what you actually eat.
+
+                - You log, as usual: meals, photos and weigh-ins you add in the GymSuit app.
+                - They see your macros: calories, protein, carbs, fat and your weight trend.
+                - View-only, always: they can't change anything — and you can be removed anytime.
+
+                Accept the invitation: %3$s
+
+                New to GymSuit? Create your account right from the link, then sign in to the GymSuit app with %2$s.
+
+                This invitation expires in 7 days. If you weren't expecting it, you can ignore this email.
+
+                Sent by GymSuit Diet - diet.gymsuit.app
+                """.formatted(nutritionistName, email, link);
     }
 
     private static String feature(String cssClass, String icon, String iconBg, String title, String text) {

@@ -165,7 +165,8 @@ public class NutritionistService {
         try {
             eventPublisher.publishEmail(email,
                     name + " invited you to share your nutrition on GymSuit",
-                    NutritionistInviteEmail.html(name, email, link, dietUrl));
+                    NutritionistInviteEmail.html(name, email, link, dietUrl),
+                    NutritionistInviteEmail.text(name, email, link));
         } catch (AmqpException e) {
             log.error("Could not queue nutritionist invite email to {}: {}", email, e.getMessage(), e);
             throw new BadRequestException("Could not send the invite right now, please try again");

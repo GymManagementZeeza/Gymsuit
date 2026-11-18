@@ -24,7 +24,12 @@ public class EventPublisher {
     private final RabbitTemplate rabbitTemplate;
 
     public void publishEmail(String to, String subject, String htmlBody) {
-        EmailEvent event = new EmailEvent(to, subject, htmlBody);
+        publishEmail(to, subject, htmlBody, null);
+    }
+
+    /** As {@link #publishEmail(String, String, String)} with an optional plain-text part. */
+    public void publishEmail(String to, String subject, String htmlBody, String textBody) {
+        EmailEvent event = new EmailEvent(to, subject, htmlBody, textBody);
         rabbitTemplate.convertAndSend(RabbitMqConfig.EVENTS_EXCHANGE, RabbitMqConfig.EMAIL_ROUTING_KEY, event);
         log.debug("Published email event for {}", to);
     }

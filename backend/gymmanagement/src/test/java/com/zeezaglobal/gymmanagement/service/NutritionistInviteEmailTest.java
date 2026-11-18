@@ -20,7 +20,8 @@ class NutritionistInviteEmailTest {
         assertTrue(html.contains("Asha &lt;b&gt;Menon&lt;/b&gt; wants to guide"), "name is escaped in the headline");
         assertFalse(html.contains("<b>Menon</b>"), "raw HTML from the name never reaches the email");
         assertTrue(html.contains("href=\"https://diet.gymsuit.app/diet/invite?token=abc&amp;x=1\""), "accept link");
-        assertTrue(html.contains("src=\"https://diet.gymsuit.app/email/diet-invite-macros.gif\""), "animated GIF");
+        assertFalse(html.contains("diet-invite-macros.gif"), "no remote animated GIF — deliverability");
+        assertFalse(html.contains("fonts.googleapis.com"), "no webfont fetch — deliverability");
         assertTrue(html.contains("src=\"https://diet.gymsuit.app/GymSuit_logo_package/01-icon-brand.png\""), "logo");
         assertTrue(html.contains("#f45d22") && html.contains("#142321"), "site theme colours");
         assertFalse(html.matches("(?s).*%\\d+\\$s.*"), "no unfilled placeholders");
@@ -32,5 +33,19 @@ class NutritionistInviteEmailTest {
             Files.writeString(Path.of(dir, "nutritionist-invite.html"), NutritionistInviteEmail.html(
                     "Asha Menon", "ravi@example.test", site + "/diet/invite?token=preview", site));
         }
+    }
+
+    @Test
+    void textVersionCarriesTheSameInviteWithoutMarkup() {
+        String text = NutritionistInviteEmail.text(
+                "Asha Menon", "ravi@example.test",
+                "https://diet.gymsuit.app/diet/invite?token=abc");
+
+        assertTrue(text.contains("Asha Menon invited you to GymSuit Diet"), "headline");
+        assertTrue(text.contains("https://diet.gymsuit.app/diet/invite?token=abc"), "accept link");
+        assertTrue(text.contains("ravi@example.test"), "invitee email");
+        assertTrue(text.contains("expires in 7 days"), "expiry");
+        assertFalse(text.contains("<a "), "no HTML markup");
+        assertFalse(text.matches("(?s).*%\\d+\\$s.*"), "no unfilled placeholders");
     }
 }

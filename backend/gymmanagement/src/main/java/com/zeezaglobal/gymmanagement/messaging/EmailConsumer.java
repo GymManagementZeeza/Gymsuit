@@ -21,6 +21,6 @@ public class EmailConsumer {
     @RabbitListener(queues = RabbitMqConfig.EMAIL_QUEUE)
     public void handle(EmailEvent event) {
         log.info("Dispatching queued email to {}", event.to());
-        emailService.sendEmail(event.to(), event.subject(), event.htmlBody());
+        emailService.sendEmail(event.to(), event.subject(), event.htmlBody(), event.textBody());
     }
 }

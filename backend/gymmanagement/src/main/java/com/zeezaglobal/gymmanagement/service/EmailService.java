@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,24 +32,32 @@ public class EmailService {
                 .build();
     }
 
+    public void sendEmail(String to, String subject, String htmlContent) {
+        sendEmail(to, subject, htmlContent, null);
+    }
+
     /**
-     * Sends an email via Resend. Throws {@link EmailDeliveryException} when the API call fails so
+     * Sends an email via Resend, with an optional plain-text part (Resend's {@code text} field).
+     * Pass null for HTML-only. Throws {@link EmailDeliveryException} when the API call fails so
      * RabbitMQ consumers can retry / dead-letter the message. A missing API key is a configuration
      * problem that retries cannot fix, so it only logs and skips.
      */
-    public void sendEmail(String to, String subject, String htmlContent) {
+    public void sendEmail(String to, String subject, String htmlContent, String textContent) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             log.warn("RESEND_API_KEY is not set. Skipping email dispatch to {}. Content subject: {}", to, subject);
             return;
         }
 
         try {
-            Map<String, Object> body = Map.of(
+            Map<String, Object> body = new LinkedHashMap<>(Map.of(
                     "from", fromEmail,
                     "to", List.of(to),
                     "subject", subject,
                     "html", htmlContent
-            );
+            ));
+            if (textContent != null && !textContent.isBlank()) {
+                body.put("text", textContent);
+            }
 
             restClient.post()
                     .uri("/emails")
