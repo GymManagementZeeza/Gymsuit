@@ -83,6 +83,26 @@ public class EatingHabitScoreService {
     }
 
     /**
+     * Score over an explicit window (e.g. a report week) instead of the
+     * trailing window from today. Same scoring as {@link #scoreForUser},
+     * just anchored to [start, end].
+     */
+    public EatingHabitScoreResponse scoreForWindow(
+            Long userId, LocalDate start, LocalDate end, int calorieTargetKcal) {
+        int windowDays = (int) Math.max(1,
+                Math.min(end.toEpochDay() - start.toEpochDay() + 1, MAX_WINDOW_DAYS));
+        int target = Math.max(MIN_CALORIE_TARGET_KCAL,
+                Math.min(calorieTargetKcal, MAX_CALORIE_TARGET_KCAL));
+        List<FoodIntakeRecord> records = foodIntakeRepository
+                .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(userId, start, end);
+        Double latestWeightKg = dailyHealthRecordRepository
+                .findTopByUserIdAndWeightKgIsNotNullOrderByRecordDateDesc(userId)
+                .map(DailyHealthRecord::getWeightKg)
+                .orElse(null);
+        return compute(records, latestWeightKg, target, end, windowDays);
+    }
+
+    /**
      * Pure scoring step, kept static so it is unit-testable without a
      * database. {@code records} may span any dates; only records inside
      * [end - windowDays + 1, end] are scored, grouped by record date.
@@ -121,7 +141,7 @@ public class EatingHabitScoreService {
         if (byDay.isEmpty()) {
             return new EatingHabitScoreResponse(
                     null, "No data yet", 0, windowDays, start, end,
-                    0.0, 0.0, round1(proteinTargetG), calorieTargetKcal,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, round1(proteinTargetG), calorieTargetKcal,
                     new EatingHabitScoreResponse.Components(0.0, 0.0, 0.0, 0.0),
                     0.0, List.of(),
                     "Log your meals for a few days and we'll show how your eating is going and what to improve.",
@@ -184,6 +204,12 @@ public class EatingHabitScoreService {
                 end,
                 round1(kcalSum / daysLogged),
                 round1(proteinGSum / daysLogged),
+                round1(kcalSum),
+                round1(proteinGSum),
+                round1(carbsGSum),
+                round1(fatGSum),
+                round1(carbsGSum / daysLogged),
+                round1(fatGSum / daysLogged),
                 round1(proteinTargetG),
                 calorieTargetKcal,
                 new EatingHabitScoreResponse.Components(

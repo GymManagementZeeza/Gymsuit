@@ -23,6 +23,14 @@ public record EatingHabitScoreResponse(
         double avgCaloriesKcal,
         /** Mean daily protein across logged days (0 when no data). */
         double avgProteinG,
+        /** Totals across logged days (0 when no data). */
+        double totalCaloriesKcal,
+        double totalProteinG,
+        double totalCarbsG,
+        double totalFatG,
+        /** Mean daily carbs / fat across logged days (0 when no data). */
+        double avgCarbsG,
+        double avgFatG,
         /** Protein target used: 1.6 g/kg of latest known weight, else 120 g. */
         double proteinTargetG,
         int calorieTargetKcal,

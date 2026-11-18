@@ -68,6 +68,10 @@ class EatingHabitScoreServiceTest {
         assertEquals(0, response.daysLogged());
         assertEquals(7, response.windowDays());
         assertTrue(response.dailyScores().isEmpty());
+        assertEquals(0.0, response.totalCaloriesKcal());
+        assertEquals(0.0, response.totalProteinG());
+        assertEquals(0.0, response.totalCarbsG());
+        assertEquals(0.0, response.totalFatG());
     }
 
     @Test
@@ -83,6 +87,31 @@ class EatingHabitScoreServiceTest {
         assertEquals(25.0, response.components().pattern());
         assertEquals(100.0, response.foodQuality());
         assertEquals(147.2, response.proteinTargetG());
+        assertEquals(2000.0, response.totalCaloriesKcal());
+        assertEquals(150.0, response.totalProteinG());
+        assertEquals(225.0, response.totalCarbsG());
+        assertEquals(55.6, response.totalFatG());
+        assertEquals(225.0, response.avgCarbsG());
+        assertEquals(55.6, response.avgFatG());
+    }
+
+    @Test
+    void scoreForWindowAnchorsToExplicitWeek() {
+        LocalDate start = LocalDate.of(2026, 11, 8);
+        when(foodIntakeRepository.findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(7L), eq(start), eq(END)))
+                .thenReturn(perfectDay(END));
+        DailyHealthRecord latest = new DailyHealthRecord();
+        latest.setWeightKg(WEIGHT_KG);
+        when(dailyHealthRecordRepository.findTopByUserIdAndWeightKgIsNotNullOrderByRecordDateDesc(7L))
+                .thenReturn(Optional.of(latest));
+
+        EatingHabitScoreResponse response = service.scoreForWindow(7L, start, END, 2000);
+        assertEquals(100, response.score());
+        assertEquals(7, response.windowDays());
+        assertEquals(start, response.windowStart());
+        assertEquals(END, response.windowEnd());
+        assertEquals(2000.0, response.totalCaloriesKcal());
     }
 
     @Test

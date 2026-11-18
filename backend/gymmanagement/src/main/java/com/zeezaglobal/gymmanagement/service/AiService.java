@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.zeezaglobal.gymmanagement.dto.EatingHabitScoreResponse;
 import com.zeezaglobal.gymmanagement.exception.BadRequestException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,7 +47,73 @@ public class AiService {
         this.restClient = RestClient.builder().build();
     }
 
+    private static final String SUMMARIZE_SYSTEM_PROMPT = """
+            You are a professional health and fitness analyst writing a brief summary directly to the user.
+            The provided JSON input contains non-clinical, de-identified daily aggregate fitness and activity statistics (such as steps taken, calories burned, workout duration, and sleep hours).
+            It does not contain any personally identifiable information (PII), names, medical records, or user IDs.
+            Follow these rules strictly:
+            1. Only mention metrics that are actually present in the data. A missing or null field means there is no data for it — never invent, estimate, or guess numbers.
+            2. If device_sdk_available is false or no health metrics are present at all, briefly say that no health data is available yet and suggest enabling Health Connect permissions. Do not fabricate activity, sleep, or weight stats.
+            3. Start with the most notable real highlight from their actual data.
+            4. Address the user in second person ("you", "your") in a neutral, professional tone. No jokes, slang, exclamation marks or emojis.
+            5. Be direct and specific: state the figures and what they mean, then give one practical recommendation. Avoid filler, timestamps, or raw machine data representations.
+            6. Keep the entire response concise: 2 to 3 short sentences.
+            7. Return ONLY the summary message text, with no markdown headers or bullet points.
+            """;
+
+    private static final String EATING_SUGGESTION_SYSTEM_PROMPT = """
+            You are a nutrition coach writing a brief eating-habit suggestion directly to the user.
+            The provided JSON contains one week of food data the user actually logged: their eating-habit score (0-100) with per-area points, days logged, average and total calories, protein, carbs and fat, and data-driven improvement notes.
+            Follow these rules strictly:
+            1. Only mention metrics that are actually present in the data. Never invent, estimate, or guess numbers.
+            2. Start with the most notable real observation from their week, then give one practical suggestion they can act on.
+            3. Address the user in second person ("you", "your") in a neutral, professional tone. No jokes, slang, exclamation marks or emojis.
+            4. Keep the entire response concise: 2 to 3 short sentences.
+            5. Return ONLY the suggestion text, with no markdown headers or bullet points.
+            """;
+
     public String summarize(Object data) {
+        String dataJson = (data instanceof String strData)
+                ? strData
+                : gson.toJson(data);
+        return chatCompletion(SUMMARIZE_SYSTEM_PROMPT, dataJson);
+    }
+
+    /**
+     * One short AI suggestion for the week's eating, from the member's real
+     * logged food (see {@link EatingHabitScoreResponse}). Throws when the AI
+     * provider is not configured or the call fails — callers must fall back
+     * to the score's data-driven improvements so the report never depends
+     * on the AI call succeeding.
+     */
+    public String eatingSuggestion(EatingHabitScoreResponse score) {
+        Map<String, Object> food = new LinkedHashMap<>();
+        food.put("score", score.score());
+        food.put("label", score.label());
+        food.put("daysLogged", score.daysLogged());
+        food.put("windowDays", score.windowDays());
+        food.put("avgCaloriesKcal", score.avgCaloriesKcal());
+        food.put("avgProteinG", score.avgProteinG());
+        food.put("avgCarbsG", score.avgCarbsG());
+        food.put("avgFatG", score.avgFatG());
+        food.put("totalCaloriesKcal", score.totalCaloriesKcal());
+        food.put("totalProteinG", score.totalProteinG());
+        food.put("totalCarbsG", score.totalCarbsG());
+        food.put("totalFatG", score.totalFatG());
+        food.put("proteinTargetG", score.proteinTargetG());
+        food.put("calorieTargetKcal", score.calorieTargetKcal());
+        food.put("foodQuality", score.foodQuality());
+        food.put("components", Map.of(
+                "protein", score.components().protein(),
+                "calories", score.components().calories(),
+                "balance", score.components().balance(),
+                "pattern", score.components().pattern()));
+        food.put("improvements", score.improvements());
+        return chatCompletion(EATING_SUGGESTION_SYSTEM_PROMPT, gson.toJson(food));
+    }
+
+    /** One chat-completion call against the configured provider (OpenAI first, then OpenRouter). */
+    private String chatCompletion(String systemPrompt, String userContent) {
         final String activeApiKey;
         final String activeModel;
         final String activeBaseUrl;
@@ -67,32 +135,16 @@ public class AiService {
         }
 
         try {
-            String dataJson = (data instanceof String strData)
-                    ? strData
-                    : gson.toJson(data);
-
             Map<String, Object> requestPayload = Map.of(
                     "model", activeModel,
                     "messages", List.of(
                             Map.of(
                                     "role", "system",
-                                    "content", """
-                                            You are a professional health and fitness analyst writing a brief summary directly to the user.
-                                            The provided JSON input contains non-clinical, de-identified daily aggregate fitness and activity statistics (such as steps taken, calories burned, workout duration, and sleep hours).
-                                            It does not contain any personally identifiable information (PII), names, medical records, or user IDs.
-                                            Follow these rules strictly:
-                                            1. Only mention metrics that are actually present in the data. A missing or null field means there is no data for it — never invent, estimate, or guess numbers.
-                                            2. If device_sdk_available is false or no health metrics are present at all, briefly say that no health data is available yet and suggest enabling Health Connect permissions. Do not fabricate activity, sleep, or weight stats.
-                                            3. Start with the most notable real highlight from their actual data.
-                                            4. Address the user in second person ("you", "your") in a neutral, professional tone. No jokes, slang, exclamation marks or emojis.
-                                            5. Be direct and specific: state the figures and what they mean, then give one practical recommendation. Avoid filler, timestamps, or raw machine data representations.
-                                            6. Keep the entire response concise: 2 to 3 short sentences.
-                                            7. Return ONLY the summary message text, with no markdown headers or bullet points.
-                                            """
+                                    "content", systemPrompt
                             ),
                             Map.of(
                                     "role", "user",
-                                    "content", dataJson
+                                    "content", userContent
                             )
                     )
             );

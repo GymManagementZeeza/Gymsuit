@@ -1,5 +1,6 @@
 package com.zeezaglobal.gymmanagement.service;
 
+import com.zeezaglobal.gymmanagement.dto.EatingHabitScoreResponse;
 import com.zeezaglobal.gymmanagement.entity.DailyHealthRecord;
 import com.zeezaglobal.gymmanagement.entity.User;
 import com.zeezaglobal.gymmanagement.entity.WorkoutRecord;
@@ -52,14 +53,22 @@ public class HealthReportService {
     private final DailyHealthRecordRepository dailyRepo;
     private final WorkoutRecordRepository workoutRepo;
     private final EmailService emailService;
+    private final EatingHabitScoreService eatingHabitScoreService;
+    private final AiService aiService;
 
     /** Daily step goal the email progress rings measure against (no per-user goal exists yet). */
     private static final long DAILY_STEP_GOAL = 10_000L;
+    /** Calorie target the eating score measures against (same target the app shows). */
+    private static final int FOOD_CALORIE_TARGET_KCAL = 2000;
     /** Resend content-id for the hero ring image. */
     private static final String HERO_RING_CID = "steps-ring-hero";
 
     /** Aggregated report content for one user and one date window. */
     public record ExerciseSummary(String title, int sessions, int sets, long reps, double volumeKg) {
+    }
+
+    /** Food data for the report window; score is null when nothing was logged. */
+    public record FoodSummary(EatingHabitScoreResponse score, String suggestion, boolean suggestionFromAi) {
     }
 
     public record ReportData(
@@ -204,10 +213,11 @@ public class HealthReportService {
         String name = displayName(user);
         String period = periodLabel(data.start(), data.end());
         String subject = "Your GymSuit health report — " + period;
-        String html = buildEmailHtml(name, period, data, previous);
+        FoodSummary food = buildFoodSummary(user, data.start(), data.end());
+        String html = buildEmailHtml(name, period, data, previous, food);
         String filename = "GymSuit-Health-Report-" + data.end() + ".pdf";
         try {
-            byte[] pdf = renderPdf(name, period, data);
+            byte[] pdf = renderPdf(name, period, data, food);
             Map<String, byte[]> inlineImages = stepRingImages(data);
             emailService.sendEmailWithInlineImagesAndAttachment(
                     user.getEmail(), subject, html, inlineImages, filename, pdf, "application/pdf");
@@ -217,7 +227,31 @@ public class HealthReportService {
         }
     }
 
-    private String buildEmailHtml(String name, String period, ReportData d, ReportData p) {
+    /**
+     * Eating score + AI suggestion for the report window. The AI call is
+     * best-effort: when it is unconfigured or fails, the email falls back
+     * to the score's own data-driven improvements, so a report is never
+     * lost to an AI outage.
+     */
+    private FoodSummary buildFoodSummary(User user, LocalDate start, LocalDate end) {
+        EatingHabitScoreResponse score = eatingHabitScoreService.scoreForWindow(
+                user.getId(), start, end, FOOD_CALORIE_TARGET_KCAL);
+        if (score.score() == null) {
+            return new FoodSummary(score, null, false);
+        }
+        try {
+            return new FoodSummary(score, aiService.eatingSuggestion(score), true);
+        } catch (Exception e) {
+            log.warn("AI eating suggestion failed for user {}, using data-driven fallback",
+                    user.getId(), e);
+            String fallback = !score.improvements().isEmpty()
+                    ? score.improvements().get(0)
+                    : score.summary();
+            return new FoodSummary(score, fallback, false);
+        }
+    }
+
+    private String buildEmailHtml(String name, String period, ReportData d, ReportData p, FoodSummary food) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#202124;\">");
 
@@ -283,6 +317,43 @@ public class HealthReportService {
                 statCard("⏱️", fmtInt(d.workoutMinutes()), "workout minutes",
                         p != null ? deltaSessions(d.workoutMinutes() - p.workoutMinutes()) : null));
         sb.append("</table>");
+
+        // Food & eating habits
+        sb.append("<h3 style=\"font-size:18px;margin:24px 0 8px;\">🍽️ Food & eating habits</h3>");
+        if (food.score().score() == null) {
+            sb.append("<p style=\"font-size:14px;color:#5f6368;\">No food logged this week — log meals in the GymSuit app and your eating score will show up here.</p>");
+        } else {
+            EatingHabitScoreResponse s = food.score();
+            sb.append("<div style=\"background:#e8f0fe;border-radius:16px;padding:16px;text-align:center;margin:8px 0;\">");
+            sb.append("<div style=\"font-size:36px;font-weight:800;\">").append(s.score()).append("</div>");
+            sb.append("<div style=\"font-size:16px;font-weight:bold;\">").append(escape(s.label())).append("</div>");
+            sb.append("<div style=\"font-size:13px;color:#5f6368;margin-top:4px;\">eating-habit score · ")
+                    .append(s.daysLogged()).append(" of ").append(s.windowDays()).append(" days logged · avg ")
+                    .append(fmt1(s.avgCaloriesKcal())).append(" kcal/day · avg ")
+                    .append(fmt1(s.avgProteinG())).append(" g protein/day (target ")
+                    .append(fmt1(s.proteinTargetG())).append(" g)</div>");
+            sb.append("</div>");
+            sb.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"font-size:14px;margin:8px 0;\">");
+            sb.append("<tr style=\"color:#5f6368;\"><td style=\"padding:6px;border-bottom:1px solid #eee;\"></td>")
+                    .append("<td style=\"padding:6px;border-bottom:1px solid #eee;text-align:right;\">Total</td>")
+                    .append("<td style=\"padding:6px;border-bottom:1px solid #eee;text-align:right;\">Avg / logged day</td>")
+                    .append("<td style=\"padding:6px;border-bottom:1px solid #eee;text-align:right;\">Share of calories</td></tr>");
+            macroRow(sb, "Calories", fmt1(s.totalCaloriesKcal()) + " kcal", fmt1(s.avgCaloriesKcal()) + " kcal", "–");
+            macroRow(sb, "Protein", fmt1(s.totalProteinG()) + " g", fmt1(s.avgProteinG()) + " g",
+                    sharePct(s.totalProteinG() * 4.0, s.totalCaloriesKcal()));
+            macroRow(sb, "Carbs", fmt1(s.totalCarbsG()) + " g", fmt1(s.avgCarbsG()) + " g",
+                    sharePct(s.totalCarbsG() * 4.0, s.totalCaloriesKcal()));
+            macroRow(sb, "Fat", fmt1(s.totalFatG()) + " g", fmt1(s.avgFatG()) + " g",
+                    sharePct(s.totalFatG() * 9.0, s.totalCaloriesKcal()));
+            sb.append("</table>");
+            if (food.suggestion() != null && !food.suggestion().isBlank()) {
+                sb.append("<div style=\"background:#e6f4ea;border-radius:16px;padding:14px 16px;margin:8px 0;\">");
+                sb.append("<div style=\"font-size:14px;font-weight:bold;margin-bottom:4px;\">")
+                        .append(food.suggestionFromAi() ? "💡 AI suggestion" : "💡 Suggestion").append("</div>");
+                sb.append("<div style=\"font-size:14px;\">").append(escape(food.suggestion())).append("</div>");
+                sb.append("</div>");
+            }
+        }
 
         // Top exercises
         sb.append("<h3 style=\"font-size:18px;margin:24px 0 8px;\">🏆 Top exercises</h3>");
@@ -480,11 +551,24 @@ public class HealthReportService {
         return pill(arrow + " " + fmt1(Math.abs(diff)) + " kg vs last week", "same");
     }
 
+    private void macroRow(StringBuilder sb, String label, String total, String avg, String share) {
+        sb.append("<tr><td style=\"padding:6px;border-bottom:1px solid #eee;\">").append(escape(label)).append("</td>")
+                .append("<td style=\"padding:6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;\">").append(escape(total)).append("</td>")
+                .append("<td style=\"padding:6px;border-bottom:1px solid #eee;text-align:right;\">").append(escape(avg)).append("</td>")
+                .append("<td style=\"padding:6px;border-bottom:1px solid #eee;text-align:right;\">").append(escape(share)).append("</td></tr>");
+    }
+
+    /** Share of total calories from one macro (grams x kcal/g), or "-" with no data. */
+    private String sharePct(double macroKcal, double totalKcal) {
+        if (totalKcal <= 0) return "-";
+        return Math.round(macroKcal / totalKcal * 100) + "%";
+    }
+
     // ------------------------------------------------------------------
     // PDF
     // ------------------------------------------------------------------
 
-    private byte[] renderPdf(String name, String period, ReportData d) throws IOException {
+    private byte[] renderPdf(String name, String period, ReportData d, FoodSummary food) throws IOException {
         try (PDDocument doc = new PDDocument()) {
             PdfWriter w = new PdfWriter(doc);
 
@@ -505,6 +589,29 @@ public class HealthReportService {
             }
             if (d.avgRestingHr() != null) {
                 w.kv("Average resting heart rate", d.avgRestingHr() + " bpm");
+            }
+
+            w.section("Food & eating habits");
+            if (food.score().score() == null) {
+                w.line("No food logged in this period.");
+            } else {
+                EatingHabitScoreResponse s = food.score();
+                w.kv("Eating-habit score", s.score() + " (" + s.label() + ") - "
+                        + s.daysLogged() + " of " + s.windowDays() + " days logged");
+                w.kv("Calories", fmt1(s.totalCaloriesKcal()) + " kcal total - "
+                        + fmt1(s.avgCaloriesKcal()) + " kcal/day avg");
+                w.kv("Protein", fmt1(s.totalProteinG()) + " g total - "
+                        + fmt1(s.avgProteinG()) + " g/day avg ("
+                        + sharePct(s.totalProteinG() * 4.0, s.totalCaloriesKcal()) + " of calories)");
+                w.kv("Carbs", fmt1(s.totalCarbsG()) + " g total - "
+                        + fmt1(s.avgCarbsG()) + " g/day avg ("
+                        + sharePct(s.totalCarbsG() * 4.0, s.totalCaloriesKcal()) + " of calories)");
+                w.kv("Fat", fmt1(s.totalFatG()) + " g total - "
+                        + fmt1(s.avgFatG()) + " g/day avg ("
+                        + sharePct(s.totalFatG() * 9.0, s.totalCaloriesKcal()) + " of calories)");
+                if (food.suggestion() != null && !food.suggestion().isBlank()) {
+                    w.line((food.suggestionFromAi() ? "AI suggestion: " : "Suggestion: ") + food.suggestion());
+                }
             }
 
             w.section("Daily breakdown");
