@@ -15,12 +15,15 @@ import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.MealType as HealthMealType
+import androidx.health.connect.client.records.OxygenSaturationRecord
+import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
@@ -198,7 +201,10 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getWritePermission(SleepSessionRecord::class),
-        HealthPermission.getWritePermission(NutritionRecord::class)
+        HealthPermission.getWritePermission(NutritionRecord::class),
+        HealthPermission.getReadPermission(BodyTemperatureRecord::class),
+        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+        HealthPermission.getReadPermission(RespiratoryRateRecord::class)
     )
 
     fun isAvailable(): Boolean {
@@ -1536,6 +1542,68 @@ class HealthConnectManager(private val context: Context) {
                 val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.getDefault())
                 recordedAt.atZone(ZoneId.systemDefault()).format(formatter)
             }
+        }
+    }
+
+    /**
+     * Latest body temperature (°C) recorded on [date], or null when Health
+     * Connect holds none for that day (e.g. no watch skin-temperature data).
+     * Read-only; a missing permission or any read failure also yields null,
+     * so the caller shows "—" instead of a made-up number.
+     */
+    suspend fun readBodyTemperatureForDate(date: LocalDate): Double? {
+        val client = healthConnectClient ?: return null
+        val zoneId = ZoneId.systemDefault()
+        val startOfDay = date.atStartOfDay(zoneId).toInstant()
+        val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
+        return try {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = BodyTemperatureRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            response.records.maxByOrNull { it.time }?.temperature?.inCelsius
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Latest blood oxygen saturation (%) recorded on [date], or null. */
+    suspend fun readOxygenSaturationForDate(date: LocalDate): Double? {
+        val client = healthConnectClient ?: return null
+        val zoneId = ZoneId.systemDefault()
+        val startOfDay = date.atStartOfDay(zoneId).toInstant()
+        val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
+        return try {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = OxygenSaturationRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            response.records.maxByOrNull { it.time }?.percentage?.value
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Latest respiratory rate (breaths per minute) recorded on [date], or null. */
+    suspend fun readRespiratoryRateForDate(date: LocalDate): Double? {
+        val client = healthConnectClient ?: return null
+        val zoneId = ZoneId.systemDefault()
+        val startOfDay = date.atStartOfDay(zoneId).toInstant()
+        val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
+        return try {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = RespiratoryRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+            response.records.maxByOrNull { it.time }?.rate
+        } catch (e: Exception) {
+            null
         }
     }
 

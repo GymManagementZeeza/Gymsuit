@@ -537,6 +537,10 @@ fun DashboardScreen(
                                             onNavigateToSleepDetail(days[selectedDayIndex].localDate)
                                         }
                                     )
+                                    VitalsWidget(
+                                        selectedDate = days[selectedDayIndex].localDate,
+                                        syncTrigger = syncKey
+                                    )
                                 }
 
                                 // Right Column
