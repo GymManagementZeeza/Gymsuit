@@ -63,6 +63,10 @@ class HealthSyncManager(private val context: Context) {
                 // server reflects our local changes first and nothing just
                 // deleted is pulled back.
                 pullServerFood()
+                // Write food to Health Connect as NutritionRecords. Runs after
+                // the pull, so meals logged elsewhere reach Health Connect
+                // too. Best-effort: never fails the food sync.
+                syncFoodToHealthConnect()
                 uploaded && deletesSent
             }
         } catch (e: Exception) {
@@ -84,10 +88,35 @@ class HealthSyncManager(private val context: Context) {
         }
     }
 
+    /**
+     * Writes local food entries not yet in Health Connect as NutritionRecords.
+     * Best-effort: failures are logged only and retried by the next call.
+     */
+    private suspend fun syncFoodToHealthConnect() {
+        try {
+            val pending = foodStore.getAll().filter { it.id !in foodStore.healthConnectWrittenIds() }
+            if (pending.isEmpty()) return
+            val written = healthConnectManager.insertNutritionEntries(pending)
+            if (written.isNotEmpty()) {
+                foodStore.markHealthConnectWritten(written)
+                Log.i(TAG, "Food written to Health Connect: ${written.size} entries")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Food to Health Connect caught: ${e.message}")
+        }
+    }
+
     /** Queues the backend delete for a local entry, so it's retried if this attempt fails. */
     suspend fun deleteFoodEntry(entryId: String): Boolean = withContext(Dispatchers.IO) {
         FoodPhotoStore.delete(context.applicationContext, entryId)
         foodStore.queueRemoteDelete(entryId)
+        // Remove the matching Health Connect record too (best-effort).
+        try {
+            healthConnectManager.deleteNutrition(entryId)
+        } catch (e: Exception) {
+            Log.w(TAG, "Food Health Connect delete caught: ${e.message}")
+        }
+        foodStore.clearHealthConnectWritten(entryId)
         if (!authManager.isLoggedIn()) {
             return@withContext false
         }

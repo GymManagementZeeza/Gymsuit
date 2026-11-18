@@ -33,6 +33,7 @@
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
 
     <!-- Queries to find Health Connect on pre-Android 14 devices -->
     <queries>

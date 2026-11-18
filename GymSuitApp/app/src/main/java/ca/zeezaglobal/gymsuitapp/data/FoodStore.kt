@@ -33,6 +33,18 @@ class FoodStore(context: Context) {
         syncPrefs.edit().putStringSet(KEY_UPLOADED_IDS, uploadedIds() + ids).apply()
     }
 
+    /** Entries already written to Health Connect as NutritionRecords. */
+    fun healthConnectWrittenIds(): Set<String> =
+        syncPrefs.getStringSet(KEY_HC_WRITTEN_IDS, emptySet()) ?: emptySet()
+
+    fun markHealthConnectWritten(ids: Collection<String>) {
+        syncPrefs.edit().putStringSet(KEY_HC_WRITTEN_IDS, healthConnectWrittenIds() + ids).apply()
+    }
+
+    fun clearHealthConnectWritten(id: String) {
+        syncPrefs.edit().putStringSet(KEY_HC_WRITTEN_IDS, healthConnectWrittenIds() - id).apply()
+    }
+
     /** Remembers a local delete until the backend confirms it, so offline deletes aren't lost. */
     fun queueRemoteDelete(id: String) {
         syncPrefs.edit().putStringSet(KEY_PENDING_DELETES, pendingRemoteDeletes() + id).apply()
@@ -132,6 +144,7 @@ class FoodStore(context: Context) {
 
     private companion object {
         const val KEY_UPLOADED_IDS = "uploaded_entry_ids"
+        const val KEY_HC_WRITTEN_IDS = "health_connect_written_ids"
         const val KEY_PENDING_DELETES = "pending_delete_ids"
         const val KEY_OWNER = "owner_email"
     }

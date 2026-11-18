@@ -19,6 +19,8 @@ import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeightRecord
+import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.MealType as HealthMealType
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
@@ -195,7 +197,8 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
-        HealthPermission.getWritePermission(SleepSessionRecord::class)
+        HealthPermission.getWritePermission(SleepSessionRecord::class),
+        HealthPermission.getWritePermission(NutritionRecord::class)
     )
 
     fun isAvailable(): Boolean {
@@ -1042,6 +1045,104 @@ class HealthConnectManager(private val context: Context) {
             Log.e("HealthConnect", "Failed to write weight", e)
             false
         }
+    }
+
+    /**
+     * Writes logged food entries to Health Connect as [NutritionRecord]s
+     * (dish name, meal type, energy, protein, carbs, fat at the logged time).
+     * Each entry's id is its Health Connect client record id, so re-writing
+     * the same entry replaces it instead of duplicating it. Inserts in
+     * batches of 50; a failed batch falls back to one entry at a time so a
+     * single bad entry can't block the rest. Returns the ids that were
+     * written. Entries with values outside Health Connect's valid ranges are
+     * skipped with a warning.
+     */
+    suspend fun insertNutritionEntries(entries: List<FoodEntry>): List<String> {
+        val client = healthConnectClient ?: return emptyList()
+        if (!hasWritePermission(NutritionRecord::class)) {
+            Log.d("HealthConnect", "Skipping nutrition insert: WRITE_NUTRITION not granted")
+            return emptyList()
+        }
+        val written = mutableListOf<String>()
+        for (chunk in entries.chunked(50)) {
+            val pairs = chunk.mapNotNull { entry ->
+                try {
+                    entry to entry.toNutritionRecord()
+                } catch (e: Exception) {
+                    Log.w("HealthConnect", "Skipping invalid nutrition entry ${entry.id}: ${e.message}")
+                    null
+                }
+            }
+            if (pairs.isEmpty()) continue
+            try {
+                client.insertRecords(pairs.map { it.second })
+                written += pairs.map { it.first.id }
+            } catch (e: Exception) {
+                Log.w("HealthConnect", "Nutrition batch insert failed, retrying one by one", e)
+                for ((entry, record) in pairs) {
+                    try {
+                        client.insertRecords(listOf(record))
+                        written += entry.id
+                    } catch (e2: Exception) {
+                        Log.w("HealthConnect", "Skipping nutrition entry ${entry.id}: ${e2.message}")
+                    }
+                }
+            }
+        }
+        return written
+    }
+
+    /**
+     * Deletes the Health Connect [NutritionRecord] for a food entry, by its
+     * client record id. Best-effort: returns false when Health Connect is
+     * unavailable, the permission isn't granted, or the record isn't there.
+     */
+    suspend fun deleteNutrition(entryId: String): Boolean {
+        val client = healthConnectClient ?: return false
+        if (!hasWritePermission(NutritionRecord::class)) return false
+        return try {
+            client.deleteRecords(
+                NutritionRecord::class,
+                recordIdsList = emptyList(),
+                clientRecordIdsList = listOf(entryId)
+            )
+            true
+        } catch (e: Exception) {
+            Log.w("HealthConnect", "Failed to delete nutrition $entryId: ${e.message}")
+            false
+        }
+    }
+
+    /** Maps a logged food entry to a Health Connect nutrition record. */
+    private fun FoodEntry.toNutritionRecord(): NutritionRecord {
+        val start = Instant.ofEpochMilli(timestampMillis)
+        val zone = ZoneId.systemDefault()
+        return NutritionRecord(
+            startTime = start,
+            startZoneOffset = zone.rules.getOffset(start),
+            endTime = start.plusSeconds(60),
+            endZoneOffset = zone.rules.getOffset(start.plusSeconds(60)),
+            metadata = Metadata.manualEntry(clientRecordId = id),
+            name = name,
+            mealType = when (meal) {
+                MealType.BREAKFAST -> HealthMealType.MEAL_TYPE_BREAKFAST
+                MealType.LUNCH -> HealthMealType.MEAL_TYPE_LUNCH
+                MealType.DINNER -> HealthMealType.MEAL_TYPE_DINNER
+                MealType.SNACK -> HealthMealType.MEAL_TYPE_SNACK
+            },
+            energy = androidx.health.connect.client.units.Energy.kilocalories(
+                calories.toDouble().coerceAtLeast(0.0)
+            ),
+            protein = androidx.health.connect.client.units.Mass.grams(
+                proteinG.coerceAtLeast(0.0)
+            ),
+            totalCarbohydrate = androidx.health.connect.client.units.Mass.grams(
+                carbsG.coerceAtLeast(0.0)
+            ),
+            totalFat = androidx.health.connect.client.units.Mass.grams(
+                fatG.coerceAtLeast(0.0)
+            )
+        )
     }
 
     /**
