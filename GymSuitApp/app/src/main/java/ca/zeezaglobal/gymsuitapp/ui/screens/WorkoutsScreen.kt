@@ -131,8 +131,8 @@ import kotlin.math.roundToInt
 //
 //   1. WorkoutStreakCardView        → week strip + day streak / personal best
 //   2. WorkoutDaySummaryCardView    → Workout / Kcal / Minute for selected day
-//   4. WorkoutProgressProjectionCardView → weight projection graph + the
-//      Record Weight sheet
+//   4. WorkoutProgressProjectionCardView → weight projection graph + daily
+//      calories to burn (from the onboarding data) + the Record Weight sheet
 //
 // The page is hosted by the workout onboarding cover (PR #77) once
 // `workout_goal_setup_completed` is true; the cover draws the back chevron,
@@ -1450,6 +1450,55 @@ private fun WorkoutProgressProjectionCard(
                     .height(220.dp)
             )
             Spacer(Modifier.height(20.dp))
+            // Daily calories to burn — derived from the same first-collected
+            // onboarding data as the projection above (current weight, target
+            // weight, target date): 1 kg of body fat ≈ 7,700 kcal, spread
+            // over the days left until the target date. This is the extra
+            // burn needed above what is eaten, not the total daily burn.
+            if (diffKg > 0) {
+                val daysToTarget =
+                    max(effectiveTargetDate.toEpochDay() - today.toEpochDay(), 1)
+                val dailyKcal = (diffKg * 7700.0 / daysToTarget).toInt()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(WpPaleBlue)
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Whatshot,
+                            contentDescription = null,
+                            tint = WpBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isGaining) "Daily calories to add" else "Daily calories to burn",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = WpInk
+                            )
+                            Text(
+                                text = if (isGaining) "extra, above what you burn" else "extra, above what you eat",
+                                fontSize = 12.sp,
+                                color = WpSlate
+                            )
+                        }
+                    }
+                    Text(
+                        text = "≈${"%,d".format(dailyKcal)} kcal",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WpBlue
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             // "Record Weight" button.
             Row(
                 modifier = Modifier
