@@ -134,7 +134,12 @@ public final class ChallengeApi {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch let error as URLError {
+            throw NSError(domain: "ChallengeApi", code: error.code.rawValue, userInfo: [NSLocalizedDescriptionKey: ServerErrors.networkErrorMessage()])
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
@@ -143,17 +148,7 @@ public final class ChallengeApi {
         if (200...299).contains(httpResponse.statusCode) {
             return data
         } else {
-            // 5xx (e.g. Cloudflare 530 when the tunnel is down): never show the
-            // raw error body in the UI — the screen just says the server is down.
-            if httpResponse.statusCode >= 500 {
-                throw NSError(domain: "ChallengeApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server is down"])
-            }
-            if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let message = errorJson["message"] as? String, !message.isEmpty {
-                throw NSError(domain: "ChallengeApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
-            }
-            let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
-            throw NSError(domain: "ChallengeApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorText])
+            throw NSError(domain: "ChallengeApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: ServerErrors.message(forStatusCode: httpResponse.statusCode, body: data)])
         }
     }
 

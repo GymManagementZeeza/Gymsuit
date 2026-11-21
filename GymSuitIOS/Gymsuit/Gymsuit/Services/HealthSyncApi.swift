@@ -87,7 +87,12 @@ public final class HealthSyncApi {
         let encoder = JSONEncoder()
         urlRequest.httpBody = try encoder.encode(request)
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch let error as URLError {
+            throw NSError(domain: "HealthSyncApi", code: error.code.rawValue, userInfo: [NSLocalizedDescriptionKey: ServerErrors.networkErrorMessage()])
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }
@@ -96,13 +101,7 @@ public final class HealthSyncApi {
             let decoder = JSONDecoder()
             return try decoder.decode(HealthSyncResponse.self, from: data)
         } else {
-            // 5xx (e.g. Cloudflare 530 when the tunnel is down): never show the
-            // raw error body in the UI — the sync banner just says the server is down.
-            if httpResponse.statusCode >= 500 {
-                throw NSError(domain: "HealthSyncApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server is down"])
-            }
-            let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
-            throw NSError(domain: "HealthSyncApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorText])
+            throw NSError(domain: "HealthSyncApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: ServerErrors.message(forStatusCode: httpResponse.statusCode, body: data)])
         }
     }
 }

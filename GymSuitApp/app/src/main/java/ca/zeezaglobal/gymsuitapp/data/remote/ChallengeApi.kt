@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -218,18 +219,7 @@ class ChallengeApi(context: Context) {
                 AuthManager.unauthorizedEvent.tryEmit(Unit)
             }
 
-            // 5xx (e.g. Cloudflare 530 when the tunnel is down): never show the
-            // raw error body in the UI — the screen just says the server is down.
-            if (responseCode >= 500) {
-                throw Exception("Server is down")
-            }
-
-            val message = try {
-                JSONObject(errorText).optString("message", errorText)
-            } catch (e: Exception) {
-                errorText
-            }
-            throw Exception(message)
+            throw Exception(ServerErrors.forStatus(responseCode, errorText))
         }
     }
 
@@ -256,6 +246,9 @@ class ChallengeApi(context: Context) {
                 writer.flush()
             }
             return readResponse(connection, urlString)
+        } catch (e: IOException) {
+            Log.e(TAG, "Network call failed for $urlString: ${e.message}", e)
+            throw Exception(ServerErrors.forNetworkError())
         } catch (e: Exception) {
             Log.e(TAG, "Network call failed for $urlString: ${e.message}", e)
             throw e
@@ -278,6 +271,9 @@ class ChallengeApi(context: Context) {
             }
             applyAuth(connection)
             return readResponse(connection, urlString)
+        } catch (e: IOException) {
+            Log.e(TAG, "Network call failed for $urlString: ${e.message}", e)
+            throw Exception(ServerErrors.forNetworkError())
         } catch (e: Exception) {
             Log.e(TAG, "Network call failed for $urlString: ${e.message}", e)
             throw e
