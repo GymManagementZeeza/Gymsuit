@@ -140,6 +140,11 @@ class HealthSyncApi(private val context: Context) {
                 if (responseCode == 401) {
                     AuthManager.unauthorizedEvent.tryEmit(Unit)
                 }
+                // 5xx (e.g. Cloudflare 530 when the tunnel is down): never show
+                // the raw error body in the UI — the sync banner just says the server is down.
+                if (responseCode >= 500) {
+                    throw Exception("Server is down")
+                }
                 throw Exception("Sync failed ($responseCode): $errorText")
             }
         } finally {

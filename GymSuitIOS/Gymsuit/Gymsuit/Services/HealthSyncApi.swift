@@ -96,6 +96,11 @@ public final class HealthSyncApi {
             let decoder = JSONDecoder()
             return try decoder.decode(HealthSyncResponse.self, from: data)
         } else {
+            // 5xx (e.g. Cloudflare 530 when the tunnel is down): never show the
+            // raw error body in the UI — the sync banner just says the server is down.
+            if httpResponse.statusCode >= 500 {
+                throw NSError(domain: "HealthSyncApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server is down"])
+            }
             let errorText = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
             throw NSError(domain: "HealthSyncApi", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorText])
         }
