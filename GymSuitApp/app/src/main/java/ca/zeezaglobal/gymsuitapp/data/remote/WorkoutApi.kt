@@ -147,7 +147,10 @@ class WorkoutApi(private val context: Context) {
             sets = sets,
             durationMinutes = if (o.isNull("durationMinutes")) 0 else o.optInt("durationMinutes"),
             notes = notes,
-            syncedToHealth = true,
+            // Not yet written to Health Connect — the health sync writes
+            // the session and marks it synced then. Claiming true here
+            // is what left AI / MCP workouts out of the challenge.
+            syncedToHealth = false,
             caloriesBurned = calories?.roundToInt()
         )
     }

@@ -374,10 +374,37 @@ public final class HealthSyncManager: ObservableObject {
                         abs(local.date.timeIntervalSince(start)) < 45 * 60
                     }
 
+                    // The local row this remote workout lands in (same id, or
+                    // a fresh row when it is new) — used to mark the
+                    // HealthKit write once it actually lands.
+                    let localId = overlappingLocal?.id ?? (UUID(uuidString: rw.externalId) ?? UUID())
+
                     if let existing = overlappingLocal {
                         let existingScore = existing.totalVolumeKg + Double(existing.totalReps * 10) + Double(existing.durationMinutes * 5)
-                        // If local has larger or equal data, keep local
+                        // If local has larger or equal data, keep local — but
+                        // the session still has to reach Apple Health (the
+                        // challenge reads it from there), and a workout merged
+                        // locally was never written. Write the server's copy
+                        // now; mark the local row synced only when it is the
+                        // same workout (matched by id). A different workout
+                        // that merely started nearby is left for the backfill.
                         if existingScore >= remoteScore {
+                            let sameWorkout = existing.id.uuidString == rw.externalId
+                            if !sameWorkout || !existing.syncedToHealthKit {
+                                let written = await healthKitManager.writeSyncedWorkout(
+                                    title: rw.title,
+                                    start: start,
+                                    end: end,
+                                    caloriesBurned: rw.caloriesBurned,
+                                    setCount: setCount,
+                                    totalReps: totalReps,
+                                    totalVolumeKg: totalVolume,
+                                    externalId: rw.externalId
+                                )
+                                if written && sameWorkout {
+                                    WorkoutStore.shared.markSynced(id: existing.id)
+                                }
+                            }
                             continue
                         }
 
@@ -395,14 +422,13 @@ public final class HealthSyncManager: ObservableObject {
                             },
                             durationMinutes: duration,
                             notes: "Updated from \(rw.sourceDevice ?? "Android") (richer data)",
-                            syncedToHealthKit: true
+                            syncedToHealthKit: false
                         )
                         WorkoutStore.shared.upsertWorkout(updatedWorkout)
                     } else {
                         // Insert new workout
-                        let parsedUuid = UUID(uuidString: rw.externalId) ?? UUID()
                         let newWorkout = LoggedWorkout(
-                            id: parsedUuid,
+                            id: localId,
                             exerciseId: rw.title.lowercased().replacingOccurrences(of: " ", with: "_"),
                             exerciseName: rw.title,
                             date: start,
@@ -414,13 +440,14 @@ public final class HealthSyncManager: ObservableObject {
                             },
                             durationMinutes: duration,
                             notes: "Synced from \(rw.sourceDevice ?? "Android")",
-                            syncedToHealthKit: true
+                            syncedToHealthKit: false
                         )
                         WorkoutStore.shared.upsertWorkout(newWorkout)
                     }
 
-                    // Write to Apple Health
-                    _ = await healthKitManager.writeSyncedWorkout(
+                    // Write to Apple Health, then mark the local row synced
+                    // only when the workout actually landed.
+                    let written = await healthKitManager.writeSyncedWorkout(
                         title: rw.title,
                         start: start,
                         end: end,
@@ -430,6 +457,30 @@ public final class HealthSyncManager: ObservableObject {
                         totalVolumeKg: totalVolume,
                         externalId: rw.externalId
                     )
+                    if written {
+                        WorkoutStore.shared.markSynced(id: localId)
+                    }
+                }
+            }
+
+            // 5b. Backfill: any locally-logged workout never written to
+            // Apple Health (logged before this fix, or merged while the
+            // ingestion above skipped it) gets its workout now, so the
+            // challenge counts it. The flag is the guard — a written
+            // workout is marked synced, so this runs once per workout.
+            for local in WorkoutStore.shared.loggedWorkouts where !local.syncedToHealthKit {
+                let end = local.date
+                let start = end.addingTimeInterval(TimeInterval(-max(1, local.durationMinutes) * 60))
+                let written = await healthKitManager.saveWorkout(
+                    exerciseName: local.exerciseName,
+                    start: start,
+                    end: end,
+                    setCount: local.sets.count,
+                    totalReps: local.totalReps,
+                    totalVolumeKg: local.totalVolumeKg
+                )
+                if written {
+                    WorkoutStore.shared.markSynced(id: local.id)
                 }
             }
 

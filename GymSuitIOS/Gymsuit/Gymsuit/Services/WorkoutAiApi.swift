@@ -94,7 +94,10 @@ public final class WorkoutAiApi {
             sets: sets,
             durationMinutes: w.durationMinutes ?? 0,
             notes: kcal.map { "≈ \($0) kcal" } ?? "",
-            syncedToHealthKit: true,
+            // Not yet written to Apple Health — the health sync writes
+            // the workout and marks it synced then. Claiming true here
+            // is what left AI-logged workouts out of the challenge.
+            syncedToHealthKit: false,
             caloriesBurned: kcal
         )
     }

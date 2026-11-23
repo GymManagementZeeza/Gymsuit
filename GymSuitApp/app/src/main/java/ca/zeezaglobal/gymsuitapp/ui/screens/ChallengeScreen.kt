@@ -96,6 +96,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
+import ca.zeezaglobal.gymsuitapp.data.HealthSyncManager
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeDetail
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeMetric
 import ca.zeezaglobal.gymsuitapp.data.model.ChallengeStatus
@@ -895,6 +896,7 @@ private fun ChallengeDetailContent(
     val context = LocalContext.current
     val api = remember { ChallengeApi(context) }
     val healthConnectManager = remember { HealthConnectManager(context) }
+    val healthSyncManager = remember { HealthSyncManager(context) }
     val scope = rememberCoroutineScope()
 
     var detail by remember { mutableStateOf<ChallengeDetail?>(null) }
@@ -925,6 +927,12 @@ private fun ChallengeDetailContent(
             syncing = true
             syncError = null
             try {
+                // Pull the latest server workouts into Health Connect first
+                // (AI / MCP / other-device sessions) so they count here.
+                // Best-effort: a failed health sync must not block the post.
+                try {
+                    healthSyncManager.sync()
+                } catch (_: Exception) { /* fall through with what's here */ }
                 val start = LocalDate.parse(d.startDate, ApiDateFormat)
                 val end = LocalDate.parse(d.endDate, ApiDateFormat)
                 val totals = healthConnectManager.readProgressTotals(start, end)

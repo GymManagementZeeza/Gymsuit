@@ -1849,15 +1849,16 @@ private fun CaloriesBurnedWidget(
             hasPermission = granted
             if (granted) {
                 val hc = healthConnectManager.readCaloriesBreakdownForDate(selectedDate)
-                // Workouts the app knows about that Health Connect does not have:
-                // - logged here and not yet synced (use their own calories when set);
-                // - pulled from the backend (AI / MCP logged), which never go through
-                //   Health Connect, counted with the server's calorie estimate.
+                // Workouts the app knows about that Health Connect does not
+                // have yet (logged here and not yet synced, or pulled from
+                // the backend and not yet written by the health sync):
+                // use their own calories when set, else the 7.5 kcal/min
+                // estimate. Synced ones are already in Health Connect and
+                // counted in hc.workoutKcal above.
                 val zone = java.time.ZoneId.systemDefault()
                 val workoutStore = WorkoutStore(context)
-                val serverIds = workoutStore.serverOriginIds()
                 val unsyncedKcal = workoutStore.getLoggedWorkouts()
-                    .filter { !it.syncedToHealth || it.id in serverIds }
+                    .filter { !it.syncedToHealth }
                     .filter { java.time.Instant.ofEpochMilli(it.timestampMillis).atZone(zone).toLocalDate() == selectedDate }
                     .sumOf { it.caloriesBurned?.toDouble() ?: (it.durationMinutes * 7.5) }
                 val workoutKcal = hc.workoutKcal + unsyncedKcal

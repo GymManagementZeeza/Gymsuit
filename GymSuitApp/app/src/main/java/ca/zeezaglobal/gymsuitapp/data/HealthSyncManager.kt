@@ -386,8 +386,27 @@ class HealthSyncManager(private val context: Context) {
                                 val localVolume = overlappingLocal.sets.sumOf { it.reps * it.weightKg }
                                 val localScore = localVolume + (localReps * 10.0) + (overlappingLocal.durationMinutes * 5.0)
 
-                                // If local already has larger or equal data, keep local
+                                // If local already has larger or equal data, keep local —
+                                // but the session still has to reach Health Connect: the
+                                // challenge reads it from there, and a workout merged
+                                // locally (AI log / another device) was never written.
+                                // Write the server's copy now; mark the local row
+                                // synced only when it is the same workout (matched by
+                                // id). A different workout that merely started nearby
+                                // is left for the backfill below.
                                 if (localScore >= remoteScore) {
+                                    val sameWorkout = overlappingLocal.id == rw.externalId
+                                    if (!sameWorkout || !overlappingLocal.syncedToHealth) {
+                                        val written = healthConnectManager.insertExerciseSession(
+                                            exerciseName = rw.title,
+                                            start = startInstant,
+                                            end = endInstant,
+                                            setCount = sets,
+                                            totalReps = reps,
+                                            totalVolumeKg = volume
+                                        )
+                                        if (written && sameWorkout) workoutStore.markSynced(overlappingLocal.id)
+                                    }
                                     continue
                                 }
 
@@ -402,7 +421,7 @@ class HealthSyncManager(private val context: Context) {
                                     },
                                     durationMinutes = duration,
                                     notes = "Updated from ${rw.sourceDevice ?: "iOS"} (richer data)",
-                                    syncedToHealth = true
+                                    syncedToHealth = false
                                 )
                                 workoutStore.upsertWorkout(updatedLogged)
                             } else {
@@ -417,13 +436,16 @@ class HealthSyncManager(private val context: Context) {
                                     },
                                     durationMinutes = duration,
                                     notes = "Synced from ${rw.sourceDevice ?: "iOS"}",
-                                    syncedToHealth = true
+                                    syncedToHealth = false
                                 )
                                 workoutStore.upsertWorkout(newLogged)
                             }
 
-                            // Write to Health Connect
-                            healthConnectManager.insertExerciseSession(
+                            // Write to Health Connect, then mark the local row
+                            // synced only when the session actually landed — the
+                            // flag must never claim a write that did not happen.
+                            val localId = overlappingLocal?.id ?: rw.externalId
+                            val written = healthConnectManager.insertExerciseSession(
                                 exerciseName = rw.title,
                                 start = startInstant,
                                 end = endInstant,
@@ -431,9 +453,34 @@ class HealthSyncManager(private val context: Context) {
                                 totalReps = reps,
                                 totalVolumeKg = volume
                             )
+                            if (written) workoutStore.markSynced(localId)
                         } catch (e: Exception) {
                             Log.w(TAG, "Error writing remote workout", e)
                         }
+                    }
+                }
+
+                // 5b. Backfill: any locally-logged workout never written to
+                // Health Connect (logged before this fix, or merged while the
+                // ingestion above skipped it) gets its session now, so the
+                // challenge counts it. The flag is the guard — a written
+                // session is marked synced, so this runs once per workout.
+                for (local in workoutStore.getLoggedWorkouts()) {
+                    if (local.syncedToHealth) continue
+                    try {
+                        val start = Instant.ofEpochMilli(local.timestampMillis)
+                        val end = start.plusSeconds((local.durationMinutes.coerceAtLeast(1) * 60).toLong())
+                        val written = healthConnectManager.insertExerciseSession(
+                            exerciseName = local.exerciseName,
+                            start = start,
+                            end = end,
+                            setCount = local.sets.size,
+                            totalReps = local.totalReps,
+                            totalVolumeKg = local.totalVolumeKg
+                        )
+                        if (written) workoutStore.markSynced(local.id)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error backfilling workout to Health Connect", e)
                     }
                 }
 

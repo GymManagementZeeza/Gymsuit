@@ -572,6 +572,14 @@ final class ChallengeDetailViewModel: ObservableObject {
             }
         }
 
+        // Pull the latest server workouts into HealthKit first (AI / MCP /
+        // other-device sessions) so they count here. Best-effort, and only
+        // when HealthKit is already authorized — the health sync would
+        // otherwise prompt for access on an automatic sync.
+        if HealthKitManager.shared.isAuthorized {
+            _ = await HealthSyncManager.shared.sync()
+        }
+
         syncState = .syncing
         guard let progress = await computeChallengeProgress(startDate: startRaw, endDate: endRaw) else {
             syncState = .failed("Couldn't read the challenge dates.")

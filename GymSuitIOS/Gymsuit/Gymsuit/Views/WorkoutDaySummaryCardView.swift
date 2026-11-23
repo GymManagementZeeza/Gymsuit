@@ -18,11 +18,11 @@ struct WorkoutDaySummaryCardView: View {
         }
     }
 
-    /// Logged workouts not already counted via HealthKit: unsynced in-app ones plus
-    /// server-origin ones (AI / MCP), which never reach this device's Apple Health.
+    /// Logged workouts not already counted via HealthKit: only the ones not
+    /// yet synced. Pulled workouts (AI / MCP) are written to Apple Health
+    /// by the health sync, so once synced they count through HealthKit.
     private var countedLogged: [LoggedWorkout] {
-        let serverOrigin = workoutStore.serverOriginIds()
-        return dayLoggedWorkouts.filter { !$0.syncedToHealthKit || serverOrigin.contains($0.id) }
+        return dayLoggedWorkouts.filter { !$0.syncedToHealthKit }
     }
 
     /// Total workout count: HealthKit workouts + any unsynced in-app workouts

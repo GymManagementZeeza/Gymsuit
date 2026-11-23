@@ -709,12 +709,13 @@ private fun WorkoutDaySummaryCard(
         Instant.ofEpochMilli(it.timestampMillis)
             .atZone(zone).toLocalDate() == selectedDate
     }
-    // iOS separates logged workouts already synced to the health store from
-    // unsynced ones, whose values are estimated so nothing double-counts.
-    // Workouts pulled from the backend (MCP / another device) never reach this
-    // device's Health Connect, so they count here with their own calories.
+    // Logged workouts not yet in Health Connect are counted here with
+    // their own calories; synced ones are counted via the Health Connect
+    // sessions above, so they are left out and nothing double-counts.
+    // Pulled workouts (MCP / another device) are written to Health
+    // Connect by the health sync, so once synced they count the same way.
     val serverIds = remember(loggedWorkouts) { WorkoutStore(context).serverOriginIds() }
-    val unsyncedLogged = dayLogged.filter { !it.syncedToHealth || it.id in serverIds }
+    val unsyncedLogged = dayLogged.filter { !it.syncedToHealth }
     val daySessions = healthSessions.filter { it.date == selectedDate }
 
     val workoutCount = daySessions.size + unsyncedLogged.size

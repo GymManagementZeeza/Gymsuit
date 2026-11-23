@@ -208,17 +208,20 @@ public class ChallengeService {
 
         // Absolute totals over the challenge date range, computed by the client.
         // A null field means "not reported" and leaves the stored total unchanged.
+        // Totals only ever grow: a sync from a device whose health store is
+        // empty (fresh install, revoked permission, second phone) must not
+        // wipe a correct total back to zero — keep the higher value.
         if (request.steps() != null) {
-            participant.setStepsTotal(request.steps());
+            participant.setStepsTotal(Math.max(participant.getStepsTotal(), request.steps()));
         }
         if (request.workouts() != null) {
-            participant.setWorkoutsTotal(request.workouts());
+            participant.setWorkoutsTotal(Math.max(participant.getWorkoutsTotal(), request.workouts()));
         }
         if (request.calories() != null) {
-            participant.setCaloriesTotal(request.calories());
+            participant.setCaloriesTotal(Math.max(participant.getCaloriesTotal(), request.calories()));
         }
         if (request.distanceKm() != null) {
-            participant.setDistanceKmTotal(request.distanceKm());
+            participant.setDistanceKmTotal(Math.max(participant.getDistanceKmTotal(), request.distanceKm()));
         }
         participant.setLastProgressAt(Instant.now());
         participantRepository.save(participant);
@@ -301,7 +304,9 @@ public class ChallengeService {
                         created.setDate(entry.date());
                         return created;
                     });
-            row.setValue(value);
+            // Same guard as the totals above: never let a sync lower a day's
+            // stored value (an empty health store posts 0).
+            row.setValue(Math.max(row.getValue(), value));
             row.setUpdatedAt(Instant.now());
             dailyProgressRepository.save(row);
             stored++;
