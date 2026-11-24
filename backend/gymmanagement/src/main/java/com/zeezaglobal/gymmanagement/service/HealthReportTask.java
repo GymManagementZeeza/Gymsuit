@@ -20,14 +20,13 @@ import java.util.Set;
  * data their mobile app synced (daily records + workout log), attaches it as
  * a PDF, and emails it via Resend.
  *
- * <p>Testing: runs DAILY at 07:00 server time by default. For the weekly
- * rollout set:
+ * <p>Runs WEEKLY, Monday 07:00 server time by default. The window always
+ * covers completed days (ends yesterday), so a Monday 7am run reports the
+ * previous Monday–Sunday week. Override with:
  * <pre>
- * app.health-report.cron=0 0 7 * * MON
+ * app.health-report.cron=0 0 7 * * * (daily, testing only)
  * app.health-report.lookback-days=7
  * </pre>
- * The window always covers completed days (ends yesterday), so a Monday 7am
- * run reports the previous Monday–Sunday week.
  */
 @Component
 @RequiredArgsConstructor
@@ -45,7 +44,7 @@ public class HealthReportTask {
     @Value("${app.health-report.lookback-days:7}")
     private int lookbackDays;
 
-    @Scheduled(cron = "${app.health-report.cron:0 0 7 * * *}")
+    @Scheduled(cron = "${app.health-report.cron:0 0 7 * * MON}")
     public void run() {
         if (!enabled) {
             log.info("Health report task skipped (app.health-report.enabled=false)");
